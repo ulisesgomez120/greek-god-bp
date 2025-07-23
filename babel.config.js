@@ -7,11 +7,19 @@ module.exports = function (api) {
         "babel-preset-expo",
         {
           jsxImportSource: "react",
-          jsxRuntime: "automatic",
+          jsxRuntime: "classic", // Changed from "automatic" to fix interop issues
         },
       ],
     ],
     plugins: [
+      // Add transform runtime for better interop support
+      [
+        "@babel/plugin-transform-runtime",
+        {
+          helpers: true,
+          regenerator: true,
+        },
+      ],
       // Module resolver for absolute imports
       [
         "module-resolver",

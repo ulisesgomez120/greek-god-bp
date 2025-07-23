@@ -42,15 +42,22 @@ config.resolver.alias = {
   "@/assets": "./assets",
 };
 
-// Configure resolver for React Native
+// Configure resolver for React Native with web-specific entry points
 config.resolver.platforms = ["native", "ios", "android", "web"];
 
-// Configure for React Native Reanimated
+// Add platform-specific entry points
+config.resolver.resolverMainFields = ["react-native", "browser", "main"];
+
+// Configure for React Native Reanimated and web compatibility
 config.transformer.getTransformOptions = async () => ({
   transform: {
     experimentalImportSupport: false,
     inlineRequires: false,
   },
 });
+
+// Web-specific configuration for Node 22+ compatibility
+config.resolver.unstable_enableSymlinks = false;
+config.resolver.unstable_enablePackageExports = false;
 
 module.exports = config;
