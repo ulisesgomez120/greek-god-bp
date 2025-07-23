@@ -1,0 +1,94 @@
+TrainSmart Design Brief (style guide)
+Color Palette
+Primary Colors
+Primary Blue - #B5CFF8 (Pale cornflower blue - for primary actions, coaching feedback, and key UI elements)123Primary White - #FFFFFF (Clean backgrounds and cards)Primary Dark - #1C1C1E (Dark surfaces and text in light mode)
+Secondary Colors
+Secondary Blue Light - #D7E4FD (Lighter tint of primary blue for hover states and subtle backgrounds)3Secondary Gray - #F2F2F7 (Light backgrounds and section separators)Secondary Blue Deep - #87B1F3 (Richer blue for emphasis and dark mode adaptation)4
+Accent Colors
+Success Green - #34C759 (Successful workout completions, achieved RPE targets)Progress Teal - #64D2FF (Progressive overload indicators and coaching highlights)Warning Amber - #FF9500 (RPE warnings and form corrections)
+Functional Colors
+Error Red - #FF3B30 (Error states, failed attempts, safety warnings)Neutral Gray - #8E8E93 (Secondary text, disabled states)Dark Text - #000000 (Primary text in light mode)Light Text - #FFFFFF (Primary text in dark mode)
+Background Colors
+Background White - #FFFFFF (Primary app background)Background Light - #F8FAFD (Very subtle blue-tinted background for grouped content)3Background Dark - #0D1117 (Dark mode primary background)Surface Dark - #21262D (Dark mode card and surface backgrounds)
+Typography
+Font Family
+Primary Font: SF Pro Text (iOS native system font)Display Font: SF Pro Display (20pt and larger)Alternative: Inter (Web/cross-platform fallback)
+Font Weights
+Regular: 400 (SF Pro Text/Display Regular)Medium: 500 (SF Pro Text/Display Medium)Semibold: 600 (SF Pro Text/Display Semibold)Bold: 700 (SF Pro Text/Display Bold)
+Text Styles
+Headings
+H1: 34pt/40px, Bold, -0.4px letter spacingUsed for main screen titles (shrinks to 17pt when scrolled)
+H2: 28pt/32px, Bold, -0.2px letter spacingUsed for major section headers and coaching insights
+H3: 22pt/28px, Semibold, -0.1px letter spacingUsed for workout titles and progress sections
+Body Text
+Body Large: 17pt/22px, Regular, -0.43px letter spacingPrimary text for workout descriptions and coaching feedback
+Body: 15pt/20px, Regular, -0.24px letter spacingStandard UI text and secondary information
+Body Small: 13pt/18px, Regular, -0.08px letter spacingSupporting text, RPE descriptions, and metadata
+Special Text
+Caption: 11pt/16px, Medium, 0.06px letter spacingUsed for timestamps, set counts, and small labels
+Button Text: 17pt/22px, Medium, -0.43px letter spacingUsed for all interactive buttons and CTAs
+Coach Text: 15pt/20px, Medium, -0.24px letter spacing, Primary Blue (#B5CFF8)AI coaching suggestions and progressive overload recommendations
+Component Styling
+Buttons
+Primary Button (Start Workout, AI Coaching Actions)
+* Background: Primary Blue (#B5CFF8)
+* Text: Primary Dark (#1C1C1E)
+* Height: 50dp
+* Corner Radius: 12dp
+* Padding: 20dp horizontal, 16dp vertical
+* Shadow: Y-offset 2dp, Blur 8dp, Opacity 10%
+Secondary Button (View History, Settings)
+* Border: 2dp Primary Blue (#B5CFF8)
+* Text: Primary Blue (#B5CFF8)
+* Background: Transparent
+* Height: 50dp
+* Corner Radius: 12dp
+* Padding: 20dp horizontal, 16dp vertical
+Text Button (Skip, Learn More)
+* Text: Primary Blue (#B5CFF8)
+* Background: None
+* Height: 44dp
+* Underline on press
+Cards
+Workout Cards
+* Background: White (#FFFFFF)
+* Shadow: Y-offset 1dp, Blur 10dp, Opacity 8%
+* Corner Radius: 16dp
+* Padding: 20dp
+* Border: None
+Progress Cards
+* Background: Background Light (#F8FAFD)
+* Corner Radius: 12dp
+* Padding: 16dp
+* No shadow (embedded appearance)
+Input Fields
+RPE Input / Weight Entry
+* Height: 52dp
+* Corner Radius: 12dp
+* Border: 1.5dp Neutral Gray (#8E8E93)
+* Active Border: 2dp Primary Blue (#B5CFF8)
+* Background: White (#FFFFFF)
+* Text: Dark Text (#000000)
+* Placeholder: Neutral Gray (#8E8E93)
+* Padding: 16dp horizontal
+Search/Filter Fields
+* Height: 36dp
+* Corner Radius: 18dp
+* Background: Background Light (#F8FAFD)
+* Border: None
+* Padding: 12dp horizontal
+Icons
+Primary Icons: 24dp × 24dp (workout tracking, navigation)Small Icons: 20dp × 20dp (inline actions, status indicators)Large Icons: 32dp × 32dp (main actions, coaching features)System Icons: SF Symbols matching text weight
+* Interactive icons: Primary Blue (#B5CFF8)
+* Inactive icons: Neutral Gray (#8E8E93)
+* Success icons: Success Green (#34C759)
+Spacing System
+4dp - Micro spacing (between related text elements)8dp - Small spacing (internal component padding)12dp - Default spacing (between form elements)16dp - Medium spacing (card internal padding)20dp - Large spacing (between major sections)24dp - Section spacing (workout sections, coaching blocks)32dp - Extra large spacing (screen margins top/bottom)
+Motion & Animation
+Standard Transition: 250ms, ease-out curve (button presses, navigation)Coaching Feedback: 300ms, spring curve (RPE updates, progression indicators)Microinteractions: 150ms, ease-in-out (toggle switches, form validation)Progressive Overload Animations: 400ms, custom bezier(0.25, 0.8, 0.25, 1)AI Coach Appearance: 500ms, spring animation for coaching suggestions
+Dark Mode Variants
+Dark Background: #0D1117 (primary background)Dark Surface: #21262D (cards and surfaces)Dark Blue: #87B1F3 (adapted primary blue for enhanced contrast)4Dark Success: #30D158 (success green adapted)Dark Text Primary: #FFFFFFDark Text Secondary: #EBEBF5 (60% opacity)Dark Text Tertiary: #EBEBF5 (30% opacity)
+Accessibility Considerations
+The updated #B5CFF8 primary blue maintains excellent accessibility when paired with dark text (#1C1C1E) and provides a 4.8:1 contrast ratio, exceeding WCAG AA standards for normal text56. For users with color vision deficiencies, blue is the safest color choice as it's clearly distinguishable by nearly everyone, including those with red-green color blindness7. The pale blue creates a calming, trustworthy atmosphere perfect for fitness coaching while remaining highly legible across all user demographics89.
+Design Principles
+This refined color system leverages the psychological benefits of light blue - promoting calmness, trust, and approachability - while maintaining the technical precision needed for progressive overload tracking98. The pale cornflower blue (#B5CFF8) creates a softer, more welcoming coaching environment compared to aggressive fitness app aesthetics, encouraging users to engage consistently with their training progression. The color palette supports both the motivational aspects of achieving fitness goals and the analytical requirements of RPE-based training methodology.

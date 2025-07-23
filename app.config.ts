@@ -9,7 +9,7 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
   icon: "./assets/icon.png",
   userInterfaceStyle: "automatic",
   splash: {
-    image: "./assets/splash.png",
+    image: "./assets/splash-icon.png",
     resizeMode: "contain",
     backgroundColor: "#B5CFF8",
   },
@@ -66,44 +66,11 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
   web: {
     favicon: "./assets/favicon.png",
     bundler: "metro",
-    output: "static",
+    output: "single",
     lang: "en",
   },
   scheme: "trainsmart",
-  plugins: [
-    "expo-secure-store",
-    "expo-font",
-    "expo-splash-screen",
-    [
-      "expo-notifications",
-      {
-        icon: "./assets/notification-icon.png",
-        color: "#B5CFF8",
-        sounds: ["./assets/sounds/notification.wav"],
-        mode: "production",
-      },
-    ],
-    [
-      "expo-linking",
-      {
-        scheme: "trainsmart",
-      },
-    ],
-    [
-      "@stripe/stripe-react-native",
-      {
-        merchantIdentifier: process.env.STRIPE_MERCHANT_IDENTIFIER || "merchant.com.trainsmart.app",
-        enableGooglePay: true,
-        enableApplePay: true,
-      },
-    ],
-    [
-      "react-native-reanimated/plugin",
-      {
-        globals: ["__scanCodes"],
-      },
-    ],
-  ],
+  plugins: ["expo-secure-store", "expo-font", "expo-splash-screen"],
   extra: {
     eas: {
       projectId: process.env.EAS_PROJECT_ID || "12345678-1234-1234-1234-123456789012",

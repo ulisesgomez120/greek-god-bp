@@ -1,0 +1,1447 @@
+{
+  "programs": [
+    {
+      "programName": "Full Body Program",
+      "phases": [
+        {
+          "phaseName": "4 Week Strength Base",
+          "durationInWeeks": 4,
+          "days": [
+            {
+              "dayNumber": 1,
+              "dayName": "FULL BODY #1",
+              "exercises": [
+                {
+                  "name": "BACK SQUAT",
+                  "sets": 3,
+                  "reps": 6,
+                  "rpe": 7,
+                  "rest": 3,
+                  "notes": "SIT BACK AND DOWN, 15° TOE FLARE, DRIVE YOUR KNEES OUT LATERALLY"
+                },
+                {
+                  "name": "BARBELL BENCH PRESS",
+                  "sets": 3,
+                  "reps": 8,
+                  "rpe": 7,
+                  "rest": 3,
+                  "notes": "TUCK ELBOWS AT A 45° ANGLE, SQUEEZE YOUR SHOULDER BLADES AND STAY FIRM ON THE BENCH"
+                },
+                {
+                  "name": "LAT PULLDOWN",
+                  "sets": 3,
+                  "reps": 10,
+                  "rpe": 8,
+                  "rest": 2,
+                  "notes": "PULL YOUR ELBOWS DOWN AND IN, USE A 1.5X SHOULDER WIDTH GRIP"
+                },
+                {
+                  "name": "ROMANIAN DEADLIFT",
+                  "sets": 3,
+                  "reps": 10,
+                  "rpe": 7,
+                  "rest": 2,
+                  "notes": "MAINTAIN A NEUTRAL LOWER BACK, SET YOUR HIPS BACK, DON'T ALLOW YOUR SPINE TO ROUND"
+                },
+                {
+                  "name": "ASSISTED DIP",
+                  "sets": 3,
+                  "reps": 8,
+                  "rpe": 7,
+                  "rest": 1,
+                  "notes": "TUCK ELBOWS AT A 45° ANGLE, LEAN YOUR TORSO FORWARD 15°"
+                },
+                {
+                  "name": "STANDING CALF RAISE",
+                  "sets": 3,
+                  "reps": 10,
+                  "rpe": 8,
+                  "rest": 1,
+                  "notes": "PRESS ALL THE WAY UP TO YOUR TOES, STRETCH YOUR CALVES AT THE BOTTOM, DON’T BOUNCE"
+                },
+                {
+                  "name": "DUMBBELL SUPINATED CURL",
+                  "sets": 3,
+                  "reps": 10,
+                  "rpe": 8,
+                  "rest": 1,
+                  "notes": "DRIVE YOUR PINKY INTO THE HANDLE HARDER THAN YOUR POINTER FINGER"
+                }
+              ]
+            },
+            {
+              "dayNumber": 2,
+              "dayName": "FULL BODY #2",
+              "exercises": [
+                {
+                  "name": "DEADLIFT",
+                  "sets": 3,
+                  "reps": 5,
+                  "rpe": 7,
+                  "rest": 3,
+                  "notes": "BRACE YOUR LATS, CHEST TALL, HIPS HIGH, PULL THE SLACK OUT OF THE BAR PRIOR TO MOVING IT OFF THE GROUND"
+                },
+                {
+                  "name": "OVERHEAD PRESS",
+                  "sets": 3,
+                  "reps": 8,
+                  "rpe": 8,
+                  "rest": 3,
+                  "notes": "SQUEEZE YOUR GLUTES TO KEEP YOUR TORSO UPRIGHT, CLEAR YOUR HEAD OUT OF THE WAY, PRESS UP AND SLIGHTLY BACK"
+                },
+                {
+                  "name": "CHEST-SUPPORTED T-BAR ROW",
+                  "sets": 3,
+                  "reps": 12,
+                  "rpe": 8,
+                  "rest": 2,
+                  "notes": "FOCUS ON SQUEEZING YOUR SHOULDER BLADES TOGETHER AS YOU PULL THE WEIGHT TOWARDS YOU. KEEP YOUR SHOULDERS DOWN (AVOID SHRUGGING)."
+                },
+                {
+                  "name": "LEG EXTENSION",
+                  "sets": 3,
+                  "reps": 12,
+                  "rpe": 8,
+                  "rest": 1,
+                  "notes": "FOCUS ON SQUEEZING YOUR QUADS TO MAKE THE WEIGHT MOVE"
+                },
+                {
+                  "name": "CABLE FLYE",
+                  "sets": 3,
+                  "reps": 12,
+                  "rpe": 8,
+                  "rest": 1,
+                  "notes": "KEEP YOUR ELBOWS SLIGHTLY BENT AT A CONSTANT ANGLE WHILE SQUEEZING YOUR PECS TO MOVE THE WEIGHT"
+                },
+                {
+                  "name": "CRUNCH",
+                  "sets": 3,
+                  "reps": 12,
+                  "rpe": 7,
+                  "rest": 1,
+                  "notes": "FOCUS ON FLEXING YOUR SPINE (ROUNDING YOUR BACK), DON’T YANK YOUR HEAD WITH YOUR ARMS"
+                },
+                {
+                  "name": "DUMBBELL SKULL CRUSHER",
+                  "sets": 3,
+                  "reps": 12,
+                  "rpe": 8,
+                  "rest": 1,
+                  "notes": "KEEP YOUR ELBOWS IN LINE WITH THE TOP OF YOUR HEAD, DON'T LET YOUR UPPER ARM MOVE"
+                }
+              ]
+            },
+            {
+              "dayNumber": 3,
+              "dayName": "FULL BODY #3",
+              "exercises": [
+                {
+                  "name": "DUMBBELL WALKING LUNGE",
+                  "sets": 3,
+                  "reps": 10,
+                  "rpe": 8,
+                  "rest": 2,
+                  "notes": "10 STEPS EACH LEG. TAKE MEDIUM STRIDES, LET YOUR TORSO LEAN FORWARD"
+                },
+                {
+                  "name": "DUMBBELL INCLINE PRESS",
+                  "sets": 3,
+                  "reps": 8,
+                  "rpe": 7,
+                  "rest": 2,
+                  "notes": "USE ~45° INCLINE. MIND MUSCLE CONNECTION WITH UPPER PECS."
+                },
+                {
+                  "name": "REVERSE GRIP LAT PULLDOWN",
+                  "sets": 3,
+                  "reps": 10,
+                  "rpe": 8,
+                  "rest": 2,
+                  "notes": "PULL YOUR ELBOWS DOWN AGAINST YOUR SIDES, USE SHOULDER WIDTH GRIP"
+                },
+                {
+                  "name": "BARBELL HIP THRUST",
+                  "sets": 3,
+                  "reps": 12,
+                  "rpe": 8,
+                  "rest": 2,
+                  "notes": "TUCK YOUR CHIN AND RIB CAGE DOWN, ONLY MOVE YOUR HIPS. USE A PAD"
+                },
+                {
+                  "name": "SEATED FACE PULL",
+                  "sets": 3,
+                  "reps": 12,
+                  "rpe": 8,
+                  "rest": 1,
+                  "notes": "PULL YOUR ARMS BACK AND OUT"
+                },
+                {
+                  "name": "DUMBBELL LATERAL RAISE",
+                  "sets": 3,
+                  "reps": 10,
+                  "rpe": 8,
+                  "rest": 1,
+                  "notes": "RAISE THE DUMBBELL “OUT” NOT “UP”, MIND MUSCLE CONNECTION WITH MIDDLE FIBERS"
+                },
+                {
+                  "name": "LYING LEG CURL",
+                  "sets": 3,
+                  "reps": 10,
+                  "rpe": 8,
+                  "rest": 1,
+                  "notes": "FOCUS ON SQUEEZING YOUR HAMSTRINGS TO MAKE THE WEIGHT MOVE"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "phaseName": "4 Week Modified Strength Base",
+          "durationInWeeks": 4,
+          "days": [
+            {
+              "dayNumber": 1,
+              "dayName": "FULL BODY #1",
+              "exercises": [
+                {
+                  "name": "BACK SQUAT",
+                  "sets": 3,
+                  "reps": 8,
+                  "rpe": 8,
+                  "rest": 3,
+                  "notes": "SIT BACK AND DOWN, 15° TOE FLARE, DRIVE YOUR KNEES OUT LATERALLY"
+                },
+                {
+                  "name": "DUMBBELL SEATED SHOULDER PRESS",
+                  "sets": 3,
+                  "reps": 10,
+                  "rpe": 8,
+                  "rest": 3,
+                  "notes": "BRING THE DUMBBELL ALL THE WAY DOWN TO YOUR SHOULDERS, KEEP YOUR TORSO UPRIGHT"
+                },
+                {
+                  "name": "SINGLE-ARM PULLDOWN",
+                  "sets": 3,
+                  "reps": 12,
+                  "rpe": 9,
+                  "rest": 2,
+                  "notes": "START WITH YOUR NON-DOMINANT ARM, MATCH REPS WITH DOMINANT ARM"
+                },
+                {
+                  "name": "BARBELL HIP THRUST",
+                  "sets": 3,
+                  "reps": 8,
+                  "rpe": 9,
+                  "rest": 2,
+                  "notes": "TUCK YOUR CHIN AND RIB CAGE DOWN, ONLY MOVE YOUR HIPS. USE A PAD"
+                },
+                {
+                  "name": "PEC DECK",
+                  "sets": 3,
+                  "reps": 15,
+                  "rpe": 9,
+                  "rest": 1,
+                  "notes": "NICE STRETCH ON THE PECS AT THE BOTTOM AND FULL SQUEEZE AT THE TOP. CONTROL!"
+                },
+                {
+                  "name": "REVERSE PEC DECK",
+                  "sets": 3,
+                  "reps": 15,
+                  "rpe": 9,
+                  "rest": 1,
+                  "notes": "SWEEP THE WEIGHT OUT AND BACK, MIND MUSCLE CONNECTION WITH REAR DELTS"
+                },
+                {
+                  "name": "CABLE LATERAL RAISE",
+                  "sets": 3,
+                  "reps": 12,
+                  "rpe": 9,
+                  "rest": 1,
+                  "notes": "LEAN AWAY FROM THE MACHINE, ARMS STRAIGHT OUT TO YOUR SIDE"
+                }
+              ]
+            },
+            {
+              "dayNumber": 2,
+              "dayName": "FULL BODY #2",
+              "exercises": [
+                {
+                  "name": "DEADLIFT",
+                  "sets": 3,
+                  "reps": 3,
+                  "rpe": 8,
+                  "rest": 3,
+                  "notes": "BRACE YOUR LATS, CHEST TALL, HIPS HIGH, PULL THE SLACK OUT OF THE BAR PRIOR TO MOVING IT OFF THE GROUND"
+                },
+                {
+                  "name": "CLOSE-GRIP BENCH PRESS",
+                  "sets": 3,
+                  "reps": 5,
+                  "rpe": 7,
+                  "rest": 3,
+                  "notes": "SHOULDER WIDTH GRIP, TUCK YOUR ELBOWS AGAINST YOUR SIDES"
+                },
+                {
+                  "name": "DUMBBELL ROW",
+                  "sets": 3,
+                  "reps": 12,
+                  "rpe": 8,
+                  "rest": 2,
+                  "notes": "BRACE ONTO A BENCH FOR SUPPORT, PULL YOUR ELBOW AGAINST YOUR SIDES"
+                },
+                {
+                  "name": "DUMBBELL WALKING LUNGE",
+                  "sets": 3,
+                  "reps": 12,
+                  "rpe": 8,
+                  "rest": 1,
+                  "notes": "12 STEPS EACH LEG. TAKE MEDIUM STRIDES, LET YOUR TORSO LEAN FORWARD"
+                },
+                {
+                  "name": "ASSISTED DIP",
+                  "sets": 3,
+                  "reps": 12,
+                  "rpe": 8,
+                  "rest": 1,
+                  "notes": "TUCK ELBOWS AT A 45° ANGLE, LEAN YOUR TORSO FORWARD 15°"
+                },
+                {
+                  "name": "BICYCLE CRUNCH",
+                  "sets": 3,
+                  "reps": 10,
+                  "rpe": 7,
+                  "rest": 1,
+                  "notes": "FOCUS ON SQUEEZING YOUR ABS AS YOU BRING YOUR LEFT ELBOW TO RIGHT KNEE, RIGHT ELBOW TO LEFT KNEE"
+                },
+                {
+                  "name": "SINGLE-ARM CABLE CURL",
+                  "sets": 3,
+                  "reps": 12,
+                  "rpe": 8,
+                  "rest": 1,
+                  "notes": "FACE AWAY FROM THE CABLE YOU ARE USING, KEEP YOUR ARM BEHIND YOUR TORSO"
+                }
+              ]
+            },
+            {
+              "dayNumber": 3,
+              "dayName": "FULL BODY #3",
+              "exercises": [
+                {
+                  "name": "BACK SQUAT",
+                  "sets": 3,
+                  "reps": 5,
+                  "rpe": 8,
+                  "rest": 2,
+                  "notes": "SIT BACK AND DOWN, 15° TOE FLARE, DRIVE YOUR KNEES OUT LATERALLY"
+                },
+                {
+                  "name": "BARBELL BENCH PRESS",
+                  "sets": 3,
+                  "reps": 10,
+                  "rpe": 8,
+                  "rest": 2,
+                  "notes": "TUCK ELBOWS AT A 45° ANGLE, SQUEEZE YOUR SHOULDER BLADES AND STAY FIRM ON THE BENCH"
+                },
+                {
+                  "name": "NEUTRAL-GRIP PULLDOWN",
+                  "sets": 3,
+                  "reps": 15,
+                  "rpe": 8,
+                  "rest": 2,
+                  "notes": "PALMS FACING EACH OTHER. PULL YOUR ELBOWS AGAINST YOUR SIDES"
+                },
+                {
+                  "name": "LYING LEG CURL",
+                  "sets": 3,
+                  "reps": 12,
+                  "rpe": 8,
+                  "rest": 2,
+                  "notes": "FOCUS ON SQUEEZING YOUR HAMSTRINGS TO MAKE THE WEIGHT MOVE"
+                },
+                {
+                  "name": "SEATED FACE PULL",
+                  "sets": 3,
+                  "reps": 15,
+                  "rpe": 8,
+                  "rest": 1,
+                  "notes": "PULL YOUR ARMS BACK AND OUT"
+                },
+                {
+                  "name": "SINGLE-ARM ROPE TRICEP EXTENSION",
+                  "sets": 3,
+                  "reps": 12,
+                  "rpe": 8,
+                  "rest": 1,
+                  "notes": "PULL YOUR ARM BEHIND YOUR TORSO, DON'T MOVE YOUR UPPER ARM"
+                },
+                {
+                  "name": "STANDING CALF RAISE",
+                  "sets": 3,
+                  "reps": 10,
+                  "rpe": 8,
+                  "rest": 1,
+                  "notes": "PRESS ALL THE WAY UP TO YOUR TOES, STRETCH YOUR CALVES AT THE BOTTOM, DON’T BOUNCE"
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "programName": "Upper/Lower Program",
+      "phases": [
+        {
+          "phaseName": "4 Week Strength Base",
+          "durationInWeeks": 4,
+          "days": [
+            {
+              "dayNumber": 1,
+              "dayName": "LOWER BODY #1",
+              "exercises": [
+                {
+                  "name": "BACK SQUAT",
+                  "sets": 3,
+                  "reps": 6,
+                  "rpe": 7,
+                  "rest": 3,
+                  "notes": "SIT BACK AND DOWN, 15° TOE FLARE, DRIVE YOUR KNEES OUT LATERALLY"
+                },
+                {
+                  "name": "ROMANIAN DEADLIFT",
+                  "sets": 3,
+                  "reps": 10,
+                  "rpe": 7,
+                  "rest": 2,
+                  "notes": "MAINTAIN A NEUTRAL LOWER BACK, SET YOUR HIPS BACK, DON'T ALLOW YOUR SPINE TO ROUND"
+                },
+                {
+                  "name": "BARBELL HIP THRUST",
+                  "sets": 3,
+                  "reps": 12,
+                  "rpe": 8,
+                  "rest": 2,
+                  "notes": "TUCK YOUR CHIN AND RIB CAGE DOWN, ONLY MOVE YOUR HIPS. USE A PAD"
+                },
+                {
+                  "name": "LEG EXTENSION",
+                  "sets": 3,
+                  "reps": 12,
+                  "rpe": 9,
+                  "rest": 1,
+                  "notes": "FOCUS ON SQUEEZING YOUR QUADS TO MAKE THE WEIGHT MOVE"
+                },
+                {
+                  "name": "LYING LEG CURL",
+                  "sets": 3,
+                  "reps": 12,
+                  "rpe": 9,
+                  "rest": 1,
+                  "notes": "FOCUS ON SQUEEZING YOUR HAMSTRINGS TO MAKE THE WEIGHT MOVE"
+                },
+                {
+                  "name": "MACHINE SEATED HIP ABDUCTION",
+                  "sets": 3,
+                  "reps": 6,
+                  "rpe": 7,
+                  "rest": 1,
+                  "notes": "KEEP YOUR BUTT IN THE SEAT, FOCUS ON SQUEEZING YOUR GLUTES TO MAKE THE WEIGHT MOVE"
+                },
+                {
+                  "name": "CRUNCH",
+                  "sets": 3,
+                  "reps": 12,
+                  "rpe": 7,
+                  "rest": 1,
+                  "notes": "FOCUS ON FLEXING YOUR SPINE, DON'T YANK YOUR HEAD WITH YOUR ARMS"
+                }
+              ]
+            },
+            {
+              "dayNumber": 2,
+              "dayName": "UPPER BODY #1",
+              "exercises": [
+                {
+                  "name": "BARBELL BENCH PRESS",
+                  "sets": 3,
+                  "reps": 5,
+                  "rpe": 7,
+                  "rest": 3,
+                  "notes": "TUCK ELBOWS AT A 45° ANGLE, SQUEEZE YOUR SHOULDER BLADES AND STAY FIRM ON THE BENCH"
+                },
+                {
+                  "name": "LAT PULLDOWN",
+                  "sets": 3,
+                  "reps": 10,
+                  "rpe": 8,
+                  "rest": 2,
+                  "notes": "PULL YOUR ELBOWS DOWN AND IN, USE A 1.5X SHOULDER WIDTH GRIP"
+                },
+                {
+                  "name": "OVERHEAD PRESS",
+                  "sets": 3,
+                  "reps": 10,
+                  "rpe": 7,
+                  "rest": 3,
+                  "notes": "SQUEEZE YOUR GLUTES TO KEEP YOUR TORSO UPRIGHT, CLEAR YOUR HEAD OUT OF THE WAY, PRESS UP AND SLIGHTLY BACK"
+                },
+                {
+                  "name": "CHEST-SUPPORTED T-BAR ROW",
+                  "sets": 3,
+                  "reps": 12,
+                  "rpe": 8,
+                  "rest": 2,
+                  "notes": "FOCUS ON SQUEEZING YOUR SHOULDER BLADES TOGETHER AS YOU PULL THE WEIGHT TOWARDS YOU. KEEP YOUR SHOULDERS DOWN (AVOID SHRUGGING)."
+                },
+                {
+                  "name": "CABLE FLYE",
+                  "sets": 3,
+                  "reps": 12,
+                  "rpe": 8,
+                  "rest": 1,
+                  "notes": "KEEP YOUR ELBOWS SLIGHTLY BENT AT A CONSTANT ANGLE WHILE SQUEEZING YOUR PECS TO MOVE THE WEIGHT"
+                },
+                {
+                  "name": "DUMBBELL SUPINATED CURL",
+                  "sets": 3,
+                  "reps": 10,
+                  "rpe": 8,
+                  "rest": 1,
+                  "notes": "DRIVE YOUR PINKY INTO THE HANDLE HARDER THAN YOUR POINTER FINGER"
+                },
+                {
+                  "name": "SINGLE-ARM ROPE TRICEP EXTENSION",
+                  "sets": 3,
+                  "reps": 12,
+                  "rpe": 8,
+                  "rest": 1,
+                  "notes": "PULL YOUR ARM BEHIND YOUR TORSO, DON'T MOVE YOUR UPPER ARM"
+                }
+              ]
+            },
+            {
+              "dayNumber": 3,
+              "dayName": "LOWER BODY #2",
+              "exercises": [
+                {
+                  "name": "DEADLIFT",
+                  "sets": 3,
+                  "reps": 8,
+                  "rpe": 7,
+                  "rest": 3,
+                  "notes": "BRACE YOUR LATS, CHEST TALL, HIPS HIGH, PULL THE SLACK OUT OF THE BAR PRIOR TO MOVING IT OFF THE GROUND"
+                },
+                {
+                  "name": "DUMBBELL WALKING LUNGE",
+                  "sets": 3,
+                  "reps": 10,
+                  "rpe": 8,
+                  "rest": 2,
+                  "notes": "10 STEPS EACH LEG. TAKE MEDIUM STRIDES, LET YOUR TORSO LEAN FORWARD"
+                },
+                {
+                  "name": "SINGLE-LEG LEG EXTENSION",
+                  "sets": 3,
+                  "reps": 15,
+                  "rpe": 8,
+                  "rest": 1,
+                  "notes": "FOCUS ON SQUEEZING YOUR QUADS TO MAKE THE WEIGHT MOVE"
+                },
+                {
+                  "name": "SINGLE-LEG LYING LEG CURL",
+                  "sets": 3,
+                  "reps": 15,
+                  "rpe": 8,
+                  "rest": 1,
+                  "notes": "FOCUS ON SQUEEZING YOUR HAMSTRINGS TO MAKE THE WEIGHT MOVE"
+                },
+                {
+                  "name": "MACHINE SEATED HIP ABDUCTION",
+                  "sets": 3,
+                  "reps": 15,
+                  "rpe": 9,
+                  "rest": 1,
+                  "notes": "KEEP YOUR BUTT IN THE SEAT, FOCUS ON SQUEEZING YOUR GLUTES TO MAKE THE WEIGHT MOVE"
+                },
+                {
+                  "name": "STANDING CALF RAISE",
+                  "sets": 3,
+                  "reps": 12,
+                  "rpe": 8,
+                  "rest": 1,
+                  "notes": "PRESS ALL THE WAY UP TO YOUR TOES, STRETCH YOUR CALVES AT THE BOTTOM, DON’T BOUNCE"
+                },
+                {
+                  "name": "PLANK",
+                  "sets": 3,
+                  "reps": "20SEC",
+                  "rpe": 8,
+                  "rest": 1,
+                  "notes": "SQUEEZE YOUR GLUTES, KEEP YOUR HIPS LOW"
+                }
+              ]
+            },
+            {
+              "dayNumber": 4,
+              "dayName": "UPPER BODY #2",
+              "exercises": [
+                {
+                  "name": "DUMBBELL INCLINE PRESS",
+                  "sets": 3,
+                  "reps": 8,
+                  "rpe": 8,
+                  "rest": 2,
+                  "notes": "USE ~45° INCLINE. MIND MUSCLE CONNECTION WITH UPPER PECS."
+                },
+                {
+                  "name": "REVERSE-GRIP LAT PULLDOWN",
+                  "sets": 3,
+                  "reps": 8,
+                  "rpe": 8,
+                  "rest": 2,
+                  "notes": "PULL YOUR ELBOWS DOWN AGAINST YOUR SIDES, USE SHOULDER WIDTH GRIP"
+                },
+                {
+                  "name": "ASSISTED DIP",
+                  "sets": 3,
+                  "reps": 10,
+                  "rpe": 7,
+                  "rest": 2,
+                  "notes": "TUCK ELBOWS AT A 45° ANGLE, LEAN YOUR TORSO FORWARD 15°"
+                },
+                {
+                  "name": "BARBELL BENT OVER ROW",
+                  "sets": 3,
+                  "reps": 12,
+                  "rpe": 7,
+                  "rest": 2,
+                  "notes": "LEAN YOUR TORSO OVER AT A 45° ANGLE, KEEP YOUR LOWER BACK NEUTRAL, DOUBLE OVERHAND GRIP"
+                },
+                {
+                  "name": "DUMBBELL LATERAL RAISE",
+                  "sets": 3,
+                  "reps": 15,
+                  "rpe": 8,
+                  "rest": 1,
+                  "notes": "RAISE THE DUMBBELL “OUT” NOT “UP”, MIND MUSCLE CONNECTION WITH MIDDLE FIBERS"
+                },
+                {
+                  "name": "SEATED FACE PULL",
+                  "sets": 3,
+                  "reps": 15,
+                  "rpe": 8,
+                  "rest": 1,
+                  "notes": "PULL YOUR ARMS BACK AND OUT"
+                },
+                {
+                  "name": "HAMMER CURL",
+                  "sets": 3,
+                  "reps": 8,
+                  "rpe": 9,
+                  "rest": 1,
+                  "notes": "NEUTRAL GRIP, PREVENT YOUR UPPER ARM FROM MOVING"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "phaseName": "4 Week Modified Strength Base",
+          "durationInWeeks": 4,
+          "days": [
+            {
+              "dayNumber": 1,
+              "dayName": "LOWER BODY #1",
+              "exercises": [
+                {
+                  "name": "DEADLIFT",
+                  "sets": 3,
+                  "reps": 5,
+                  "rpe": 8,
+                  "rest": 3,
+                  "notes": "BRACE YOUR LATS, CHEST TALL, HIPS HIGH, PULL THE SLACK OUT OF THE BAR PRIOR TO MOVING IT OFF THE GROUND"
+                },
+                {
+                  "name": "GOBLET SQUAT",
+                  "sets": 3,
+                  "reps": 12,
+                  "rpe": 8,
+                  "rest": 2,
+                  "notes": "HOLD A DUMBBELL DIRECTLY UNDERNEATH YOUR CHIN, SIT BACK AND DOWN, PUSH YOUR KNEES OUT LATERALLY"
+                },
+                {
+                  "name": "DUMBBELL SINGLE-LEG HIP THRUST",
+                  "sets": 3,
+                  "reps": 10,
+                  "rpe": 9,
+                  "rest": 2,
+                  "notes": "PLACE THE DUMBBELL ON YOUR WORKING THIGH, TUCK YOUR CHIN AND RIB CAGE, ONLY MOVE YOUR HIPS"
+                },
+                {
+                  "name": "LEG PRESS",
+                  "sets": 3,
+                  "reps": 12,
+                  "rpe": 8,
+                  "rest": 1,
+                  "notes": "MEDIUM WIDTH FEET PLACEMENT ON THE PLATFORM, DON'T ALLOW YOUR LOWER BACK TO ROUND"
+                },
+                {
+                  "name": "LYING LEG CURL",
+                  "sets": 3,
+                  "reps": 15,
+                  "rpe": 9,
+                  "rest": 1,
+                  "notes": "FOCUS ON SQUEEZING YOUR HAMSTRINGS TO MAKE THE WEIGHT MOVE"
+                },
+                {
+                  "name": "STANDING CALF RAISE",
+                  "sets": 3,
+                  "reps": 8,
+                  "rpe": 8,
+                  "rest": 1,
+                  "notes": "PRESS ALL THE WAY UP TO YOUR TOES, STRETCH YOUR CALVES AT THE BOTTOM, DON’T BOUNCE"
+                },
+                {
+                  "name": "BICYCLE CRUNCH",
+                  "sets": 3,
+                  "reps": 12,
+                  "rpe": 8,
+                  "rest": 1,
+                  "notes": "FOCUS ON SQUEEZING YOUR ABS AS YOU BRING YOUR LEFT ELBOW TO RIGHT KNEE, RIGHT ELBOW TO LEFT KNEE"
+                }
+              ]
+            },
+            {
+              "dayNumber": 2,
+              "dayName": "UPPER BODY #1",
+              "exercises": [
+                {
+                  "name": "BARBELL BENCH PRESS",
+                  "sets": 3,
+                  "reps": 8,
+                  "rpe": 8,
+                  "rest": 3,
+                  "notes": "TUCK ELBOWS AT A 45° ANGLE, SQUEEZE YOUR SHOULDER BLADES AND STAY FIRM ON THE BENCH"
+                },
+                {
+                  "name": "SINGLE-ARM PULLDOWN",
+                  "sets": 3,
+                  "reps": 8,
+                  "rpe": 8,
+                  "rest": 2,
+                  "notes": "START WITH YOUR NON-DOMINANT ARM, MATCH REPS WITH DOMINANT ARM"
+                },
+                {
+                  "name": "DUMBBELL SEATED SHOULDER PRESS",
+                  "sets": 3,
+                  "reps": 12,
+                  "rpe": 7,
+                  "rest": 2,
+                  "notes": "BRING THE DUMBBELL ALL THE WAY DOWN TO YOUR SHOULDERS, KEEP YOUR TORSO UPRIGHT"
+                },
+                {
+                  "name": "DUMBBELL ROW",
+                  "sets": 3,
+                  "reps": 12,
+                  "rpe": 8,
+                  "rest": 2,
+                  "notes": "BRACE ONTO A BENCH FOR SUPPORT, PULL YOUR ELBOW AGAINST YOUR SIDES"
+                },
+                {
+                  "name": "ASSISTED DIP",
+                  "sets": 3,
+                  "reps": 6,
+                  "rpe": 8,
+                  "rest": 1,
+                  "notes": "TUCK ELBOWS AT A 45° ANGLE, LEAN YOUR TORSO FORWARD 15°"
+                },
+                {
+                  "name": "SEATED FACE PULL",
+                  "sets": 3,
+                  "reps": 15,
+                  "rpe": 9,
+                  "rest": 1,
+                  "notes": "PULL YOUR ARMS BACK AND OUT"
+                },
+                {
+                  "name": "EZ BAR CURL",
+                  "sets": 3,
+                  "reps": 12,
+                  "rpe": 9,
+                  "rest": 1,
+                  "notes": "PRESS YOUR PINKY INTO THE BAR HARDER THAN YOUR POINTER FINGER"
+                }
+              ]
+            },
+            {
+              "dayNumber": 3,
+              "dayName": "LOWER BODY #2",
+              "exercises": [
+                {
+                  "name": "BACK SQUAT",
+                  "sets": 3,
+                  "reps": 8,
+                  "rpe": 8,
+                  "rest": 3,
+                  "notes": "SIT BACK AND DOWN, 15° TOE FLARE, DRIVE YOUR KNEES OUT LATERALLY"
+                },
+                {
+                  "name": "BARBELL HIP THRUST",
+                  "sets": 3,
+                  "reps": 8,
+                  "rpe": 8,
+                  "rest": 2,
+                  "notes": "TUCK YOUR CHIN AND RIB CAGE DOWN, ONLY MOVE YOUR HIPS. USE A PAD"
+                },
+                {
+                  "name": "ROMANIAN DEADLIFT",
+                  "sets": 3,
+                  "reps": 12,
+                  "rpe": 8,
+                  "rest": 2,
+                  "notes": "MAINTAIN A NEUTRAL LOWER BACK, SET YOUR HIPS BACK, DON'T ALLOW YOUR SPINE TO ROUND"
+                },
+                {
+                  "name": "SEATED LEG CURL",
+                  "sets": 3,
+                  "reps": 8,
+                  "rpe": 9,
+                  "rest": 1,
+                  "notes": "FOCUS ON SQUEEZING YOUR HAMSTRINGS TO MAKE THE WEIGHT MOVE"
+                },
+                {
+                  "name": "STANDING CALF RAISE",
+                  "sets": 3,
+                  "reps": 6,
+                  "rpe": 9,
+                  "rest": 1,
+                  "notes": "PRESS ALL THE WAY UP TO YOUR TOES, STRETCH YOUR CALVES AT THE BOTTOM, DON’T BOUNCE"
+                },
+                {
+                  "name": "HANGING LEG RAISE",
+                  "sets": 3,
+                  "reps": 6,
+                  "rpe": 8,
+                  "rest": 1,
+                  "notes": "FOCUS ON FLEXING YOUR LOWER BACK, PERFORM OFF OF CAPTAIN'S CHAIR"
+                },
+                {
+                  "name": "MACHINE SEATED HIP ABDUCTION",
+                  "sets": 3,
+                  "reps": 20,
+                  "rpe": 9,
+                  "rest": 1,
+                  "notes": "KEEP YOUR BUTT IN THE SEAT, FOCUS ON SQUEEZING YOUR GLUTES TO MAKE THE WEIGHT MOVE"
+                }
+              ]
+            },
+            {
+              "dayNumber": 4,
+              "dayName": "UPPER BODY #2",
+              "exercises": [
+                {
+                  "name": "OVERHEAD PRESS",
+                  "sets": 3,
+                  "reps": 6,
+                  "rpe": 8,
+                  "rest": 3,
+                  "notes": "SQUEEZE YOUR GLUTES TO KEEP YOUR TORSO UPRIGHT, CLEAR YOUR HEAD OUT OF THE WAY, PRESS UP AND SLIGHTLY BACK"
+                },
+                {
+                  "name": "NEUTRAL-GRIP PULLDOWN",
+                  "sets": 3,
+                  "reps": 6,
+                  "rpe": 8,
+                  "rest": 3,
+                  "notes": "PALMS FACING EACH OTHER. PULL YOUR ELBOWS AGAINST YOUR SIDES"
+                },
+                {
+                  "name": "DUMBBELL INCLINE PRESS",
+                  "sets": 3,
+                  "reps": 8,
+                  "rpe": 8,
+                  "rest": 2,
+                  "notes": "USE ~45° INCLINE. MIND MUSCLE CONNECTION WITH UPPER PECS."
+                },
+                {
+                  "name": "CABLE SEATED ROW",
+                  "sets": 3,
+                  "reps": 8,
+                  "rpe": 9,
+                  "rest": 2,
+                  "notes": "USE A CLOSE GRIP, DRIVE ELBOWS DOWN AND BACK"
+                },
+                {
+                  "name": "CABLE LATERAL RAISE",
+                  "sets": 3,
+                  "reps": 12,
+                  "rpe": 8,
+                  "rest": 1,
+                  "notes": "LEAN AWAY FROM THE MACHINE, ARMS STRAIGHT OUT TO YOUR SIDE"
+                },
+                {
+                  "name": "REVERSE PEC DECK",
+                  "sets": 3,
+                  "reps": 12,
+                  "rpe": 8,
+                  "rest": 1,
+                  "notes": "SWEEP THE WEIGHT OUT AND BACK, MIND MUSCLE CONNECTION WITH REAR DELTS"
+                },
+                {
+                  "name": "SINGLE-ARM CABLE CURL",
+                  "sets": 3,
+                  "reps": 15,
+                  "rpe": 9,
+                  "rest": 1,
+                  "notes": "FACE AWAY FROM THE CABLE YOU ARE USING, KEEP YOUR ARM BEHIND YOUR TORSO"
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "programName": "Body Part Split Program",
+      "phases": [
+        {
+          "phaseName": "4 Week Strength Base",
+          "durationInWeeks": 4,
+          "days": [
+            {
+              "dayNumber": 1,
+              "dayName": "CHEST & TRICEPS",
+              "exercises": [
+                {
+                  "name": "BARBELL BENCH PRESS",
+                  "sets": 3,
+                  "reps": 6,
+                  "rpe": 7,
+                  "rest": 3,
+                  "notes": "TUCK ELBOWS AT A 45° ANGLE, SQUEEZE YOUR SHOULDER BLADES AND STAY FIRM ON THE BENCH"
+                },
+                {
+                  "name": "DUMBBELL INCLINE PRESS",
+                  "sets": 3,
+                  "reps": 8,
+                  "rpe": 8,
+                  "rest": 2,
+                  "notes": "USE ~45° INCLINE. MIND MUSCLE CONNECTION WITH UPPER PECS."
+                },
+                {
+                  "name": "CABLE FLYE",
+                  "sets": 3,
+                  "reps": 12,
+                  "rpe": 8,
+                  "rest": 1,
+                  "notes": "KEEP YOUR ELBOWS SLIGHTLY BENT AT A CONSTANT ANGLE WHILE SQUEEZING YOUR PECS TO MOVE THE WEIGHT"
+                },
+                {
+                  "name": "ASSISTED DIP",
+                  "sets": 3,
+                  "reps": 10,
+                  "rpe": 7,
+                  "rest": 1,
+                  "notes": "TUCK ELBOWS AT A 45° ANGLE, LEAN YOUR TORSO FORWARD 15°"
+                },
+                {
+                  "name": "DUMBBELL SKULL CRUSHER",
+                  "sets": 3,
+                  "reps": 12,
+                  "rpe": 8,
+                  "rest": 1,
+                  "notes": "KEEP YOUR ELBOWS INLINE WITH THE TOP OF YOUR HEAD, DON'T LET YOUR UPPER ARM MOVE"
+                }
+              ]
+            },
+            {
+              "dayNumber": 2,
+              "dayName": "LEGS & ABS",
+              "exercises": [
+                {
+                  "name": "BACK SQUAT",
+                  "sets": 3,
+                  "reps": 6,
+                  "rpe": 7,
+                  "rest": 3,
+                  "notes": "SIT BACK AND DOWN, 15° TOE FLARE, DRIVE YOUR KNEES OUT LATERALLY"
+                },
+                {
+                  "name": "ROMANIAN DEADLIFT",
+                  "sets": 3,
+                  "reps": 8,
+                  "rpe": 7,
+                  "rest": 2,
+                  "notes": "MAINTAIN A NEUTRAL LOWER BACK, SET YOUR HIPS BACK, DON'T ALLOW YOUR SPINE TO ROUND"
+                },
+                {
+                  "name": "BARBELL HIP THRUST",
+                  "sets": 3,
+                  "reps": 12,
+                  "rpe": 8,
+                  "rest": 2,
+                  "notes": "TUCK YOUR CHIN AND RIB CAGE DOWN, ONLY MOVE YOUR HIPS. USE A PAD"
+                },
+                {
+                  "name": "LEG EXTENSION",
+                  "sets": 3,
+                  "reps": 12,
+                  "rpe": 8,
+                  "rest": 1,
+                  "notes": "FOCUS ON SQUEEZING YOUR QUADS TO MAKE THE WEIGHT MOVE"
+                },
+                {
+                  "name": "LEG CURL",
+                  "sets": 3,
+                  "reps": 12,
+                  "rpe": 8,
+                  "rest": 1,
+                  "notes": "FOCUS ON SQUEEZING YOUR HAMSTRINGS TO MAKE THE WEIGHT MOVE"
+                },
+                {
+                  "name": "STANDING CALF RAISE",
+                  "sets": 2,
+                  "reps": 8,
+                  "rpe": 7,
+                  "rest": 1,
+                  "notes": "PRESS ALL THE WAY UP TO YOUR TOES, STRETCH YOUR CALVES AT THE BOTTOM, DON’T BOUNCE"
+                },
+                {
+                  "name": "CRUNCH",
+                  "sets": 2,
+                  "reps": 12,
+                  "rpe": 7,
+                  "rest": 1,
+                  "notes": "FOCUS ON FLEXING YOUR SPINE, DON'T YANK YOUR HEAD WITH YOUR ARMS"
+                }
+              ]
+            },
+            {
+              "dayNumber": 3,
+              "dayName": "BACK & BICEPS",
+              "exercises": [
+                {
+                  "name": "REVERSE-GRIP LAT PULLDOWN",
+                  "sets": 3,
+                  "reps": 8,
+                  "rpe": 8,
+                  "rest": 2,
+                  "notes": "PULL YOUR ELBOWS DOWN AGAINST YOUR SIDES, USE SHOULDER WIDTH GRIP"
+                },
+                {
+                  "name": "CABLE SEATED ROW",
+                  "sets": 3,
+                  "reps": 10,
+                  "rpe": 8,
+                  "rest": 2,
+                  "notes": "USE A CLOSE GRIP, DRIVE ELBOWS DOWN AND BACK"
+                },
+                {
+                  "name": "CHEST-SUPPORTED T-BAR ROW",
+                  "sets": 3,
+                  "reps": 12,
+                  "rpe": 8,
+                  "rest": 2,
+                  "notes": "FOCUS ON SQUEEZING YOUR SHOULDER BLADES TOGETHER AS YOU PULL THE WEIGHT TOWARDS YOU. KEEP YOUR SHOULDERS DOWN (AVOID SHRUGGING)."
+                },
+                {
+                  "name": "SEATED FACE PULL",
+                  "sets": 3,
+                  "reps": 15,
+                  "rpe": 8,
+                  "rest": 1,
+                  "notes": "PULL YOUR ARMS BACK AND OUT"
+                },
+                {
+                  "name": "DUMBBELL SUPINATED CURL",
+                  "sets": 3,
+                  "reps": 12,
+                  "rpe": 8,
+                  "rest": 1,
+                  "notes": "DRIVE YOUR PINKY INTO THE HANDLE HARDER THAN YOUR POINTER FINGER"
+                }
+              ]
+            },
+            {
+              "dayNumber": 4,
+              "dayName": "LEGS & ABS",
+              "exercises": [
+                {
+                  "name": "DEADLIFT",
+                  "sets": 3,
+                  "reps": 5,
+                  "rpe": 7,
+                  "rest": 3,
+                  "notes": "BRACE YOUR LATS, CHEST TALL, HIPS HIGH, PULL THE SLACK OUT OF THE BAR PRIOR TO MOVING IT OFF THE GROUND"
+                },
+                {
+                  "name": "DUMBBELL WALKING LUNGE",
+                  "sets": 3,
+                  "reps": 10,
+                  "rpe": 8,
+                  "rest": 2,
+                  "notes": "10 STEPS EACH LEG. TAKE MEDIUM STRIDES, LET YOUR TORSO LEAN FORWARD"
+                },
+                {
+                  "name": "SINGLE-LEG LEG EXTENSION",
+                  "sets": 2,
+                  "reps": 15,
+                  "rpe": 8,
+                  "rest": 1,
+                  "notes": "FOCUS ON SQUEEZING YOUR QUADS TO MAKE THE WEIGHT MOVE"
+                },
+                {
+                  "name": "SINGLE-LEG LYING LEG CURL",
+                  "sets": 2,
+                  "reps": 15,
+                  "rpe": 8,
+                  "rest": 1,
+                  "notes": "FOCUS ON SQUEEZING YOUR HAMSTRINGS TO MAKE THE WEIGHT MOVE"
+                },
+                {
+                  "name": "MACHINE SEATED HIP ABDUCTION",
+                  "sets": 3,
+                  "reps": 15,
+                  "rpe": 7,
+                  "rest": 1,
+                  "notes": "KEEP YOUR BUTT IN THE SEAT, FOCUS ON SQUEEZING YOUR GLUTES TO MAKE THE WEIGHT MOVE"
+                },
+                {
+                  "name": "STANDING CALF RAISE",
+                  "sets": 2,
+                  "reps": 12,
+                  "rpe": 8,
+                  "rest": 1,
+                  "notes": "PRESS ALL THE WAY UP TO YOUR TOES, STRETCH YOUR CALVES AT THE BOTTOM, DON’T BOUNCE"
+                },
+                {
+                  "name": "PLANK",
+                  "sets": 3,
+                  "reps": "20SEC",
+                  "rpe": 8,
+                  "rest": 1,
+                  "notes": "SQUEEZE YOUR GLUTES, KEEP YOUR HIPS LOW"
+                }
+              ]
+            },
+            {
+              "dayNumber": 5,
+              "dayName": "SHOULDERS & ARMS",
+              "exercises": [
+                {
+                  "name": "OVERHEAD PRESS",
+                  "sets": 3,
+                  "reps": 6,
+                  "rpe": 7,
+                  "rest": 3,
+                  "notes": "SQUEEZE YOUR GLUTES TO KEEP YOUR TORSO UPRIGHT, CLEAR YOUR HEAD OUT OF THE WAY, PRESS UP AND SLIGHTLY BACK"
+                },
+                {
+                  "name": "DUMBBELL LATERAL RAISE",
+                  "sets": 3,
+                  "reps": 12,
+                  "rpe": 8,
+                  "rest": 1,
+                  "notes": "RAISE THE DUMBBELL “OUT” NOT “UP”, MIND MUSCLE CONNECTION WITH MIDDLE FIBERS"
+                },
+                {
+                  "name": "CABLE REVERSE FLYE",
+                  "sets": 3,
+                  "reps": 15,
+                  "rpe": 8,
+                  "rest": 1,
+                  "notes": "SWEEP THE WEIGHT OUT AND BACK, MIND MUSCLE CONNECTION WITH REAR DELTS"
+                },
+                {
+                  "name": "SINGLE-ARM ROPE TRICEP EXTENSION",
+                  "sets": 2,
+                  "reps": 12,
+                  "rpe": 8,
+                  "rest": 1,
+                  "notes": "PULL YOUR ARM BEHIND YOUR TORSO, DON'T MOVE YOUR UPPER ARM"
+                },
+                {
+                  "name": "SINGLE-ARM CABLE CURL",
+                  "sets": 2,
+                  "reps": 12,
+                  "rpe": 8,
+                  "rest": 1,
+                  "notes": "FACE AWAY FROM THE CABLE YOU ARE USING, KEEP YOUR ARM BEHIND YOUR TORSO"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "phaseName": "4 Week Modified Strength Base",
+          "durationInWeeks": 4,
+          "days": [
+            {
+              "dayNumber": 1,
+              "dayName": "CHEST & TRICEPS",
+              "exercises": [
+                {
+                  "name": "BARBELL BENCH PRESS",
+                  "sets": 3,
+                  "reps": 8,
+                  "rpe": 8,
+                  "rest": 3,
+                  "notes": "TUCK ELBOWS AT A 45° ANGLE, SQUEEZE YOUR SHOULDER BLADES AND STAY FIRM ON THE BENCH"
+                },
+                {
+                  "name": "MACHINE INCLINE CHEST PRESS",
+                  "sets": 3,
+                  "reps": 12,
+                  "rpe": 8,
+                  "rest": 2,
+                  "notes": "USE ~45° INCLINE. MIND MUSCLE CONNECTION WITH UPPER PECS."
+                },
+                {
+                  "name": "PEC DECK",
+                  "sets": 3,
+                  "reps": 12,
+                  "rpe": 8,
+                  "rest": 1,
+                  "notes": "NICE STRETCH ON THE PECS AT THE BOTTOM AND FULL SQUEEZE AT THE TOP. CONTROL!"
+                },
+                {
+                  "name": "ASSISTED DIP",
+                  "sets": 3,
+                  "reps": 6,
+                  "rpe": 8,
+                  "rest": 1,
+                  "notes": "TUCK ELBOWS AT A 45° ANGLE, LEAN YOUR TORSO FORWARD 15°"
+                },
+                {
+                  "name": "CABLE TRICEP KICKBACK",
+                  "sets": 3,
+                  "reps": 15,
+                  "rpe": 8,
+                  "rest": 1,
+                  "notes": "KEEP YOUR ELBOWS BEHIND YOUR TORSO, DON'T LET YOUR UPPER ARM MOVE"
+                }
+              ]
+            },
+            {
+              "dayNumber": 2,
+              "dayName": "LEGS & ABS",
+              "exercises": [
+                {
+                  "name": "DEADLIFT",
+                  "sets": 3,
+                  "reps": 5,
+                  "rpe": 8,
+                  "rest": 3,
+                  "notes": "BRACE YOUR LATS, CHEST TALL, HIPS HIGH, PULL THE SLACK OUT OF THE BAR PRIOR TO MOVING IT OFF THE GROUND"
+                },
+                {
+                  "name": "GOBLET SQUAT",
+                  "sets": 3,
+                  "reps": 12,
+                  "rpe": 8,
+                  "rest": 2,
+                  "notes": "HOLD A DUMBBELL DIRECTLY UNDERNEATH YOUR CHIN, SIT BACK AND DOWN, PUSH YOUR KNEES OUT LATERALLY"
+                },
+                {
+                  "name": "DUMBBELL SINGLE-LEG HIP THRUST",
+                  "sets": 3,
+                  "reps": 10,
+                  "rpe": 9,
+                  "rest": 2,
+                  "notes": "PLACE THE DUMBBELL ON YOUR WORKING THIGH, TUCK YOUR CHIN AND RIB CAGE, ONLY MOVE YOUR HIPS"
+                },
+                {
+                  "name": "LEG PRESS",
+                  "sets": 3,
+                  "reps": 12,
+                  "rpe": 8,
+                  "rest": 1,
+                  "notes": "MEDIUM WIDTH FEET PLACEMENT ON THE PLATFORM, DON'T ALLOW YOUR LOWER BACK TO ROUND"
+                },
+                {
+                  "name": "LYING LEG CURL",
+                  "sets": 3,
+                  "reps": 15,
+                  "rpe": 9,
+                  "rest": 1,
+                  "notes": "FOCUS ON SQUEEZING YOUR HAMSTRINGS TO MAKE THE WEIGHT MOVE"
+                },
+                {
+                  "name": "STANDING CALF RAISE",
+                  "sets": 3,
+                  "reps": 8,
+                  "rpe": 8,
+                  "rest": 1,
+                  "notes": "PRESS ALL THE WAY UP TO YOUR TOES, STRETCH YOUR CALVES AT THE BOTTOM, DON’T BOUNCE"
+                },
+                {
+                  "name": "BICYCLE CRUNCH",
+                  "sets": 3,
+                  "reps": 12,
+                  "rpe": 8,
+                  "rest": 1,
+                  "notes": "FOCUS ON SQUEEZING YOUR ABS AS YOU BRING YOUR LEFT ELBOW TO RIGHT KNEE, RIGHT ELBOW TO LEFT KNEE"
+                }
+              ]
+            },
+            {
+              "dayNumber": 3,
+              "dayName": "BACK & BICEPS",
+              "exercises": [
+                {
+                  "name": "LAT PULLDOWN",
+                  "sets": 3,
+                  "reps": 6,
+                  "rpe": 8,
+                  "rest": 2,
+                  "notes": "PULL YOUR ELBOWS DOWN AND IN, USE A 1.5X SHOULDER WIDTH GRIP"
+                },
+                {
+                  "name": "DUMBBELL ROW",
+                  "sets": 3,
+                  "reps": 12,
+                  "rpe": 8,
+                  "rest": 2,
+                  "notes": "BRACE ONTO A BENCH FOR SUPPORT, PULL YOUR ELBOW AGAINST YOUR SIDES"
+                },
+                {
+                  "name": "BARBELL BENT OVER ROW",
+                  "sets": 3,
+                  "reps": 12,
+                  "rpe": 8,
+                  "rest": 2,
+                  "notes": "LEAN YOUR TORSO OVER AT A 45° ANGLE, KEEP YOUR LOWER BACK NEUTRAL, DOUBLE OVERHAND GRIP"
+                },
+                {
+                  "name": "REVERSE PEC DECK",
+                  "sets": 3,
+                  "reps": 15,
+                  "rpe": 8,
+                  "rest": 1,
+                  "notes": "SWEEP THE WEIGHT OUT AND BACK, MIND MUSCLE CONNECTION WITH REAR DELTS"
+                },
+                {
+                  "name": "EZ BAR CURL",
+                  "sets": 3,
+                  "reps": 15,
+                  "rpe": 8,
+                  "rest": 1,
+                  "notes": "DRIVE YOUR PINKY INTO THE HANDLE HARDER THAN YOUR POINTER FINGER"
+                }
+              ]
+            },
+            {
+              "dayNumber": 4,
+              "dayName": "LEGS & ABS",
+              "exercises": [
+                {
+                  "name": "BACK SQUAT",
+                  "sets": 3,
+                  "reps": 8,
+                  "rpe": 8,
+                  "rest": 3,
+                  "notes": "SIT BACK AND DOWN, 15° TOE FLARE, DRIVE YOUR KNEES OUT LATERALLY"
+                },
+                {
+                  "name": "BARBELL HIP THRUST",
+                  "sets": 3,
+                  "reps": 8,
+                  "rpe": 8,
+                  "rest": 2,
+                  "notes": "TUCK YOUR CHIN AND RIB CAGE DOWN, ONLY MOVE YOUR HIPS. USE A PAD"
+                },
+                {
+                  "name": "ROMANIAN DEADLIFT",
+                  "sets": 3,
+                  "reps": 12,
+                  "rpe": 8,
+                  "rest": 2,
+                  "notes": "MAINTAIN A NEUTRAL LOWER BACK, SET YOUR HIPS BACK, DON'T ALLOW YOUR SPINE TO ROUND"
+                },
+                {
+                  "name": "SEATED LEG CURL",
+                  "sets": 3,
+                  "reps": 8,
+                  "rpe": 9,
+                  "rest": 1,
+                  "notes": "FOCUS ON SQUEEZING YOUR HAMSTRINGS TO MAKE THE WEIGHT MOVE"
+                },
+                {
+                  "name": "STANDING CALF RAISE",
+                  "sets": 3,
+                  "reps": 6,
+                  "rpe": 9,
+                  "rest": 1,
+                  "notes": "PRESS ALL THE WAY UP TO YOUR TOES, STRETCH YOUR CALVES AT THE BOTTOM, DON’T BOUNCE"
+                },
+                {
+                  "name": "HANGING LEG RAISE",
+                  "sets": 3,
+                  "reps": 6,
+                  "rpe": 8,
+                  "rest": 1,
+                  "notes": "FOCUS ON FLEXING YOUR LOWER BACK, PERFORM OFF OF CAPTAIN'S CHAIR"
+                },
+                {
+                  "name": "MACHINE SEATED HIP ABDUCTION",
+                  "sets": 3,
+                  "reps": 20,
+                  "rpe": 9,
+                  "rest": 1,
+                  "notes": "KEEP YOUR BUTT IN THE SEAT, FOCUS ON SQUEEZING YOUR GLUTES TO MAKE THE WEIGHT MOVE"
+                }
+              ]
+            },
+            {
+              "dayNumber": 5,
+              "dayName": "SHOULDERS & ARMS",
+              "exercises": [
+                {
+                  "name": "DUMBBELL SEATED SHOULDER PRESS",
+                  "sets": 3,
+                  "reps": 10,
+                  "rpe": 8,
+                  "rest": 3,
+                  "notes": "BRING THE DUMBBELL ALL THE WAY DOWN TO YOUR SHOULDERS, KEEP YOUR TORSO UPRIGHT"
+                },
+                {
+                  "name": "CABLE LATERAL RAISE",
+                  "sets": 3,
+                  "reps": 10,
+                  "rpe": 8,
+                  "rest": 1,
+                  "notes": "LEAN AWAY FROM THE MACHINE, ARMS STRAIGHT OUT TO YOUR SIDE"
+                },
+                {
+                  "name": "BENT OVER REVERSE DUMBBELL FLYE",
+                  "sets": 3,
+                  "reps": 12,
+                  "rpe": 8,
+                  "rest": 1,
+                  "notes": "LEAN OVER SUCH THAT YOUR TORSO IS PARALLEL WITH THE GROUND, RAISE YOUR ARMS DIRECTLY OUT TO YOUR SIDES"
+                },
+                {
+                  "name": "DUMBBELL FLOOR PRESS",
+                  "sets": 2,
+                  "reps": 15,
+                  "rpe": 8,
+                  "rest": 1,
+                  "notes": "TUCK YOUR ELBOWS AGAINST YOUR SIDES"
+                },
+                {
+                  "name": "HAMMER CURL",
+                  "sets": 2,
+                  "reps": 8,
+                  "rpe": 8,
+                  "rest": 1,
+                  "notes": "NEUTRAL GRIP, PREVENT YOUR UPPER ARM FROM MOVING"
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}
