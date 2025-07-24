@@ -70,7 +70,7 @@ graph TB
 
 **Frontend \& Mobile**
 
-- **Platform**: React Native with Expo SDK 53+[^2]
+- **Platform**: React Native 0.79.5 with Expo SDK 53.0.20[^2]
 - **Navigation**: React Navigation v6 for tab and stack navigation[^2]
 - **State Management**: Redux Toolkit for predictable state updates[^8][^9]
 - **Offline Storage**: React Native AsyncStorage + Expo SecureStore[^2]
@@ -152,11 +152,11 @@ interface SystemArchitecture {
 
 **Frontend Technologies**
 
-- **React Native 0.74+**: Cross-platform mobile development with New Architecture support[^2][^16]
-- **Expo SDK 53+**: Managed development workflow with native capabilities[^2][^7]
+- **React Native 0.79.5**: Cross-platform mobile development with New Architecture support[^2][^16]
+- **Expo SDK 53.0.20**: Managed development workflow with native capabilities[^2][^7]
 - **Redux Toolkit**: State management with RTK Query for API calls[^8][^9]
 - **React Navigation 6**: Tab and stack navigation with deep linking[^2]
-- **React Native Reanimated**: Smooth animations for workout interfaces[^2]
+- **React Native Reanimated 3.17.4**: Smooth animations for workout interfaces[^2]
 
 **Backend Technologies**
 
