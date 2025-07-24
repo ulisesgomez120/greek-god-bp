@@ -5,8 +5,8 @@
 
 /// <reference path="../deno.d.ts" />
 
-import { handleCors, createErrorResponse, createSuccessResponse } from "../_shared/cors";
-import { getAuthenticatedUser, createSupabaseClient } from "../_shared/supabase";
+import { handleCors, createErrorResponse, createSuccessResponse } from "../_shared/cors.ts";
+import { getAuthenticatedUser, createSupabaseClient } from "../_shared/supabase.ts";
 
 interface ProgressionRequest {
   exercise_id: string;

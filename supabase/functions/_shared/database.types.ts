@@ -1,9 +1,7 @@
 // ============================================================================
-// DATABASE TYPES FOR SUPABASE EDGE FUNCTIONS
+// DATABASE TYPE DEFINITIONS
 // ============================================================================
-// Auto-generated types based on the database schema
-
-export type Json = string | number | boolean | null | { [key: string]: Json | undefined } | Json[];
+// Generated TypeScript types for Supabase database schema
 
 export interface Database {
   public: {
@@ -13,18 +11,7 @@ export interface Database {
           id: string;
           email: string;
           display_name: string;
-          avatar_url: string | null;
-          height_cm: number | null;
-          weight_kg: number | null;
-          birth_date: string | null;
-          gender: "male" | "female" | "other" | "prefer_not_to_say" | null;
-          experience_level: "untrained" | "beginner" | "early_intermediate" | "intermediate" | "advanced";
-          fitness_goals: string[] | null;
-          available_equipment: string[] | null;
-          privacy_settings: Json | null;
-          role: "user" | "premium" | "coach" | "admin" | null;
-          stripe_customer_id: string | null;
-          onboarding_completed: boolean | null;
+          experience_level: string;
           created_at: string;
           updated_at: string;
         };
@@ -32,92 +19,42 @@ export interface Database {
           id: string;
           email: string;
           display_name: string;
-          avatar_url?: string | null;
-          height_cm?: number | null;
-          weight_kg?: number | null;
-          birth_date?: string | null;
-          gender?: "male" | "female" | "other" | "prefer_not_to_say" | null;
-          experience_level?: "untrained" | "beginner" | "early_intermediate" | "intermediate" | "advanced";
-          fitness_goals?: string[] | null;
-          available_equipment?: string[] | null;
-          privacy_settings?: Json | null;
-          role?: "user" | "premium" | "coach" | "admin" | null;
-          stripe_customer_id?: string | null;
-          onboarding_completed?: boolean | null;
-          created_at?: string;
-          updated_at?: string;
+          experience_level?: string;
         };
         Update: {
-          id?: string;
-          email?: string;
           display_name?: string;
-          avatar_url?: string | null;
-          height_cm?: number | null;
-          weight_kg?: number | null;
-          birth_date?: string | null;
-          gender?: "male" | "female" | "other" | "prefer_not_to_say" | null;
-          experience_level?: "untrained" | "beginner" | "early_intermediate" | "intermediate" | "advanced";
-          fitness_goals?: string[] | null;
-          available_equipment?: string[] | null;
-          privacy_settings?: Json | null;
-          role?: "user" | "premium" | "coach" | "admin" | null;
-          stripe_customer_id?: string | null;
-          onboarding_completed?: boolean | null;
-          created_at?: string;
-          updated_at?: string;
+          experience_level?: string;
         };
       };
       workout_sessions: {
         Row: {
           id: string;
           user_id: string;
-          plan_id: string | null;
-          session_id: string | null;
           name: string;
           started_at: string;
-          completed_at: string | null;
-          duration_minutes: number | null;
-          total_volume_kg: number | null;
-          average_rpe: number | null;
-          notes: string | null;
-          sync_status: "synced" | "pending" | "conflict" | null;
-          offline_created: boolean | null;
+          completed_at?: string;
+          duration_minutes?: number;
+          total_volume_kg?: number;
+          average_rpe?: number;
+          sync_status: string;
           created_at: string;
           updated_at: string;
         };
         Insert: {
-          id?: string;
           user_id: string;
-          plan_id?: string | null;
-          session_id?: string | null;
           name: string;
           started_at: string;
-          completed_at?: string | null;
-          duration_minutes?: number | null;
-          total_volume_kg?: number | null;
-          average_rpe?: number | null;
-          notes?: string | null;
-          sync_status?: "synced" | "pending" | "conflict" | null;
-          offline_created?: boolean | null;
-          created_at?: string;
-          updated_at?: string;
+          completed_at?: string;
+          duration_minutes?: number;
+          total_volume_kg?: number;
+          average_rpe?: number;
         };
         Update: {
-          id?: string;
-          user_id?: string;
-          plan_id?: string | null;
-          session_id?: string | null;
           name?: string;
-          started_at?: string;
-          completed_at?: string | null;
-          duration_minutes?: number | null;
-          total_volume_kg?: number | null;
-          average_rpe?: number | null;
-          notes?: string | null;
-          sync_status?: "synced" | "pending" | "conflict" | null;
-          offline_created?: boolean | null;
-          created_at?: string;
-          updated_at?: string;
+          completed_at?: string;
+          duration_minutes?: number;
+          total_volume_kg?: number;
+          average_rpe?: number;
         };
       };
       exercise_sets: {
@@ -125,49 +62,60 @@ export interface Database {
           id: string;
           session_id: string;
           exercise_id: string;
-          planned_exercise_id: string | null;
           set_number: number;
-          weight_kg: number | null;
-          reps: number | null;
-          rpe: number | null;
-          is_warmup: boolean | null;
-          is_failure: boolean | null;
-          rest_seconds: number | null;
-          notes: string | null;
-          form_rating: number | null;
+          weight_kg?: number;
+          reps: number;
+          rpe?: number;
+          is_warmup: boolean;
+          rest_seconds?: number;
+          notes?: string;
           created_at: string;
         };
         Insert: {
-          id?: string;
           session_id: string;
           exercise_id: string;
-          planned_exercise_id?: string | null;
           set_number: number;
-          weight_kg?: number | null;
-          reps?: number | null;
-          rpe?: number | null;
-          is_warmup?: boolean | null;
-          is_failure?: boolean | null;
-          rest_seconds?: number | null;
-          notes?: string | null;
-          form_rating?: number | null;
-          created_at?: string;
+          weight_kg?: number;
+          reps: number;
+          rpe?: number;
+          is_warmup?: boolean;
+          rest_seconds?: number;
+          notes?: string;
         };
         Update: {
-          id?: string;
-          session_id?: string;
-          exercise_id?: string;
-          planned_exercise_id?: string | null;
-          set_number?: number;
-          weight_kg?: number | null;
-          reps?: number | null;
-          rpe?: number | null;
-          is_warmup?: boolean | null;
-          is_failure?: boolean | null;
-          rest_seconds?: number | null;
-          notes?: string | null;
-          form_rating?: number | null;
-          created_at?: string;
+          weight_kg?: number;
+          reps?: number;
+          rpe?: number;
+          rest_seconds?: number;
+          notes?: string;
+        };
+      };
+      exercises: {
+        Row: {
+          id: string;
+          name: string;
+          description?: string;
+          muscle_groups: string[];
+          primary_muscle: string;
+          equipment: string[];
+          difficulty: number;
+          is_compound: boolean;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          name: string;
+          description?: string;
+          muscle_groups: string[];
+          primary_muscle: string;
+          equipment: string[];
+          difficulty?: number;
+          is_compound?: boolean;
+        };
+        Update: {
+          name?: string;
+          description?: string;
+          difficulty?: number;
         };
       };
       ai_usage_tracking: {
@@ -175,48 +123,25 @@ export interface Database {
           id: string;
           user_id: string;
           query_type: string;
-          query_text: string | null;
-          response_text: string | null;
           tokens_used: number;
           estimated_cost: number;
           model_used: string;
-          response_time_ms: number | null;
-          user_rating: number | null;
-          user_feedback: string | null;
+          response_time_ms?: number;
           created_at: string;
         };
         Insert: {
-          id?: string;
           user_id: string;
           query_type: string;
-          query_text?: string | null;
-          response_text?: string | null;
           tokens_used: number;
           estimated_cost: number;
           model_used: string;
-          response_time_ms?: number | null;
-          user_rating?: number | null;
-          user_feedback?: string | null;
-          created_at?: string;
+          response_time_ms?: number;
         };
         Update: {
-          id?: string;
-          user_id?: string;
-          query_type?: string;
-          query_text?: string | null;
-          response_text?: string | null;
-          tokens_used?: number;
-          estimated_cost?: number;
-          model_used?: string;
-          response_time_ms?: number | null;
-          user_rating?: number | null;
-          user_feedback?: string | null;
-          created_at?: string;
+          user_rating?: number;
+          user_feedback?: string;
         };
       };
-    };
-    Views: {
-      [_ in never]: never;
     };
     Functions: {
       user_has_feature_access: {
@@ -236,17 +161,14 @@ export interface Database {
         Args: {
           user_uuid: string;
         };
-        Returns: Json;
+        Returns: {
+          within_budget: boolean;
+          remaining_budget: number;
+          total_cost: number;
+          total_queries: number;
+          budget_limit?: number;
+        };
       };
-    };
-    Enums: {
-      experience_level_enum: "untrained" | "beginner" | "early_intermediate" | "intermediate" | "advanced";
-      gender_enum: "male" | "female" | "other" | "prefer_not_to_say";
-      sync_status_enum: "synced" | "pending" | "conflict";
-      user_role_enum: "user" | "premium" | "coach" | "admin";
-    };
-    CompositeTypes: {
-      [_ in never]: never;
     };
   };
 }

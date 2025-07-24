@@ -80,7 +80,7 @@ CREATE TABLE monthly_reviews (
 -- ============================================================================
 
 -- AI usage tracking indexes
-CREATE INDEX idx_ai_usage_user_month ON ai_usage_tracking(user_id, DATE_TRUNC('month', created_at));
+CREATE INDEX idx_ai_usage_user_created ON ai_usage_tracking(user_id, created_at DESC);
 CREATE INDEX idx_ai_usage_cost ON ai_usage_tracking(estimated_cost DESC);
 CREATE INDEX idx_ai_usage_model ON ai_usage_tracking(model_used);
 
