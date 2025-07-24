@@ -34,7 +34,7 @@ class Logger {
   constructor(config: Partial<LoggerConfig> = {}) {
     this.config = {
       enableConsole: true,
-      enableFlipper: DEV_CONSTANTS.enableFlipper,
+      enableFlipper: DEV_CONSTANTS.enableFlipper || false,
       enableRemote: DEV_CONSTANTS.enableDebugMode,
       minLevel: DEV_CONSTANTS.logLevel as LogLevel,
       maxEntries: 1000,

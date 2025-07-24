@@ -134,6 +134,17 @@ export const calculateProgressMetrics = createAsyncThunk(
         oneRepMax,
         volumeProgression,
         strengthProgression,
+        totalWorkouts: relevantSessions.length,
+        totalVolumeKg: allSets.reduce((sum, set) => sum + (set.weightKg || 0) * set.reps, 0),
+        averageSessionDuration:
+          relevantSessions.reduce((sum, session) => sum + (session.durationMinutes || 0), 0) / relevantSessions.length,
+        strengthGains:
+          strengthProgression.length > 1
+            ? (strengthProgression[strengthProgression.length - 1].estimatedOneRepMax || 0) -
+              (strengthProgression[0].estimatedOneRepMax || 0)
+            : 0,
+        consistencyScore: Math.min(100, (relevantSessions.length / 12) * 100), // Based on 12 sessions in timeframe
+        lastUpdated: new Date().toISOString(),
       };
 
       logger.info(
@@ -365,6 +376,8 @@ function calculateVolumeProgression(sets: ExerciseSet[]): VolumeDataPoint[] {
 
       return {
         date: sessionSets[0].createdAt,
+        totalVolume: totalVolume,
+        sessionCount: 1,
         volume: totalVolume,
         sets: sessionSets.length,
         averageRpe: averageRpe || undefined,
@@ -381,9 +394,12 @@ function calculateStrengthProgression(sets: ExerciseSet[]): StrengthDataPoint[] 
 
       return {
         date: set.createdAt,
+        exerciseId: "", // Will be set by caller
+        oneRepMax: estimatedOneRepMax,
+        estimatedMax: estimatedOneRepMax,
+        estimatedOneRepMax,
         weight: set.weightKg!,
         reps: set.reps,
-        estimatedOneRepMax,
         rpe: set.rpe,
       };
     })
@@ -446,9 +462,9 @@ function calculateStrengthTrend(
     };
   }
 
-  const firstValue = recentData[0].estimatedOneRepMax;
-  const lastValue = recentData[recentData.length - 1].estimatedOneRepMax;
-  const changePercent = ((lastValue - firstValue) / firstValue) * 100;
+  const firstValue = recentData[0].estimatedOneRepMax || 0;
+  const lastValue = recentData[recentData.length - 1].estimatedOneRepMax || 0;
+  const changePercent = firstValue > 0 ? ((lastValue - firstValue) / firstValue) * 100 : 0;
 
   let trend: "increasing" | "decreasing" | "stable";
   if (changePercent > 2) {
@@ -486,13 +502,13 @@ function calculateVolumeTrend(
     };
   }
 
-  const averageVolume = recentData.reduce((sum, point) => sum + point.volume, 0) / recentData.length;
+  const averageVolume = recentData.reduce((sum, point) => sum + (point.volume || 0), 0) / recentData.length;
 
   const firstHalf = recentData.slice(0, Math.floor(recentData.length / 2));
   const secondHalf = recentData.slice(Math.floor(recentData.length / 2));
 
-  const firstHalfAvg = firstHalf.reduce((sum, point) => sum + point.volume, 0) / firstHalf.length;
-  const secondHalfAvg = secondHalf.reduce((sum, point) => sum + point.volume, 0) / secondHalf.length;
+  const firstHalfAvg = firstHalf.reduce((sum, point) => sum + (point.volume || 0), 0) / firstHalf.length;
+  const secondHalfAvg = secondHalf.reduce((sum, point) => sum + (point.volume || 0), 0) / secondHalf.length;
 
   const changePercent = ((secondHalfAvg - firstHalfAvg) / firstHalfAvg) * 100;
 

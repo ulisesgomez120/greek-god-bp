@@ -15,7 +15,17 @@ import type { UIState, Notification, NotificationAction } from "../../types";
 const initialState: UIState = {
   theme: "light",
   networkStatus: "online",
-  loading: false,
+  loading: {
+    global: false,
+    workout: false,
+    progress: false,
+    subscription: false,
+  },
+  modals: {
+    isWorkoutModalOpen: false,
+    isProgressModalOpen: false,
+    isSettingsModalOpen: false,
+  },
   error: undefined,
   notifications: [],
 };
@@ -79,7 +89,7 @@ const uiSlice = createSlice({
 
     // Global loading state
     setLoading: (state, action: PayloadAction<boolean>) => {
-      state.loading = action.payload;
+      state.loading.global = action.payload;
     },
 
     // Global error state
@@ -426,7 +436,12 @@ const uiSlice = createSlice({
     // Clear all UI data (for logout)
     clearUIData: (state) => {
       state.notifications = [];
-      state.loading = false;
+      state.loading = {
+        global: false,
+        workout: false,
+        progress: false,
+        subscription: false,
+      };
       state.error = undefined;
       // Keep theme and network status
       logger.info("UI data cleared", undefined, "ui");
