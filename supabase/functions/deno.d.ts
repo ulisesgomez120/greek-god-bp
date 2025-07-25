@@ -2,15 +2,22 @@
 // DENO TYPE DECLARATIONS FOR SUPABASE EDGE FUNCTIONS
 // ============================================================================
 
-declare namespace Deno {
-  export interface Env {
-    get(key: string): string | undefined;
+declare global {
+  namespace Deno {
+    interface Env {
+      get(key: string): string | undefined;
+    }
+
+    const env: Env;
   }
 
-  export const env: Env;
-
-  export function serve(handler: (request: Request) => Response | Promise<Response>, options?: { port?: number }): void;
+  // Supabase Edge Functions serve function
+  function serve(handler: (request: Request) => Response | Promise<Response>, options?: { port?: number }): void;
 }
 
-// Global Deno namespace
-declare const Deno: typeof Deno;
+// Module declarations for external dependencies
+declare module "https://esm.sh/@supabase/supabase-js@2" {
+  export function createClient(url: string, key: string, options?: any): any;
+}
+
+export {};
