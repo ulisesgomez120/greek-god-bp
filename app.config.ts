@@ -73,7 +73,7 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
   plugins: ["expo-secure-store", "expo-font", "expo-splash-screen"],
   extra: {
     eas: {
-      projectId: process.env.EAS_PROJECT_ID || "12345678-1234-1234-1234-123456789012",
+      projectId: process.env.EAS_PROJECT_ID,
     },
     supabaseUrl: process.env.EXPO_PUBLIC_SUPABASE_URL,
     supabaseAnonKey: process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY,
