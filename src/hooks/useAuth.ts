@@ -5,12 +5,10 @@
 // token refresh handling for React components
 
 import { useEffect, useCallback, useMemo } from "react";
-import { useDispatch, useSelector } from "react-redux";
-import type { AppDispatch } from "@/store";
+import { useAppDispatch, useAppSelector } from "./redux";
 import { authService } from "@/services/auth.service";
 import { logger } from "@/utils/logger";
 import { getTokens, areTokensExpired } from "@/utils/storage";
-import type { RootState } from "@/types";
 import type {
   UseAuthReturn,
   LoginCredentials,
@@ -39,16 +37,10 @@ import {
 // ============================================================================
 
 export function useAuth(): UseAuthReturn {
-  const dispatch = useDispatch<AppDispatch>();
+  const dispatch = useAppDispatch();
 
   // Select auth state from Redux store
-  const {
-    isAuthenticated,
-    user,
-    session,
-    loading: globalLoading,
-    error,
-  } = useSelector((state: RootState) => state.auth);
+  const { isAuthenticated, user, session, loading: globalLoading, error } = useAppSelector((state) => state.auth);
 
   // Create detailed loading states
   const loading: AuthLoadingStates = useMemo(
@@ -77,7 +69,7 @@ export function useAuth(): UseAuthReturn {
       try {
         logger.info("useAuth: Login attempt", { email: credentials.email }, "auth");
 
-        const result = await (dispatch(loginUser(credentials)) as any).unwrap();
+        const result = await dispatch(loginUser(credentials) as any).unwrap();
 
         if (result.user && result.session) {
           logger.info("useAuth: Login successful", { userId: result.user.id }, "auth", result.user.id);
@@ -121,7 +113,7 @@ export function useAuth(): UseAuthReturn {
       try {
         logger.info("useAuth: Signup attempt", { email: data.email }, "auth");
 
-        const result = await (dispatch(signupUser(data)) as any).unwrap();
+        const result = await dispatch(signupUser(data) as any).unwrap();
 
         if (result.user) {
           logger.info(
@@ -174,7 +166,7 @@ export function useAuth(): UseAuthReturn {
     try {
       logger.info("useAuth: Logout attempt", undefined, "auth");
 
-      await (dispatch(logoutUser()) as any).unwrap();
+      await dispatch(logoutUser() as any).unwrap();
 
       logger.info("useAuth: Logout successful", undefined, "auth");
       return {
@@ -204,7 +196,7 @@ export function useAuth(): UseAuthReturn {
     try {
       logger.info("useAuth: Session refresh attempt", undefined, "auth");
 
-      const result = await (dispatch(refreshTokens()) as any).unwrap();
+      const result = await dispatch(refreshTokens() as any).unwrap();
 
       if (result.user && result.session) {
         logger.info("useAuth: Session refresh successful", { userId: result.user.id }, "auth", result.user.id);
@@ -246,7 +238,7 @@ export function useAuth(): UseAuthReturn {
       try {
         logger.info("useAuth: Password reset attempt", { email: request.email }, "auth");
 
-        await (dispatch(resetPassword(request.email)) as any).unwrap();
+        await dispatch(resetPassword(request.email) as any).unwrap();
 
         logger.info("useAuth: Password reset successful", { email: request.email }, "auth");
         return {
@@ -409,7 +401,7 @@ export function useAuth(): UseAuthReturn {
         }
 
         // Initialize auth state from stored tokens
-        const result = await (dispatch(initializeAuth()) as any).unwrap();
+        const result = await dispatch(initializeAuth() as any).unwrap();
 
         if (isMounted) {
           if (result.user && result.session) {

@@ -40,11 +40,11 @@ export const OnboardingScreen: React.FC<OnboardingScreenProps> = ({ navigation, 
     useFormValidation<ProfileUpdateFormData>(
       profileUpdateFormSchema,
       {
-        displayName: user?.displayName || "",
-        experienceLevel: user?.experienceLevel || "untrained",
-        fitnessGoals: user?.fitnessGoals || [],
-        heightCm: user?.heightCm,
-        weightKg: user?.weightKg,
+        displayName: (user?.user_metadata?.display_name as string) || "",
+        experienceLevel: (user?.user_metadata?.experience_level as any) || "untrained",
+        fitnessGoals: (user?.user_metadata?.fitness_goals as string[]) || [],
+        heightCm: user?.user_metadata?.height_cm as number,
+        weightKg: user?.user_metadata?.weight_kg as number,
       },
       {
         validateOnChange: true,
@@ -253,7 +253,7 @@ export const OnboardingScreen: React.FC<OnboardingScreenProps> = ({ navigation, 
       subtitle='What do you want to achieve?'
       onSubmit={onSubmit}
       submitText='Complete Setup'
-      submitLoading={formState.isSubmitting || loading.updateProfile}
+      submitLoading={formState.isSubmitting || loading.profileUpdate}
       submitDisabled={!canProceedToNextStep() || formState.isSubmitting}
       secondaryAction={{
         text: "Back",

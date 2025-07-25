@@ -9,7 +9,7 @@ import { createClient } from "@supabase/supabase-js";
 import { ENV_CONFIG } from "../../config/constants";
 import { getTokens, storeTokens, clearTokens, areTokensExpired } from "../../utils/storage";
 import { logger } from "../../utils/logger";
-import type { UserProfile, Session, AuthState, LoginCredentials, SignupData } from "../../types";
+import type { UserProfile, Session, AuthState, LoginCredentials, SignupData } from "../../types/auth";
 import type { User as SupabaseUser } from "@supabase/supabase-js";
 
 // ============================================================================
@@ -22,6 +22,7 @@ const initialState: AuthState = {
   session: null,
   loading: false,
   error: undefined,
+  isInitialized: false,
 };
 
 // ============================================================================
@@ -372,6 +373,7 @@ const authSlice = createSlice({
       })
       .addCase(initializeAuth.fulfilled, (state, action) => {
         state.loading = false;
+        state.isInitialized = true;
         if (action.payload.user && action.payload.session) {
           state.isAuthenticated = true;
           state.user = action.payload.user as any;
@@ -384,6 +386,7 @@ const authSlice = createSlice({
       })
       .addCase(initializeAuth.rejected, (state, action) => {
         state.loading = false;
+        state.isInitialized = true;
         state.isAuthenticated = false;
         state.user = null;
         state.session = null;

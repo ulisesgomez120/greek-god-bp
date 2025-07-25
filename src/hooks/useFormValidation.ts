@@ -120,29 +120,8 @@ export function useFormValidation<T extends Record<string, any>>(
       const fieldValue = formState.fields[field].value;
 
       try {
-        // Create a partial schema for single field validation
-        const fieldSchema = schema.pick({ [field]: true } as any);
-        const result = validateFormData(fieldSchema, { [field]: fieldValue });
-
-        setFormState((prev) => ({
-          ...prev,
-          fields: {
-            ...prev.fields,
-            [field]: {
-              ...prev.fields[field],
-              error: result.errors[field as string],
-            },
-          },
-          hasErrors: Object.values({
-            ...prev.fields,
-            [field]: { error: result.errors[field as string] },
-          }).some((f) => f.error),
-        }));
-
-        return !result.errors[field as string];
-      } catch (error) {
-        // If single field validation fails, validate entire form to get field-specific error
-        const fullResult = validateFormData(schema, values);
+        // Validate the entire form and extract field-specific error
+        const fullResult = validateFormData(schema, { ...values, [field]: fieldValue });
 
         setFormState((prev) => ({
           ...prev,
@@ -160,6 +139,21 @@ export function useFormValidation<T extends Record<string, any>>(
         }));
 
         return !fullResult.errors[field as string];
+      } catch (error) {
+        // If validation fails, set a generic error
+        setFormState((prev) => ({
+          ...prev,
+          fields: {
+            ...prev.fields,
+            [field]: {
+              ...prev.fields[field],
+              error: "Validation error",
+            },
+          },
+          hasErrors: true,
+        }));
+
+        return false;
       }
     },
     [schema, formState.fields, values]
