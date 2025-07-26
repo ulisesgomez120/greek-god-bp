@@ -4,8 +4,8 @@
     "slug": "app",
     "version": "1.0.0",
     "orientation": "portrait",
-    "icon": "./assets/icon.png",
-    "userInterfaceStyle": "light",
+    "icon": "./assets/icon.svg",
+    "userInterfaceStyle": "system",
     "newArchEnabled": true,
     "splash": {
       "image": "./assets/splash-icon.png",

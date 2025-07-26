@@ -1,4 +1,9 @@
 import { ExpoConfig, ConfigContext } from "expo/config";
+import { config } from "dotenv";
+
+// Load environment-specific file
+const envFile = process.env.NODE_ENV === "development" ? ".env.local" : ".env";
+config({ path: envFile });
 
 export default ({ config }: ConfigContext): ExpoConfig => ({
   ...config,
@@ -6,7 +11,7 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
   slug: "trainsmart",
   version: "1.0.0",
   orientation: "portrait",
-  icon: "./assets/icon.png",
+  icon: "./assets/icon.svg",
   userInterfaceStyle: "automatic",
   splash: {
     image: "./assets/splash-icon.png",
