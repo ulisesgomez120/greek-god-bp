@@ -21,7 +21,6 @@ import ErrorBoundary from "./src/components/ui/ErrorBoundary";
 import ConnectionStatusIndicator from "./src/components/ui/ConnectionStatusIndicator";
 
 // Hooks
-import { useAuth } from "./src/hooks/useAuth";
 import { useNetworkStatus } from "./src/hooks/useNetworkStatus";
 
 // Utils
@@ -32,7 +31,6 @@ import { logger } from "./src/utils/logger";
 // ============================================================================
 
 const AppContent: React.FC = () => {
-  const { isAuthenticated, loading, user, isInitialized } = useAuth();
   const { isConnected } = useNetworkStatus();
   const [isRehydrated, setIsRehydrated] = useState(false);
 
@@ -44,8 +42,6 @@ const AppContent: React.FC = () => {
         setIsRehydrated(true);
 
         logger.info("App initialized successfully", {
-          isAuthenticated,
-          userId: user?.id,
           isConnected,
         });
       } catch (error) {
@@ -55,10 +51,10 @@ const AppContent: React.FC = () => {
     };
 
     initializeApp();
-  }, [isAuthenticated, user?.id, isConnected]);
+  }, [isConnected]);
 
-  // Show splash screen during initialization
-  if (!isRehydrated || !isInitialized || loading.initialization) {
+  // Show splash screen during store rehydration
+  if (!isRehydrated) {
     return <SplashScreen />;
   }
 

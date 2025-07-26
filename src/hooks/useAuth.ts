@@ -389,16 +389,17 @@ export function useAuth(): UseAuthReturn {
    */
   useEffect(() => {
     let isMounted = true;
+    let hasInitialized = false;
 
     const initializeAuthentication = async () => {
       try {
-        logger.info("useAuth: Initializing authentication", undefined, "auth");
-
-        // Check if we already have a valid session
-        if (isAuthenticated && user && session) {
-          logger.info("useAuth: Already authenticated", { userId: user.id }, "auth", user.id);
+        // Prevent multiple initializations
+        if (hasInitialized) {
           return;
         }
+        hasInitialized = true;
+
+        logger.info("useAuth: Initializing authentication", undefined, "auth");
 
         // Initialize auth state from stored tokens
         const result = await dispatch(initializeAuth() as any).unwrap();
@@ -427,7 +428,7 @@ export function useAuth(): UseAuthReturn {
     return () => {
       isMounted = false;
     };
-  }, [dispatch, isAuthenticated, user, session]);
+  }, [dispatch]); // Only depend on dispatch to prevent infinite loop
 
   // ============================================================================
   // AUTOMATIC TOKEN REFRESH
