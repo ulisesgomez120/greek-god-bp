@@ -20,6 +20,7 @@ import uiSlice from "./ui/uiSlice";
 // Middleware
 import { authMiddleware } from "../middleware/authMiddleware";
 import { offlineMiddleware } from "../middleware/offlineMiddleware";
+import { reduxLoggerMiddleware } from "../middleware/reduxLoggerMiddleware";
 
 // Utils
 import { logger } from "../utils/logger";
@@ -106,17 +107,8 @@ const getDefaultMiddleware = (getDefaultMiddleware: any) => {
 
   // Add development middleware
   if (DEV_CONSTANTS.enableDebugMode) {
-    // Redux logger for development
-    const { createLogger: createReduxLogger } = require("redux-logger");
-    const reduxLogger = createReduxLogger({
-      predicate: () => DEV_CONSTANTS.logLevel === "debug",
-      collapsed: true,
-      duration: true,
-      timestamp: true,
-      logErrors: true,
-      diff: true,
-    });
-    middleware.concat(reduxLogger);
+    // Custom Redux logger middleware using our existing logger
+    middleware.concat(reduxLoggerMiddleware);
   }
 
   return middleware;
