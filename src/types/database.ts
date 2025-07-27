@@ -9,6 +9,182 @@ export type Json = string | number | boolean | null | { [key: string]: Json | un
 export interface Database {
   public: {
     Tables: {
+      achievements: {
+        Row: {
+          id: string;
+          name: string;
+          description: string;
+          category: string;
+          criteria: Json;
+          points: number;
+          rarity: string;
+          icon_name: string | null;
+          badge_color: string | null;
+          is_active: boolean;
+          is_hidden: boolean;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          name: string;
+          description: string;
+          category: string;
+          criteria: Json;
+          points?: number;
+          rarity?: string;
+          icon_name?: string | null;
+          badge_color?: string | null;
+          is_active?: boolean;
+          is_hidden?: boolean;
+          created_at?: string;
+        };
+        Update: {
+          id?: string;
+          name?: string;
+          description?: string;
+          category?: string;
+          criteria?: Json;
+          points?: number;
+          rarity?: string;
+          icon_name?: string | null;
+          badge_color?: string | null;
+          is_active?: boolean;
+          is_hidden?: boolean;
+          created_at?: string;
+        };
+        Relationships: [];
+      };
+      ai_coaching_contexts: {
+        Row: {
+          id: string;
+          context_key: string;
+          context_name: string;
+          description: string | null;
+          system_prompt: string;
+          suggested_model_id: string | null;
+          max_conversation_length: number;
+          coaching_style: string | null;
+          expertise_areas: string[];
+          requires_subscription: boolean;
+          is_active: boolean;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          context_key: string;
+          context_name: string;
+          description?: string | null;
+          system_prompt: string;
+          suggested_model_id?: string | null;
+          max_conversation_length?: number;
+          coaching_style?: string | null;
+          expertise_areas?: string[];
+          requires_subscription?: boolean;
+          is_active?: boolean;
+          created_at?: string;
+        };
+        Update: {
+          id?: string;
+          context_key?: string;
+          context_name?: string;
+          description?: string | null;
+          system_prompt?: string;
+          suggested_model_id?: string | null;
+          max_conversation_length?: number;
+          coaching_style?: string | null;
+          expertise_areas?: string[];
+          requires_subscription?: boolean;
+          is_active?: boolean;
+          created_at?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "ai_coaching_contexts_suggested_model_id_fkey";
+            columns: ["suggested_model_id"];
+            isOneToOne: false;
+            referencedRelation: "ai_models";
+            referencedColumns: ["id"];
+          }
+        ];
+      };
+      ai_conversation_sessions: {
+        Row: {
+          id: string;
+          user_id: string;
+          context_id: string | null;
+          session_title: string | null;
+          session_type: string | null;
+          status: string;
+          message_count: number;
+          total_tokens_used: number;
+          total_cost: number;
+          user_context: Json;
+          conversation_summary: string | null;
+          key_insights: string[];
+          action_items: string[];
+          started_at: string;
+          last_message_at: string;
+          completed_at: string | null;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          user_id: string;
+          context_id?: string | null;
+          session_title?: string | null;
+          session_type?: string | null;
+          status?: string;
+          message_count?: number;
+          total_tokens_used?: number;
+          total_cost?: number;
+          user_context?: Json;
+          conversation_summary?: string | null;
+          key_insights?: string[];
+          action_items?: string[];
+          started_at?: string;
+          last_message_at?: string;
+          completed_at?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          user_id?: string;
+          context_id?: string | null;
+          session_title?: string | null;
+          session_type?: string | null;
+          status?: string;
+          message_count?: number;
+          total_tokens_used?: number;
+          total_cost?: number;
+          user_context?: Json;
+          conversation_summary?: string | null;
+          key_insights?: string[];
+          action_items?: string[];
+          started_at?: string;
+          last_message_at?: string;
+          completed_at?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "ai_conversation_sessions_context_id_fkey";
+            columns: ["context_id"];
+            isOneToOne: false;
+            referencedRelation: "ai_coaching_contexts";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "ai_conversation_sessions_user_id_fkey";
+            columns: ["user_id"];
+            isOneToOne: false;
+            referencedRelation: "user_profiles";
+            referencedColumns: ["id"];
+          }
+        ];
+      };
       ai_conversations: {
         Row: {
           id: string;
