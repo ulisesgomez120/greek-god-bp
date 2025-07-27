@@ -104,6 +104,9 @@ const Toast: React.FC<ToastProps> = ({ notification, onDismiss, position = "top"
 
       return () => clearTimeout(timer);
     }
+
+    // Return empty cleanup function when no timer
+    return () => {};
   }, [duration, translateY, opacity, scale]);
 
   const handleDismiss = () => {

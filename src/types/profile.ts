@@ -62,6 +62,7 @@ export interface ProfileEditData {
   gender?: Gender;
   fitnessGoals?: string[];
   privacySettings?: Partial<PrivacySettings>;
+  experienceLevel?: ExperienceLevel;
 }
 
 export interface ExperienceLevelAssessment {

@@ -233,11 +233,11 @@ export const ProfileEditScreen: React.FC<ProfileEditScreenProps> = () => {
           {["male", "female", "other", "prefer_not_to_say"].map((gender) => (
             <Button
               key={gender}
-              title={gender.replace("_", " ").replace(/\b\w/g, (l) => l.toUpperCase())}
               onPress={() => updateFormData({ gender: gender as any })}
               variant={formData.gender === gender ? "primary" : "secondary"}
-              style={styles.genderButton}
-            />
+              style={styles.genderButton}>
+              {gender.replace("_", " ").replace(/\b\w/g, (l) => l.toUpperCase())}
+            </Button>
           ))}
         </View>
       </FormField>
@@ -255,7 +255,7 @@ export const ProfileEditScreen: React.FC<ProfileEditScreenProps> = () => {
 
           return (
             <View key={goal.id} style={[styles.goalCard, isSelected && styles.goalCardSelected]}>
-              <Button title='' onPress={() => toggleGoal(goal.id)} style={styles.goalButton}>
+              <Button onPress={() => toggleGoal(goal.id)} style={styles.goalButton}>
                 <View style={styles.goalContent}>
                   <View style={styles.goalHeader}>
                     <Text style={[styles.goalName, isSelected && styles.goalNameSelected]}>{goal.name}</Text>
@@ -377,15 +377,14 @@ export const ProfileEditScreen: React.FC<ProfileEditScreenProps> = () => {
       <KeyboardAvoidingView style={styles.keyboardAvoidingView} behavior={Platform.OS === "ios" ? "padding" : "height"}>
         {/* Header */}
         <View style={styles.header}>
-          <Button title='Cancel' onPress={handleCancel} variant='secondary' style={styles.headerButton} />
+          <Button onPress={handleCancel} variant='secondary' style={styles.headerButton}>
+            Cancel
+          </Button>
           <Text style={styles.headerTitle}>Edit Profile</Text>
-          <LoadingButton
-            title='Save'
-            onPress={handleSave}
-            loading={updating}
-            disabled={!hasChanges}
-            style={styles.headerButton}
-          />
+          <LoadingButton onPress={handleSave} loading={updating} disabled={!hasChanges} style={styles.headerButton}>
+            {" "}
+            Save{" "}
+          </LoadingButton>
         </View>
 
         {/* Section Tabs */}
@@ -397,11 +396,12 @@ export const ProfileEditScreen: React.FC<ProfileEditScreenProps> = () => {
           ].map((tab) => (
             <Button
               key={tab.id}
-              title={tab.title}
               onPress={() => setActiveSection(tab.id)}
               variant={activeSection === tab.id ? "primary" : "secondary"}
-              style={styles.tabButton}
-            />
+              style={styles.tabButton}>
+              {" "}
+              {tab.id}{" "}
+            </Button>
           ))}
         </View>
 

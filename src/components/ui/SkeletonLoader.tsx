@@ -67,6 +67,9 @@ const SkeletonLoader: React.FC<SkeletonLoaderProps> = ({
         shimmerAnimation.stop();
       };
     }
+
+    // Return empty cleanup function when not animated
+    return () => {};
   }, [animated, shimmerAnim]);
 
   const shimmerOpacity = shimmerAnim.interpolate({
