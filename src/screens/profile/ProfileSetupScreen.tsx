@@ -15,6 +15,7 @@ import { LoadingButton } from "@/components/ui/LoadingButton";
 import { useProfile } from "@/hooks/useProfile";
 import { useAuth } from "@/hooks/useAuth";
 import { logger } from "@/utils/logger";
+import { ExperienceLevelSelector } from "@/components/profile/ExperienceLevelSelector";
 import type { ProfileSetupData, FitnessGoal, OnboardingStep, OnboardingProgress } from "@/types/profile";
 import type { ExperienceLevel } from "@/types/database";
 import { DEFAULT_FITNESS_GOALS, EXPERIENCE_LEVELS, getExperienceLevelInfo } from "@/types/profile";
@@ -211,7 +212,9 @@ const BasicInfoStep: React.FC<StepComponentProps> = ({ data, onUpdate, onNext, c
         </View>
       </View>
 
-      <Button title='Continue' onPress={validateAndNext} disabled={!canGoNext} style={styles.primaryButton} />
+      <Button onPress={validateAndNext} disabled={!canGoNext} style={styles.primaryButton}>
+        Continue
+      </Button>
     </View>
   );
 };
@@ -237,7 +240,7 @@ const ExperienceLevelStep: React.FC<StepComponentProps> = ({ data, onUpdate, onN
             <View
               key={levelInfo.level}
               style={[styles.experienceLevelCard, isSelected && styles.experienceLevelCardSelected]}>
-              <Button title='' onPress={() => handleLevelSelect(levelInfo.level)} style={styles.experienceLevelButton}>
+              <Button onPress={() => handleLevelSelect(levelInfo.level)} style={styles.experienceLevelButton}>
                 <View style={styles.experienceLevelContent}>
                   <View style={styles.experienceLevelHeader}>
                     <Text style={[styles.experienceLevelName, isSelected && styles.experienceLevelNameSelected]}>
@@ -267,7 +270,9 @@ const ExperienceLevelStep: React.FC<StepComponentProps> = ({ data, onUpdate, onN
         })}
       </ScrollView>
 
-      <Button title='Continue' onPress={onNext} disabled={!canGoNext} style={styles.primaryButton} />
+      <Button onPress={onNext} disabled={!canGoNext} style={styles.primaryButton}>
+        Continue
+      </Button>
     </View>
   );
 };
@@ -295,7 +300,7 @@ const FitnessGoalsStep: React.FC<StepComponentProps> = ({ data, onUpdate, onNext
 
           return (
             <View key={goal.id} style={[styles.goalCard, isSelected && styles.goalCardSelected]}>
-              <Button title='' onPress={() => toggleGoal(goal.id)} style={styles.goalButton}>
+              <Button onPress={() => toggleGoal(goal.id)} style={styles.goalButton}>
                 <View style={styles.goalContent}>
                   <View style={styles.goalHeader}>
                     <Text style={[styles.goalName, isSelected && styles.goalNameSelected]}>{goal.name}</Text>
@@ -316,7 +321,9 @@ const FitnessGoalsStep: React.FC<StepComponentProps> = ({ data, onUpdate, onNext
         })}
       </ScrollView>
 
-      <Button title='Continue' onPress={onNext} disabled={!canGoNext} style={styles.primaryButton} />
+      <Button onPress={onNext} disabled={!canGoNext} style={styles.primaryButton}>
+        Continue
+      </Button>
     </View>
   );
 };
@@ -358,7 +365,9 @@ const CompletionStep: React.FC<StepComponentProps> = ({ data, onNext }) => {
         <Text style={styles.nextStepsText}>Ready to start your fitness journey with personalized coaching!</Text>
       </View>
 
-      <Button title='Start Training' onPress={onNext} style={styles.primaryButton} />
+      <Button onPress={onNext} style={styles.primaryButton}>
+        Start Training
+      </Button>
     </View>
   );
 };
@@ -495,7 +504,7 @@ export const ProfileSetupScreen: React.FC<ProfileSetupScreenProps> = () => {
       <SafeAreaView style={styles.container}>
         <View style={styles.loadingContainer}>
           <Text style={styles.loadingText}>Creating your profile...</Text>
-          <LoadingButton loading={true} title='' />
+          <LoadingButton loading={true}>Creating...</LoadingButton>
         </View>
       </SafeAreaView>
     );
@@ -527,7 +536,9 @@ export const ProfileSetupScreen: React.FC<ProfileSetupScreenProps> = () => {
         {/* Navigation */}
         {currentStepIndex > 0 && currentStep.id !== "completion" && (
           <View style={styles.navigationContainer}>
-            <Button title='Back' onPress={handleBack} variant='secondary' style={styles.backButton} />
+            <Button onPress={handleBack} variant='secondary' style={styles.backButton}>
+              Back
+            </Button>
           </View>
         )}
       </KeyboardAvoidingView>
@@ -829,6 +840,20 @@ const styles = StyleSheet.create({
   },
   backButton: {
     width: 100,
+  },
+  fieldContainer: {
+    marginBottom: 20,
+  },
+  fieldLabel: {
+    fontSize: 16,
+    fontWeight: "600",
+    color: "#1C1C1E",
+    marginBottom: 4,
+  },
+  fieldHint: {
+    fontSize: 13,
+    color: "#8E8E93",
+    marginBottom: 12,
   },
 });
 

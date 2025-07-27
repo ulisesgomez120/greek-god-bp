@@ -22,9 +22,13 @@ import type {
   ProfilePictureState,
   PrivacySettings,
   ProfilePreferences,
+} from "@/types/profile";
+import {
+  DEFAULT_PRIVACY_SETTINGS,
+  DEFAULT_PROFILE_PREFERENCES,
+  getExperienceLevelInfo,
   EXPERIENCE_LEVELS,
 } from "@/types/profile";
-import { DEFAULT_PRIVACY_SETTINGS, DEFAULT_PROFILE_PREFERENCES, getExperienceLevelInfo } from "@/types/profile";
 import type { ExperienceLevel } from "@/types/database";
 
 // ============================================================================
