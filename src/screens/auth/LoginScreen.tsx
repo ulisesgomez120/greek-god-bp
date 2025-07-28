@@ -5,10 +5,10 @@
 // support, and smooth error handling
 
 import React, { useState, useEffect } from "react";
-import { View, StyleSheet, Alert, Platform } from "react-native";
+import { View, StyleSheet, Alert, Platform, TextInput } from "react-native";
 import * as LocalAuthentication from "expo-local-authentication";
 import { useAuth } from "@/hooks/useAuth";
-import { useFormValidation } from "@/hooks/useFormValidation";
+import { useSimpleForm } from "@/hooks/useSimpleForm";
 import { loginFormSchema, type LoginFormData } from "@/utils/validation";
 import { AUTH_FLOWS, LOADING_MESSAGES } from "@/constants/auth";
 import AuthForm from "@/components/auth/AuthForm";
@@ -34,21 +34,13 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ navigation, onLoginSuc
   const [biometricAvailable, setBiometricAvailable] = useState(false);
   const [biometricType, setBiometricType] = useState<string>("");
 
-  // Form validation
-  const { values, errors, formState, handleChange, handleBlur, handleSubmit, setError, clearAllErrors } =
-    useFormValidation<LoginFormData>(
-      loginFormSchema,
-      {
-        email: "",
-        password: "",
-        rememberMe: false,
-      },
-      {
-        validateOnChange: true,
-        validateOnBlur: true,
-        debounceMs: 300,
-      }
-    );
+  // Simple form state - no complex validation during typing
+  const { values, errors, isSubmitting, handleChange, setError, clearAllErrors, validateAndSubmit } =
+    useSimpleForm<LoginFormData>({
+      email: "",
+      password: "",
+      rememberMe: false,
+    });
 
   // ============================================================================
   // BIOMETRIC AUTHENTICATION
@@ -113,10 +105,9 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ navigation, onLoginSuc
   // FORM HANDLERS
   // ============================================================================
 
-  const onSubmit = handleSubmit(async (formData: LoginFormData) => {
+  const onSubmit = validateAndSubmit(loginFormSchema, async (formData: LoginFormData) => {
     try {
       clearError();
-      clearAllErrors();
 
       const result = await login({
         email: formData.email,
@@ -182,8 +173,8 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ navigation, onLoginSuc
       subtitle={AUTH_FLOWS.login.subtitle}
       onSubmit={onSubmit}
       submitText={AUTH_FLOWS.login.submitText}
-      submitLoading={formState.isSubmitting || loading.login}
-      submitDisabled={!formState.isValid || formState.isSubmitting}
+      submitLoading={isSubmitting || loading.login}
+      submitDisabled={isSubmitting}
       secondaryAction={{
         text: AUTH_FLOWS.login.switchText,
         onPress: navigateToSignup,
@@ -214,16 +205,13 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ navigation, onLoginSuc
           )}
         </View>
       }>
-      {/* Email Field */}
       <FormField
         name='email'
         label='Email Address'
         placeholder='Enter your email'
         value={values.email}
         onChangeText={handleChange("email")}
-        onBlur={handleBlur("email")}
         error={errors.email}
-        touched={formState.fields.email?.touched}
         keyboardType='email-address'
         autoCapitalize='none'
         autoComplete='email'
@@ -231,16 +219,13 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ navigation, onLoginSuc
         required
       />
 
-      {/* Password Field */}
       <FormField
         name='password'
         label='Password'
         placeholder='Enter your password'
         value={values.password}
         onChangeText={handleChange("password")}
-        onBlur={handleBlur("password")}
         error={errors.password}
-        touched={formState.fields.password?.touched}
         secureTextEntry
         showPasswordToggle
         autoComplete='current-password'

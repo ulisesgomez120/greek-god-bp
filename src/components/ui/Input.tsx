@@ -131,19 +131,19 @@ export const Input = forwardRef<TextInput, InputProps>(
     },
     ref
   ) => {
-    const [isFocused, setIsFocused] = useState(false);
+    // Remove isFocused state to prevent re-renders during focus events
     const [isPasswordVisible, setIsPasswordVisible] = useState(false);
 
-    // Determine current state
-    const currentState = !editable ? "disabled" : error ? "error" : isFocused ? "focused" : state;
+    // Determine current state without internal focus tracking
+    const currentState = !editable ? "disabled" : error ? "error" : state;
 
     const handleFocus = (event: any) => {
-      setIsFocused(true);
+      console.log("Input handleFocus called");
       onFocus?.(event);
     };
 
     const handleBlur = (event: any) => {
-      setIsFocused(false);
+      console.log("Input handleBlur called");
       onBlur?.(event);
     };
 

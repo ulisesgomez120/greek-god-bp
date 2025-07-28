@@ -17,6 +17,8 @@ export interface FormField {
   error?: string;
   touched: boolean;
   dirty: boolean;
+  interactionCount: number;
+  hasBeenFocused: boolean;
 }
 
 export interface FormState<T extends Record<string, any>> {
@@ -78,6 +80,8 @@ export function useFormValidation<T extends Record<string, any>>(
         value: initialValues[key as keyof T],
         touched: false,
         dirty: false,
+        interactionCount: 0,
+        hasBeenFocused: false,
       };
     });
 
@@ -92,7 +96,7 @@ export function useFormValidation<T extends Record<string, any>>(
   });
 
   // Debounce timer for validation
-  const [debounceTimer, setDebounceTimer] = useState<NodeJS.Timeout | null>(null);
+  const [debounceTimer, setDebounceTimer] = useState<ReturnType<typeof setTimeout> | null>(null);
 
   // Computed values
   const values = useMemo(() => {
@@ -200,24 +204,34 @@ export function useFormValidation<T extends Record<string, any>>(
 
   const setValue = useCallback(
     (field: keyof T, value: any) => {
-      setFormState((prev) => ({
-        ...prev,
-        fields: {
-          ...prev.fields,
-          [field]: {
-            ...prev.fields[field],
-            value,
-            dirty: value !== initialValues[field],
-          },
-        },
-        isDirty: Object.values({
-          ...prev.fields,
-          [field]: { ...prev.fields[field], value, dirty: value !== initialValues[field] },
-        }).some((f) => f.dirty),
-      }));
+      const isDirty = value !== initialValues[field];
+      const isEmpty = value === "" || value === null || value === undefined;
 
-      // Debounced validation on change
-      if (validateOnChange) {
+      setFormState((prev) => {
+        const currentField = prev.fields[field];
+        const newInteractionCount = currentField.interactionCount + (isDirty ? 1 : 0);
+
+        return {
+          ...prev,
+          fields: {
+            ...prev.fields,
+            [field]: {
+              ...currentField,
+              value,
+              dirty: isDirty,
+              interactionCount: newInteractionCount,
+            },
+          },
+          isDirty: Object.values({
+            ...prev.fields,
+            [field]: { ...currentField, value, dirty: isDirty },
+          }).some((f) => f.dirty),
+        };
+      });
+
+      // Only validate on change if the user has had sufficient interaction with the field
+      // This completely prevents validation during initial typing
+      if (validateOnChange && isDirty && formState.fields[field]?.interactionCount >= 3) {
         if (debounceTimer) {
           clearTimeout(debounceTimer);
         }
@@ -229,7 +243,7 @@ export function useFormValidation<T extends Record<string, any>>(
         setDebounceTimer(timer);
       }
     },
-    [initialValues, validateOnChange, debounceMs, debounceTimer, validateField]
+    [initialValues, validateOnChange, debounceMs, debounceTimer, validateField, formState.fields]
   );
 
   const setError = useCallback((field: keyof T, error: string) => {
@@ -316,6 +330,8 @@ export function useFormValidation<T extends Record<string, any>>(
             value: resetValues[key as keyof T],
             touched: false,
             dirty: false,
+            interactionCount: 0,
+            hasBeenFocused: false,
           };
         });
 
@@ -345,13 +361,11 @@ export function useFormValidation<T extends Record<string, any>>(
 
   const handleBlur = useCallback(
     (field: keyof T) => () => {
+      // Do absolutely nothing to prevent any state updates that could interfere with keyboard
+      // Only mark as touched without triggering validation or re-renders
       setFieldTouched(field, true);
-
-      if (validateOnBlur) {
-        validateField(field);
-      }
     },
-    [setFieldTouched, validateOnBlur, validateField]
+    [setFieldTouched]
   );
 
   const handleSubmit = useCallback(

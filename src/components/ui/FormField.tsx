@@ -1,8 +1,8 @@
 // ============================================================================
 // FORM FIELD COMPONENT
 // ============================================================================
-// Base form field component with validation, error states, and accessibility
-// support for TrainSmart authentication forms
+// Simplified form field component that eliminates keyboard interference by
+// removing conditional rendering and complex state management
 
 import React from "react";
 import { View, StyleSheet, ViewStyle } from "react-native";
@@ -20,8 +20,6 @@ export interface FormFieldProps extends Omit<InputProps, "error" | "state"> {
   onChangeText: (text: string) => void;
   onBlur?: () => void;
   error?: string;
-  touched?: boolean;
-  showError?: boolean;
   containerStyle?: ViewStyle;
 }
 
@@ -29,8 +27,6 @@ export interface FormFieldProps extends Omit<InputProps, "error" | "state"> {
 export interface FormFieldWrapperProps {
   label: string;
   error?: string;
-  touched?: boolean;
-  showError?: boolean;
   containerStyle?: ViewStyle;
   children: React.ReactNode;
 }
@@ -45,47 +41,33 @@ export const FormField: React.FC<FormFieldProps | FormFieldWrapperProps> = (prop
 
   if (isWrapper) {
     // Wrapper mode - display children with label and error
-    const { label, error, touched = false, showError = true, containerStyle, children } = props;
-    const shouldShowError = showError && touched && error;
+    const { label, error, containerStyle, children } = props;
 
     return (
       <View style={[styles.container, containerStyle]}>
         {label && <Text style={styles.label}>{label}</Text>}
         {children}
-        {shouldShowError && <Text style={styles.errorText}>{error}</Text>}
+        {/* Always render error container to prevent layout shifts */}
+        <View style={styles.errorContainer}>{error && <Text style={styles.errorText}>{error}</Text>}</View>
       </View>
     );
   } else {
     // Standard mode - handle input internally
-    const {
-      name,
-      value,
-      onChangeText,
-      onBlur,
-      error,
-      touched = false,
-      showError = true,
-      containerStyle,
-      ...inputProps
-    } = props;
-
-    const shouldShowError = showError && touched && error;
-
-    const handleBlur = () => {
-      onBlur?.();
-    };
+    const { name, value, onChangeText, onBlur, error, containerStyle, ...inputProps } = props;
 
     return (
       <View style={[styles.container, containerStyle]}>
         <Input
           value={value}
           onChangeText={onChangeText}
-          onBlur={handleBlur}
-          error={shouldShowError ? error : undefined}
-          state={shouldShowError ? "error" : "default"}
+          onBlur={onBlur}
+          error={error}
+          state={error ? "error" : "default"}
           accessibilityLabel={inputProps.label || name}
           {...inputProps}
         />
+        {/* Always render error container to prevent layout shifts */}
+        <View style={styles.errorContainer}>{error && <Text style={styles.errorText}>{error}</Text>}</View>
       </View>
     );
   }
@@ -105,10 +87,13 @@ const styles = StyleSheet.create({
     color: "#1C1C1E",
     marginBottom: 8,
   },
+  errorContainer: {
+    minHeight: 20, // Reserve space to prevent layout shifts
+    marginTop: 4,
+  },
   errorText: {
     fontSize: 13,
     color: "#FF3B30",
-    marginTop: 4,
     lineHeight: 18,
   },
 });

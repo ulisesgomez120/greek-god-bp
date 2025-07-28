@@ -7,7 +7,7 @@
 import React, { useState } from "react";
 import { View, StyleSheet, Alert, ScrollView } from "react-native";
 import { useAuth } from "@/hooks/useAuth";
-import { useFormValidation } from "@/hooks/useFormValidation";
+import { useSimpleForm } from "@/hooks/useSimpleForm";
 import { registrationFormSchema, type RegistrationFormData } from "@/utils/validation";
 import { AUTH_FLOWS, EXPERIENCE_LEVELS, FITNESS_GOALS } from "@/constants/auth";
 import AuthForm from "@/components/auth/AuthForm";
@@ -35,28 +35,20 @@ export const RegisterScreen: React.FC<RegisterScreenProps> = ({ navigation, onRe
   const [currentStep, setCurrentStep] = useState<RegistrationStep>("credentials");
   const [selectedGoals, setSelectedGoals] = useState<string[]>([]);
 
-  // Form validation
-  const { values, errors, formState, handleChange, handleBlur, handleSubmit, setError, clearAllErrors, setValue } =
-    useFormValidation<RegistrationFormData>(
-      registrationFormSchema,
-      {
-        email: "",
-        password: "",
-        confirmPassword: "",
-        displayName: "",
-        experienceLevel: "untrained",
-        fitnessGoals: [],
-        heightCm: undefined,
-        weightKg: undefined,
-        agreeToTerms: false,
-        subscribeToNewsletter: false,
-      },
-      {
-        validateOnChange: true,
-        validateOnBlur: true,
-        debounceMs: 300,
-      }
-    );
+  // Simple form state - no complex validation during typing
+  const { values, errors, isSubmitting, handleChange, setError, clearAllErrors, setValue, validateAndSubmit } =
+    useSimpleForm<RegistrationFormData>({
+      email: "",
+      password: "",
+      confirmPassword: "",
+      displayName: "",
+      experienceLevel: "untrained",
+      fitnessGoals: [],
+      heightCm: undefined,
+      weightKg: undefined,
+      agreeToTerms: false,
+      subscribeToNewsletter: false,
+    });
 
   // ============================================================================
   // STEP MANAGEMENT
@@ -119,10 +111,9 @@ export const RegisterScreen: React.FC<RegisterScreenProps> = ({ navigation, onRe
     setValue("fitnessGoals", newGoals);
   };
 
-  const onSubmit = handleSubmit(async (formData: RegistrationFormData) => {
+  const onSubmit = validateAndSubmit(registrationFormSchema, async (formData: RegistrationFormData) => {
     try {
       clearError();
-      clearAllErrors();
 
       const result = await signup({
         email: formData.email,
@@ -180,9 +171,7 @@ export const RegisterScreen: React.FC<RegisterScreenProps> = ({ navigation, onRe
         placeholder='Enter your email'
         value={values.email}
         onChangeText={handleChange("email")}
-        onBlur={handleBlur("email")}
         error={errors.email}
-        touched={formState.fields.email?.touched}
         keyboardType='email-address'
         autoCapitalize='none'
         autoComplete='email'
@@ -196,9 +185,7 @@ export const RegisterScreen: React.FC<RegisterScreenProps> = ({ navigation, onRe
         placeholder='Create a strong password'
         value={values.password}
         onChangeText={handleChange("password")}
-        onBlur={handleBlur("password")}
         error={errors.password}
-        touched={formState.fields.password?.touched}
         secureTextEntry
         showPasswordToggle
         autoComplete='new-password'
@@ -213,9 +200,7 @@ export const RegisterScreen: React.FC<RegisterScreenProps> = ({ navigation, onRe
         placeholder='Confirm your password'
         value={values.confirmPassword}
         onChangeText={handleChange("confirmPassword")}
-        onBlur={handleBlur("confirmPassword")}
         error={errors.confirmPassword}
-        touched={formState.fields.confirmPassword?.touched}
         secureTextEntry
         autoComplete='new-password'
         textContentType='newPassword'
@@ -232,9 +217,7 @@ export const RegisterScreen: React.FC<RegisterScreenProps> = ({ navigation, onRe
         placeholder='How should we call you?'
         value={values.displayName}
         onChangeText={handleChange("displayName")}
-        onBlur={handleBlur("displayName")}
         error={errors.displayName}
-        touched={formState.fields.displayName?.touched}
         autoCapitalize='words'
         autoComplete='name'
         textContentType='name'
@@ -331,9 +314,7 @@ export const RegisterScreen: React.FC<RegisterScreenProps> = ({ navigation, onRe
           placeholder='170'
           value={values.heightCm?.toString() || ""}
           onChangeText={(text) => setValue("heightCm", text ? parseInt(text) : undefined)}
-          onBlur={handleBlur("heightCm")}
           error={errors.heightCm}
-          touched={formState.fields.heightCm?.touched}
           keyboardType='numeric'
           containerStyle={styles.statField}
         />
@@ -344,9 +325,7 @@ export const RegisterScreen: React.FC<RegisterScreenProps> = ({ navigation, onRe
           placeholder='70'
           value={values.weightKg?.toString() || ""}
           onChangeText={(text) => setValue("weightKg", text ? parseFloat(text) : undefined)}
-          onBlur={handleBlur("weightKg")}
           error={errors.weightKg}
-          touched={formState.fields.weightKg?.touched}
           keyboardType='numeric'
           containerStyle={styles.statField}
         />
@@ -396,8 +375,8 @@ export const RegisterScreen: React.FC<RegisterScreenProps> = ({ navigation, onRe
       subtitle={getStepSubtitle()}
       onSubmit={isLastStep ? onSubmit : nextStep}
       submitText={isLastStep ? "Create Account" : "Continue"}
-      submitLoading={formState.isSubmitting || loading.signup}
-      submitDisabled={!canProceedToNextStep() || formState.isSubmitting}
+      submitLoading={isSubmitting || loading.signup}
+      submitDisabled={!canProceedToNextStep() || isSubmitting}
       secondaryAction={{
         text: currentStep === "credentials" ? AUTH_FLOWS.signup.switchText : "Back",
         onPress: currentStep === "credentials" ? navigateToLogin : previousStep,

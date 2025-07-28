@@ -16,9 +16,16 @@ import type { ExperienceLevel } from "@/types/auth";
 export const emailSchema = z
   .string()
   .min(1, "Email is required")
-  .email("Please enter a valid email address")
   .max(AUTH_CONFIG.email.maxLength, `Email must be less than ${AUTH_CONFIG.email.maxLength} characters`)
-  .refine((email) => {
+  .refine((email: string) => {
+    // Allow empty string to pass (required check handles this)
+    if (email === "") return true;
+    // Check email format
+    return REGEX_PATTERNS.email.test(email);
+  }, "Please enter a valid email address")
+  .refine((email: string) => {
+    // Allow empty string to pass
+    if (email === "") return true;
     // Check against blocked domains
     const domain = email.split("@")[1]?.toLowerCase();
     return !domain || !AUTH_CONFIG.email.blockedDomains.includes(domain as any);
