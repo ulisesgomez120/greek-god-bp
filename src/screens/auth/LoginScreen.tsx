@@ -8,8 +8,7 @@ import React, { useState, useEffect } from "react";
 import { View, StyleSheet, Alert, Platform, TextInput } from "react-native";
 import * as LocalAuthentication from "expo-local-authentication";
 import { useAuth } from "@/hooks/useAuth";
-import { useSimpleForm } from "@/hooks/useSimpleForm";
-import { loginFormSchema, type LoginFormData } from "@/utils/validation";
+import { loginFormSchema, type LoginFormData, validateFormData } from "@/utils/validation";
 import { AUTH_FLOWS, LOADING_MESSAGES } from "@/constants/auth";
 import AuthForm from "@/components/auth/AuthForm";
 import FormField from "@/components/ui/FormField";
@@ -34,13 +33,34 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ navigation, onLoginSuc
   const [biometricAvailable, setBiometricAvailable] = useState(false);
   const [biometricType, setBiometricType] = useState<string>("");
 
-  // Simple form state - no complex validation during typing
-  const { values, errors, isSubmitting, handleChange, setError, clearAllErrors, validateAndSubmit } =
-    useSimpleForm<LoginFormData>({
-      email: "",
-      password: "",
-      rememberMe: false,
-    });
+  // Basic form state - no complex hooks
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [errors, setErrors] = useState<{ email?: string; password?: string }>({});
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
+  // Clear error when user starts typing
+  const handleEmailChange = (value: string) => {
+    setEmail(value);
+    if (errors.email) {
+      setErrors((prev) => ({ ...prev, email: undefined }));
+    }
+  };
+
+  const handlePasswordChange = (value: string) => {
+    setPassword(value);
+    if (errors.password) {
+      setErrors((prev) => ({ ...prev, password: undefined }));
+    }
+  };
+
+  const setFieldError = (field: "email" | "password", message: string) => {
+    setErrors((prev) => ({ ...prev, [field]: message }));
+  };
+
+  const clearAllErrors = () => {
+    setErrors({});
+  };
 
   // ============================================================================
   // BIOMETRIC AUTHENTICATION
@@ -105,8 +125,31 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ navigation, onLoginSuc
   // FORM HANDLERS
   // ============================================================================
 
-  const onSubmit = validateAndSubmit(loginFormSchema, async (formData: LoginFormData) => {
+  const onSubmit = async () => {
+    setIsSubmitting(true);
+    clearAllErrors();
+
     try {
+      // Validate form data
+      const formData: LoginFormData = {
+        email,
+        password,
+        rememberMe: false,
+      };
+
+      const validationResult = validateFormData(loginFormSchema, formData);
+
+      if (!validationResult.isValid) {
+        // Set validation errors
+        if (validationResult.errors.email) {
+          setFieldError("email", validationResult.errors.email);
+        }
+        if (validationResult.errors.password) {
+          setFieldError("password", validationResult.errors.password);
+        }
+        return;
+      }
+
       clearError();
 
       const result = await login({
@@ -121,8 +164,8 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ navigation, onLoginSuc
         // Handle specific error types
         switch (result.error.code) {
           case "INVALID_CREDENTIALS":
-            setError("email", "Invalid email or password");
-            setError("password", "Invalid email or password");
+            setFieldError("email", "Invalid email or password");
+            setFieldError("password", "Invalid email or password");
             break;
           case "EMAIL_NOT_CONFIRMED":
             Alert.alert(
@@ -145,15 +188,17 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ navigation, onLoginSuc
             );
             break;
           default:
-            setError("email", result.error.message);
+            setFieldError("email", result.error.message);
             break;
         }
       }
     } catch (error) {
       console.error("Login error:", error);
       Alert.alert("Login Failed", "An unexpected error occurred. Please try again.");
+    } finally {
+      setIsSubmitting(false);
     }
-  });
+  };
 
   const navigateToSignup = () => {
     navigation.navigate("Register");
@@ -209,8 +254,8 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ navigation, onLoginSuc
         name='email'
         label='Email Address'
         placeholder='Enter your email'
-        value={values.email}
-        onChangeText={handleChange("email")}
+        value={email}
+        onChangeText={handleEmailChange}
         error={errors.email}
         keyboardType='email-address'
         autoCapitalize='none'
@@ -223,8 +268,8 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ navigation, onLoginSuc
         name='password'
         label='Password'
         placeholder='Enter your password'
-        value={values.password}
-        onChangeText={handleChange("password")}
+        value={password}
+        onChangeText={handlePasswordChange}
         error={errors.password}
         secureTextEntry
         showPasswordToggle

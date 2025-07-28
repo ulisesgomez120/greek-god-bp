@@ -7,8 +7,7 @@
 import React, { useState } from "react";
 import { View, StyleSheet, Alert, ScrollView } from "react-native";
 import { useAuth } from "@/hooks/useAuth";
-import { useSimpleForm } from "@/hooks/useSimpleForm";
-import { registrationFormSchema, type RegistrationFormData } from "@/utils/validation";
+import { registrationFormSchema, type RegistrationFormData, validateFormData } from "@/utils/validation";
 import { AUTH_FLOWS, EXPERIENCE_LEVELS, FITNESS_GOALS } from "@/constants/auth";
 import AuthForm from "@/components/auth/AuthForm";
 import FormField from "@/components/ui/FormField";
@@ -35,20 +34,56 @@ export const RegisterScreen: React.FC<RegisterScreenProps> = ({ navigation, onRe
   const [currentStep, setCurrentStep] = useState<RegistrationStep>("credentials");
   const [selectedGoals, setSelectedGoals] = useState<string[]>([]);
 
-  // Simple form state - no complex validation during typing
-  const { values, errors, isSubmitting, handleChange, setError, clearAllErrors, setValue, validateAndSubmit } =
-    useSimpleForm<RegistrationFormData>({
-      email: "",
-      password: "",
-      confirmPassword: "",
-      displayName: "",
-      experienceLevel: "untrained",
-      fitnessGoals: [],
-      heightCm: undefined,
-      weightKg: undefined,
-      agreeToTerms: false,
-      subscribeToNewsletter: false,
-    });
+  // Basic form state - no complex hooks
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
+  const [displayName, setDisplayName] = useState("");
+  const [experienceLevel, setExperienceLevel] = useState<
+    "untrained" | "beginner" | "early_intermediate" | "intermediate"
+  >("untrained");
+  const [fitnessGoals, setFitnessGoals] = useState<string[]>([]);
+  const [heightCm, setHeightCm] = useState<number | undefined>(undefined);
+  const [weightKg, setWeightKg] = useState<number | undefined>(undefined);
+  const [errors, setErrors] = useState<Partial<RegistrationFormData>>({});
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
+  // Clear error when user starts typing
+  const handleEmailChange = (value: string) => {
+    setEmail(value);
+    if (errors.email) {
+      setErrors((prev) => ({ ...prev, email: undefined }));
+    }
+  };
+
+  const handlePasswordChange = (value: string) => {
+    setPassword(value);
+    if (errors.password) {
+      setErrors((prev) => ({ ...prev, password: undefined }));
+    }
+  };
+
+  const handleConfirmPasswordChange = (value: string) => {
+    setConfirmPassword(value);
+    if (errors.confirmPassword) {
+      setErrors((prev) => ({ ...prev, confirmPassword: undefined }));
+    }
+  };
+
+  const handleDisplayNameChange = (value: string) => {
+    setDisplayName(value);
+    if (errors.displayName) {
+      setErrors((prev) => ({ ...prev, displayName: undefined }));
+    }
+  };
+
+  const setFieldError = (field: keyof RegistrationFormData, message: string) => {
+    setErrors((prev) => ({ ...prev, [field]: message }));
+  };
+
+  const clearAllErrors = () => {
+    setErrors({});
+  };
 
   // ============================================================================
   // STEP MANAGEMENT
@@ -63,16 +98,9 @@ export const RegisterScreen: React.FC<RegisterScreenProps> = ({ navigation, onRe
   const canProceedToNextStep = () => {
     switch (currentStep) {
       case "credentials":
-        return (
-          values.email &&
-          values.password &&
-          values.confirmPassword &&
-          !errors.email &&
-          !errors.password &&
-          !errors.confirmPassword
-        );
+        return email && password && confirmPassword && !errors.email && !errors.password && !errors.confirmPassword;
       case "profile":
-        return values.displayName && values.experienceLevel && !errors.displayName;
+        return displayName && experienceLevel && !errors.displayName;
       case "goals":
         return selectedGoals.length > 0;
       case "stats":
@@ -108,11 +136,41 @@ export const RegisterScreen: React.FC<RegisterScreenProps> = ({ navigation, onRe
       : [...selectedGoals, goalKey];
 
     setSelectedGoals(newGoals);
-    setValue("fitnessGoals", newGoals);
+    setFitnessGoals(newGoals);
   };
 
-  const onSubmit = validateAndSubmit(registrationFormSchema, async (formData: RegistrationFormData) => {
+  const onSubmit = async () => {
+    setIsSubmitting(true);
+    clearAllErrors();
+
     try {
+      // Create form data
+      const formData: RegistrationFormData = {
+        email,
+        password,
+        confirmPassword,
+        displayName,
+        experienceLevel,
+        fitnessGoals: selectedGoals,
+        heightCm,
+        weightKg,
+        agreeToTerms: false,
+        subscribeToNewsletter: false,
+      };
+
+      // Validate form data
+      const validationResult = validateFormData(registrationFormSchema, formData);
+
+      if (!validationResult.isValid) {
+        // Set validation errors
+        Object.keys(validationResult.errors).forEach((key) => {
+          if (validationResult.errors[key]) {
+            setFieldError(key as keyof RegistrationFormData, validationResult.errors[key]);
+          }
+        });
+        return;
+      }
+
       clearError();
 
       const result = await signup({
@@ -138,11 +196,11 @@ export const RegisterScreen: React.FC<RegisterScreenProps> = ({ navigation, onRe
         switch (result.error.code) {
           case "EMAIL_EXISTS":
             setCurrentStep("credentials");
-            setError("email", "An account with this email already exists");
+            setFieldError("email", "An account with this email already exists");
             break;
           case "WEAK_PASSWORD":
             setCurrentStep("credentials");
-            setError("password", result.error.message);
+            setFieldError("password", result.error.message);
             break;
           default:
             Alert.alert("Registration Failed", result.error.message);
@@ -152,8 +210,10 @@ export const RegisterScreen: React.FC<RegisterScreenProps> = ({ navigation, onRe
     } catch (error) {
       console.error("Registration error:", error);
       Alert.alert("Registration Failed", "An unexpected error occurred. Please try again.");
+    } finally {
+      setIsSubmitting(false);
     }
-  });
+  };
 
   const navigateToLogin = () => {
     navigation.navigate("Login");
@@ -169,8 +229,8 @@ export const RegisterScreen: React.FC<RegisterScreenProps> = ({ navigation, onRe
         name='email'
         label='Email Address'
         placeholder='Enter your email'
-        value={values.email}
-        onChangeText={handleChange("email")}
+        value={email}
+        onChangeText={handleEmailChange}
         error={errors.email}
         keyboardType='email-address'
         autoCapitalize='none'
@@ -183,8 +243,8 @@ export const RegisterScreen: React.FC<RegisterScreenProps> = ({ navigation, onRe
         name='password'
         label='Password'
         placeholder='Create a strong password'
-        value={values.password}
-        onChangeText={handleChange("password")}
+        value={password}
+        onChangeText={handlePasswordChange}
         error={errors.password}
         secureTextEntry
         showPasswordToggle
@@ -198,8 +258,8 @@ export const RegisterScreen: React.FC<RegisterScreenProps> = ({ navigation, onRe
         name='confirmPassword'
         label='Confirm Password'
         placeholder='Confirm your password'
-        value={values.confirmPassword}
-        onChangeText={handleChange("confirmPassword")}
+        value={confirmPassword}
+        onChangeText={handleConfirmPasswordChange}
         error={errors.confirmPassword}
         secureTextEntry
         autoComplete='new-password'
@@ -215,8 +275,8 @@ export const RegisterScreen: React.FC<RegisterScreenProps> = ({ navigation, onRe
         name='displayName'
         label='Display Name'
         placeholder='How should we call you?'
-        value={values.displayName}
-        onChangeText={handleChange("displayName")}
+        value={displayName}
+        onChangeText={handleDisplayNameChange}
         error={errors.displayName}
         autoCapitalize='words'
         autoComplete='name'
@@ -235,17 +295,17 @@ export const RegisterScreen: React.FC<RegisterScreenProps> = ({ navigation, onRe
         {Object.entries(EXPERIENCE_LEVELS).map(([key, level]) => (
           <Button
             key={key}
-            variant={values.experienceLevel === key ? "primary" : "secondary"}
+            variant={experienceLevel === key ? "primary" : "secondary"}
             size='medium'
             style={styles.experienceButton}
-            onPress={() => setValue("experienceLevel", key)}>
+            onPress={() => setExperienceLevel(key as any)}>
             <View style={styles.experienceButtonContent}>
-              <Text variant='body' color={values.experienceLevel === key ? "white" : "primary"} weight='medium'>
+              <Text variant='body' color={experienceLevel === key ? "white" : "primary"} weight='medium'>
                 {level.label}
               </Text>
               <Text
                 variant='bodySmall'
-                color={values.experienceLevel === key ? "white" : "secondary"}
+                color={experienceLevel === key ? "white" : "secondary"}
                 style={styles.experienceDescription}>
                 {level.description}
               </Text>
@@ -312,9 +372,9 @@ export const RegisterScreen: React.FC<RegisterScreenProps> = ({ navigation, onRe
           name='heightCm'
           label='Height (cm)'
           placeholder='170'
-          value={values.heightCm?.toString() || ""}
-          onChangeText={(text) => setValue("heightCm", text ? parseInt(text) : undefined)}
-          error={errors.heightCm}
+          value={heightCm?.toString() || ""}
+          onChangeText={(text) => setHeightCm(text ? parseInt(text) : undefined)}
+          error={typeof errors.heightCm === "string" ? errors.heightCm : undefined}
           keyboardType='numeric'
           containerStyle={styles.statField}
         />
@@ -323,9 +383,9 @@ export const RegisterScreen: React.FC<RegisterScreenProps> = ({ navigation, onRe
           name='weightKg'
           label='Weight (kg)'
           placeholder='70'
-          value={values.weightKg?.toString() || ""}
-          onChangeText={(text) => setValue("weightKg", text ? parseFloat(text) : undefined)}
-          error={errors.weightKg}
+          value={weightKg?.toString() || ""}
+          onChangeText={(text) => setWeightKg(text ? parseFloat(text) : undefined)}
+          error={typeof errors.weightKg === "string" ? errors.weightKg : undefined}
           keyboardType='numeric'
           containerStyle={styles.statField}
         />

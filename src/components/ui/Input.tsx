@@ -138,12 +138,10 @@ export const Input = forwardRef<TextInput, InputProps>(
     const currentState = !editable ? "disabled" : error ? "error" : state;
 
     const handleFocus = (event: any) => {
-      console.log("Input handleFocus called");
       onFocus?.(event);
     };
 
     const handleBlur = (event: any) => {
-      console.log("Input handleBlur called");
       onBlur?.(event);
     };
 
