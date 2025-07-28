@@ -289,7 +289,13 @@ CREATE UNIQUE INDEX idx_workout_performance_analytics_user_week
 ON workout_performance_analytics(user_id, week_start);
 
 -- Refresh analytics weekly
-SELECT cron.schedule('refresh-workout-analytics', '0 6 * * 1', 'REFRESH MATERIALIZED VIEW workout_performance_analytics;');
+-- Only schedule if pg_cron extension is available
+DO $$
+BEGIN
+  IF EXISTS (SELECT 1 FROM pg_extension WHERE extname = 'pg_cron') THEN
+    PERFORM cron.schedule('refresh-workout-analytics', '0 6 * * 1', 'REFRESH MATERIALIZED VIEW workout_performance_analytics;');
+  END IF;
+END $$;
 
 -- ============================================================================
 -- STRENGTH PROGRESSION TRACKING

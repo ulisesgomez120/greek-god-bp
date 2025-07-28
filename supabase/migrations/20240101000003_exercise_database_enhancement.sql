@@ -54,13 +54,7 @@ ALTER TABLE exercises ADD COLUMN IF NOT EXISTS popularity_score INTEGER DEFAULT 
 -- Create custom text search configuration for fitness terms
 CREATE TEXT SEARCH CONFIGURATION fitness_search (COPY = english);
 
--- Add fitness-specific dictionary for better search results
-CREATE TEXT SEARCH DICTIONARY fitness_dict (
-    TEMPLATE = simple,
-    STOPWORDS = fitness_stopwords
-);
-
--- Create stopwords file content (common fitness terms that shouldn't be ignored)
+-- Create stopwords table for reference (fitness terms that shouldn't be ignored in search)
 CREATE TABLE fitness_stopwords AS
 SELECT unnest(ARRAY[
   'rep', 'reps', 'set', 'sets', 'weight', 'kg', 'lb', 'lbs',
@@ -313,33 +307,39 @@ END;
 $$ LANGUAGE plpgsql;
 
 -- Schedule popularity updates (requires pg_cron extension)
-SELECT cron.schedule('update-exercise-popularity', '0 4 * * *', 'SELECT update_exercise_popularity();');
+-- Only schedule if pg_cron extension is available
+DO $$
+BEGIN
+  IF EXISTS (SELECT 1 FROM pg_extension WHERE extname = 'pg_cron') THEN
+    PERFORM cron.schedule('update-exercise-popularity', '0 4 * * *', 'SELECT update_exercise_popularity();');
+  END IF;
+END $$;
 
 -- ============================================================================
 -- PERFORMANCE INDEXES FOR SEARCH
 -- ============================================================================
 
 -- GIN indexes for full-text search
-CREATE INDEX CONCURRENTLY idx_exercises_search_vector ON exercises USING GIN(search_vector);
-CREATE INDEX CONCURRENTLY idx_exercises_muscle_groups_gin ON exercises USING GIN(muscle_groups);
-CREATE INDEX CONCURRENTLY idx_exercises_equipment_gin ON exercises USING GIN(equipment);
-CREATE INDEX CONCURRENTLY idx_exercises_search_terms_gin ON exercises USING GIN(search_terms);
+CREATE INDEX idx_exercises_search_vector ON exercises USING GIN(search_vector);
+CREATE INDEX idx_exercises_muscle_groups_gin ON exercises USING GIN(muscle_groups);
+CREATE INDEX idx_exercises_equipment_gin ON exercises USING GIN(equipment);
+CREATE INDEX idx_exercises_search_terms_gin ON exercises USING GIN(search_terms);
 
 -- Trigram indexes for autocomplete
-CREATE INDEX CONCURRENTLY idx_exercises_name_trgm ON exercises USING GIN(name gin_trgm_ops);
+CREATE INDEX idx_exercises_name_trgm ON exercises USING GIN(name gin_trgm_ops);
 
 -- Composite indexes for filtered searches
-CREATE INDEX CONCURRENTLY idx_exercises_muscle_difficulty ON exercises(primary_muscle, difficulty);
-CREATE INDEX CONCURRENTLY idx_exercises_compound_difficulty ON exercises(is_compound, difficulty) WHERE is_compound = TRUE;
-CREATE INDEX CONCURRENTLY idx_exercises_movement_pattern ON exercises(movement_pattern, complexity);
+CREATE INDEX idx_exercises_muscle_difficulty ON exercises(primary_muscle, difficulty);
+CREATE INDEX idx_exercises_compound_difficulty ON exercises(is_compound, difficulty) WHERE is_compound = TRUE;
+CREATE INDEX idx_exercises_movement_pattern ON exercises(movement_pattern, complexity);
 
 -- Popularity and ranking indexes
-CREATE INDEX CONCURRENTLY idx_exercises_popularity ON exercises(popularity_score DESC, name);
-CREATE INDEX CONCURRENTLY idx_exercises_parent_child ON exercises(parent_exercise_id) WHERE parent_exercise_id IS NOT NULL;
+CREATE INDEX idx_exercises_popularity ON exercises(popularity_score DESC, name);
+CREATE INDEX idx_exercises_parent_child ON exercises(parent_exercise_id) WHERE parent_exercise_id IS NOT NULL;
 
 -- Partial indexes for common queries
-CREATE INDEX CONCURRENTLY idx_exercises_beginner ON exercises(name, difficulty) WHERE difficulty <= 2;
-CREATE INDEX CONCURRENTLY idx_exercises_compound ON exercises(name, primary_muscle) WHERE is_compound = TRUE;
+CREATE INDEX idx_exercises_beginner ON exercises(name, difficulty) WHERE difficulty <= 2;
+CREATE INDEX idx_exercises_compound ON exercises(name, primary_muscle) WHERE is_compound = TRUE;
 
 -- ============================================================================
 -- EXERCISE RECOMMENDATION SYSTEM
@@ -589,7 +589,13 @@ CREATE UNIQUE INDEX idx_exercise_search_cache_id ON exercise_search_cache(id);
 CREATE INDEX idx_exercise_search_cache_terms ON exercise_search_cache USING GIN(all_search_terms);
 
 -- Refresh materialized view daily
-SELECT cron.schedule('refresh-exercise-search-cache', '0 5 * * *', 'REFRESH MATERIALIZED VIEW exercise_search_cache;');
+-- Only schedule if pg_cron extension is available
+DO $$
+BEGIN
+  IF EXISTS (SELECT 1 FROM pg_extension WHERE extname = 'pg_cron') THEN
+    PERFORM cron.schedule('refresh-exercise-search-cache', '0 5 * * *', 'REFRESH MATERIALIZED VIEW exercise_search_cache;');
+  END IF;
+END $$;
 
 -- ============================================================================
 -- COMMENTS FOR DOCUMENTATION

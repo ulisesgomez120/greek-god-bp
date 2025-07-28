@@ -708,19 +708,43 @@ CREATE POLICY "Anyone can view comparison groups" ON performance_comparison_grou
 -- ============================================================================
 
 -- Refresh performance rankings daily
-SELECT cron.schedule('refresh-performance-rankings', '0 7 * * *', 'REFRESH MATERIALIZED VIEW user_performance_rankings;');
+-- Only schedule if pg_cron extension is available
+DO $$
+BEGIN
+  IF EXISTS (SELECT 1 FROM pg_extension WHERE extname = 'pg_cron') THEN
+    PERFORM cron.schedule('refresh-performance-rankings', '0 7 * * *', 'REFRESH MATERIALIZED VIEW user_performance_rankings;');
+  END IF;
+END $$;
 
 -- Update goal progress daily
-SELECT cron.schedule('update-goal-progress', '0 8 * * *', 
-  'SELECT update_goal_progress(id) FROM fitness_goals WHERE is_active = TRUE;');
+-- Only schedule if pg_cron extension is available
+DO $$
+BEGIN
+  IF EXISTS (SELECT 1 FROM pg_extension WHERE extname = 'pg_cron') THEN
+    PERFORM cron.schedule('update-goal-progress', '0 8 * * *', 
+      'SELECT update_goal_progress(id) FROM fitness_goals WHERE is_active = TRUE;');
+  END IF;
+END $$;
 
 -- Check achievements weekly
-SELECT cron.schedule('check-achievements', '0 9 * * 1', 
-  'SELECT check_user_achievements(id) FROM user_profiles;');
+-- Only schedule if pg_cron extension is available
+DO $$
+BEGIN
+  IF EXISTS (SELECT 1 FROM pg_extension WHERE extname = 'pg_cron') THEN
+    PERFORM cron.schedule('check-achievements', '0 9 * * 1', 
+      'SELECT check_user_achievements(id) FROM user_profiles;');
+  END IF;
+END $$;
 
 -- Clean up old progress metrics (keep 2 years)
-SELECT cron.schedule('cleanup-progress-metrics', '0 2 * * 0', 
-  'DELETE FROM progress_metrics WHERE created_at < NOW() - INTERVAL ''2 years'';');
+-- Only schedule if pg_cron extension is available
+DO $$
+BEGIN
+  IF EXISTS (SELECT 1 FROM pg_extension WHERE extname = 'pg_cron') THEN
+    PERFORM cron.schedule('cleanup-progress-metrics', '0 2 * * 0', 
+      'DELETE FROM progress_metrics WHERE created_at < NOW() - INTERVAL ''2 years'';');
+  END IF;
+END $$;
 
 -- ============================================================================
 -- UTILITY VIEWS FOR COMMON QUERIES

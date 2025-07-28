@@ -8,44 +8,8 @@
 -- SUBSCRIPTION PLANS
 -- ============================================================================
 
--- Insert subscription plans
-INSERT INTO subscription_plans (name, description, price_cents, interval, stripe_price_id, features, max_ai_queries, max_custom_workouts, max_clients, sort_order) VALUES
-(
-  'Free',
-  'Perfect for getting started with workout tracking',
-  0,
-  'month',
-  'price_free_plan', -- Placeholder, will be updated with real Stripe price ID
-  '["unlimited_workout_logging", "basic_progression_tracking", "one_pre_built_program", "basic_progress_charts"]',
-  2, -- 2 AI conversations per month
-  0, -- No custom workouts
-  0, -- No clients
-  1
-),
-(
-  'Premium Monthly',
-  'Full access to all features and unlimited AI coaching',
-  999, -- $9.99
-  'month',
-  'price_premium_monthly', -- Placeholder
-  '["unlimited_workout_logging", "all_pre_built_programs", "unlimited_ai_coaching", "monthly_ai_reviews", "advanced_analytics", "custom_program_builder", "data_export"]',
-  -1, -- Unlimited AI queries
-  -1, -- Unlimited custom workouts
-  0, -- No clients
-  2
-),
-(
-  'Premium Yearly',
-  'Full premium features with 33% savings',
-  7999, -- $79.99 (33% discount)
-  'year',
-  'price_premium_yearly', -- Placeholder
-  '["unlimited_workout_logging", "all_pre_built_programs", "unlimited_ai_coaching", "monthly_ai_reviews", "advanced_analytics", "custom_program_builder", "data_export"]',
-  -1, -- Unlimited AI queries
-  -1, -- Unlimited custom workouts
-  0, -- No clients
-  3
-);
+-- Subscription plans are now created in migration 006, so no need to insert them here
+-- This avoids conflicts with the migration-created plans
 
 -- ============================================================================
 -- COMPREHENSIVE EXERCISE DATABASE

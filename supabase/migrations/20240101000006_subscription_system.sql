@@ -592,6 +592,28 @@ INSERT INTO subscription_features (feature_key, feature_name, description, categ
 ('priority_support', 'Priority Support', 'Priority customer support', 'premium'),
 ('beta_features', 'Beta Features', 'Early access to new features', 'premium');
 
+-- Create default subscription plans if they don't exist
+DO $$
+BEGIN
+  -- Insert Free plan if it doesn't exist
+  IF NOT EXISTS (SELECT 1 FROM subscription_plans WHERE name = 'Free') THEN
+    INSERT INTO subscription_plans (name, description, price_cents, interval, stripe_price_id, features, is_active, sort_order)
+    VALUES ('Free', 'Free plan with basic features', 0, 'month', 'price_free', '["unlimited_workouts", "basic_analytics"]', TRUE, 1);
+  END IF;
+
+  -- Insert Premium Monthly plan if it doesn't exist
+  IF NOT EXISTS (SELECT 1 FROM subscription_plans WHERE name = 'Premium Monthly') THEN
+    INSERT INTO subscription_plans (name, description, price_cents, interval, stripe_price_id, features, is_active, sort_order)
+    VALUES ('Premium Monthly', 'Premium monthly subscription', 999, 'month', 'price_premium_monthly', '["unlimited_workouts", "ai_coaching", "advanced_analytics", "custom_programs"]', TRUE, 2);
+  END IF;
+
+  -- Insert Premium Yearly plan if it doesn't exist
+  IF NOT EXISTS (SELECT 1 FROM subscription_plans WHERE name = 'Premium Yearly') THEN
+    INSERT INTO subscription_plans (name, description, price_cents, interval, stripe_price_id, features, is_active, sort_order)
+    VALUES ('Premium Yearly', 'Premium yearly subscription', 9999, 'year', 'price_premium_yearly', '["unlimited_workouts", "ai_coaching", "advanced_analytics", "custom_programs", "priority_support"]', TRUE, 3);
+  END IF;
+END $$;
+
 -- Set up feature limits for existing plans
 DO $$
 DECLARE
@@ -605,37 +627,42 @@ BEGIN
   SELECT id INTO premium_monthly_id FROM subscription_plans WHERE name = 'Premium Monthly';
   SELECT id INTO premium_yearly_id FROM subscription_plans WHERE name = 'Premium Yearly';
 
-  -- Set up Free plan limits
-  FOR feature_record IN SELECT * FROM subscription_features LOOP
-    INSERT INTO plan_feature_limits (plan_id, feature_id, is_enabled, usage_limit, reset_period) VALUES
-    (free_plan_id, feature_record.id, 
-     CASE feature_record.feature_key
-       WHEN 'unlimited_workouts' THEN TRUE
-       WHEN 'ai_coaching' THEN TRUE
-       ELSE FALSE
-     END,
-     CASE feature_record.feature_key
-       WHEN 'unlimited_workouts' THEN NULL -- Unlimited
-       WHEN 'ai_coaching' THEN 2 -- 2 per month
-       ELSE 0 -- Disabled
-     END,
-     CASE feature_record.feature_key
-       WHEN 'ai_coaching' THEN 'monthly'
-       ELSE 'lifetime'
-     END
-    );
-  END LOOP;
+  -- Only proceed if we have valid plan IDs
+  IF free_plan_id IS NOT NULL AND premium_monthly_id IS NOT NULL AND premium_yearly_id IS NOT NULL THEN
+    -- Set up Free plan limits
+    FOR feature_record IN SELECT * FROM subscription_features LOOP
+      INSERT INTO plan_feature_limits (plan_id, feature_id, is_enabled, usage_limit, reset_period) VALUES
+      (free_plan_id, feature_record.id, 
+       CASE feature_record.feature_key
+         WHEN 'unlimited_workouts' THEN TRUE
+         WHEN 'ai_coaching' THEN TRUE
+         ELSE FALSE
+       END,
+       CASE feature_record.feature_key
+         WHEN 'unlimited_workouts' THEN NULL -- Unlimited
+         WHEN 'ai_coaching' THEN 2 -- 2 per month
+         ELSE 0 -- Disabled
+       END,
+       CASE feature_record.feature_key
+         WHEN 'ai_coaching' THEN 'monthly'
+         ELSE 'lifetime'
+       END
+      ) ON CONFLICT (plan_id, feature_id) DO NOTHING;
+    END LOOP;
 
-  -- Set up Premium plan limits (both monthly and yearly)
-  FOR feature_record IN SELECT * FROM subscription_features LOOP
-    -- Premium Monthly
-    INSERT INTO plan_feature_limits (plan_id, feature_id, is_enabled, usage_limit, reset_period) VALUES
-    (premium_monthly_id, feature_record.id, TRUE, NULL, 'lifetime');
-    
-    -- Premium Yearly
-    INSERT INTO plan_feature_limits (plan_id, feature_id, is_enabled, usage_limit, reset_period) VALUES
-    (premium_yearly_id, feature_record.id, TRUE, NULL, 'lifetime');
-  END LOOP;
+    -- Set up Premium plan limits (both monthly and yearly)
+    FOR feature_record IN SELECT * FROM subscription_features LOOP
+      -- Premium Monthly
+      INSERT INTO plan_feature_limits (plan_id, feature_id, is_enabled, usage_limit, reset_period) VALUES
+      (premium_monthly_id, feature_record.id, TRUE, NULL, 'lifetime')
+      ON CONFLICT (plan_id, feature_id) DO NOTHING;
+      
+      -- Premium Yearly
+      INSERT INTO plan_feature_limits (plan_id, feature_id, is_enabled, usage_limit, reset_period) VALUES
+      (premium_yearly_id, feature_record.id, TRUE, NULL, 'lifetime')
+      ON CONFLICT (plan_id, feature_id) DO NOTHING;
+    END LOOP;
+  END IF;
 END $$;
 
 -- ============================================================================

@@ -697,7 +697,13 @@ END;
 $$ LANGUAGE plpgsql;
 
 -- Schedule cleanup to run monthly
-SELECT cron.schedule('cleanup-ai-data', '0 3 1 * *', 'SELECT cleanup_old_ai_data();');
+-- Only schedule if pg_cron extension is available
+DO $$
+BEGIN
+  IF EXISTS (SELECT 1 FROM pg_extension WHERE extname = 'pg_cron') THEN
+    PERFORM cron.schedule('cleanup-ai-data', '0 3 1 * *', 'SELECT cleanup_old_ai_data();');
+  END IF;
+END $$;
 
 -- ============================================================================
 -- UTILITY VIEWS
@@ -750,4 +756,10 @@ COMMENT ON TABLE ai_learning_data IS 'Data collected for AI model improvement an
 COMMENT ON TABLE ai_model_performance IS 'Performance metrics and monitoring for AI models';
 COMMENT ON TABLE ai_system_alerts IS 'System alerts and monitoring for AI infrastructure';
 
-COMMENT ON
+COMMENT ON FUNCTION get_ai_coaching_context IS 'Get personalized AI coaching context for user interactions';
+COMMENT ON FUNCTION generate_ai_workout_recommendation IS 'Generate AI-powered workout recommendations based on user data';
+COMMENT ON FUNCTION update_conversation_metrics IS 'Update conversation session metrics and costs';
+COMMENT ON FUNCTION cleanup_old_ai_data IS 'Clean up old AI conversation and learning data';
+
+COMMENT ON VIEW ai_usage_analytics IS 'Daily AI usage analytics and metrics';
+COMMENT ON VIEW ai_recommendation_effectiveness IS 'AI recommendation acceptance and effectiveness metrics';
