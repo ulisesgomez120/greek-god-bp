@@ -99,19 +99,19 @@ const DISABLED_TEXT_COLORS = {
 
 const SIZE_STYLES = {
   small: {
-    height: 36,
+    minHeight: 36,
     paddingHorizontal: 16,
     paddingVertical: 8,
     borderRadius: 8,
   },
   medium: {
-    height: 44,
+    minHeight: 44,
     paddingHorizontal: 20,
     paddingVertical: 12,
     borderRadius: 12,
   },
   large: {
-    height: 50,
+    minHeight: 50,
     paddingHorizontal: 20,
     paddingVertical: 16,
     borderRadius: 12,
@@ -184,6 +184,9 @@ export const Button: React.FC<ButtonProps> = ({
         <Text
           variant='button'
           color='primary'
+          numberOfLines={2}
+          adjustsFontSizeToFit={true}
+          minimumFontScale={0.8}
           style={[styles.text, { color: textColor }, loading && styles.textWithLoading]}>
           {children}
         </Text>
@@ -228,6 +231,8 @@ const styles = StyleSheet.create({
   },
   text: {
     textAlign: "center",
+    flexShrink: 1,
+    flexWrap: "wrap",
   },
   textWithLoading: {
     marginLeft: 8,
