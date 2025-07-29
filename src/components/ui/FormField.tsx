@@ -6,7 +6,7 @@
 
 import React, { forwardRef } from "react";
 import { View, StyleSheet, ViewStyle, TextInput } from "react-native";
-import Input, { InputProps, InputRef } from "./Input";
+import Input, { InputProps } from "./Input";
 import Text from "./Text";
 
 // ============================================================================
@@ -35,7 +35,7 @@ export interface FormFieldWrapperProps {
 // COMPONENT
 // ============================================================================
 
-const FormFieldComponent = forwardRef<InputRef, FormFieldProps | FormFieldWrapperProps>((props, ref) => {
+const FormFieldComponent = forwardRef<TextInput, FormFieldProps | FormFieldWrapperProps>((props, ref) => {
   // Type guard to determine if this is a wrapper usage
   const isWrapper = "children" in props;
 
