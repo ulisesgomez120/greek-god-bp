@@ -30,6 +30,11 @@ import {
   clearError,
   updateUserProfile,
   setLoading,
+  selectIsAuthenticated,
+  selectUser,
+  selectSession,
+  selectAuthLoading,
+  selectAuthError,
 } from "@/store/auth/authSlice";
 
 // ============================================================================
@@ -39,8 +44,12 @@ import {
 export function useAuth(): UseAuthReturn {
   const dispatch = useAppDispatch();
 
-  // Select auth state from Redux store
-  const { isAuthenticated, user, session, loading: globalLoading, error } = useAppSelector((state) => state.auth);
+  // Select auth state from Redux store using stable selectors
+  const isAuthenticated = useAppSelector(selectIsAuthenticated);
+  const user = useAppSelector(selectUser);
+  const session = useAppSelector(selectSession);
+  const globalLoading = useAppSelector(selectAuthLoading);
+  const error = useAppSelector(selectAuthError);
 
   // Create detailed loading states
   const loading: AuthLoadingStates = useMemo(
@@ -464,30 +473,50 @@ export function useAuth(): UseAuthReturn {
   // RETURN HOOK INTERFACE
   // ============================================================================
 
-  return {
-    // State
-    isAuthenticated,
-    user,
-    session,
-    loading,
-    error: error || null,
-    isInitialized: !loading.initialization,
+  return useMemo(
+    () => ({
+      // State
+      isAuthenticated,
+      user,
+      session,
+      loading,
+      error: error || null,
+      isInitialized: !loading.initialization,
 
-    // Actions
-    login,
-    signup,
-    logout,
-    refreshSession,
-    resetPassword: resetPasswordAction,
-    resendEmailVerification,
-    updateProfile,
-    clearError: clearAuthError,
+      // Actions
+      login,
+      signup,
+      logout,
+      refreshSession,
+      resetPassword: resetPasswordAction,
+      resendEmailVerification,
+      updateProfile,
+      clearError: clearAuthError,
 
-    // Utilities
-    isTokenExpired,
-    getTokenExpirationTime,
-    hasPermission,
-  };
+      // Utilities
+      isTokenExpired,
+      getTokenExpirationTime,
+      hasPermission,
+    }),
+    [
+      isAuthenticated,
+      user,
+      session,
+      loading,
+      error,
+      login,
+      signup,
+      logout,
+      refreshSession,
+      resetPasswordAction,
+      resendEmailVerification,
+      updateProfile,
+      clearAuthError,
+      isTokenExpired,
+      getTokenExpirationTime,
+      hasPermission,
+    ]
+  );
 }
 
 // ============================================================================

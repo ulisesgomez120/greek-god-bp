@@ -4,14 +4,14 @@
 // Login screen with email/password authentication, form validation, biometric
 // support, and smooth error handling
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import { View, StyleSheet, Alert, Platform, TextInput } from "react-native";
 import * as LocalAuthentication from "expo-local-authentication";
 import { useAuth } from "@/hooks/useAuth";
 import { loginFormSchema, type LoginFormData, validateFormData } from "@/utils/validation";
 import { AUTH_FLOWS, LOADING_MESSAGES } from "@/constants/auth";
 import AuthForm from "@/components/auth/AuthForm";
-import FormField from "@/components/ui/FormField";
+import FormField, { FormFieldRef } from "@/components/ui/FormField";
 import Text from "@/components/ui/Text";
 import Button from "@/components/ui/Button";
 
@@ -29,30 +29,46 @@ export interface LoginScreenProps {
 // ============================================================================
 
 export const LoginScreen: React.FC<LoginScreenProps> = ({ navigation, onLoginSuccess }) => {
-  const { login, loading, error, clearError } = useAuth();
+  console.log("🔄 LoginScreen RENDER - Testing keyboard fix");
+  const authHook = useAuth();
+  const { login, loading, error, clearError } = authHook;
+
   const [biometricAvailable, setBiometricAvailable] = useState(false);
   const [biometricType, setBiometricType] = useState<string>("");
 
-  // Basic form state - no complex hooks
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
+  // Uncontrolled form with refs - no more state-based re-renders!
+  const emailFieldRef = useRef<FormFieldRef>(null);
+  const passwordFieldRef = useRef<FormFieldRef>(null);
   const [errors, setErrors] = useState<{ email?: string; password?: string }>({});
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  // Clear error when user starts typing
-  const handleEmailChange = (value: string) => {
-    setEmail(value);
-    if (errors.email) {
-      setErrors((prev) => ({ ...prev, email: undefined }));
-    }
-  };
+  // Debug logging for refs
+  console.log("🔍 LoginScreen UNCONTROLLED - using refs instead of state");
 
-  const handlePasswordChange = (value: string) => {
-    setPassword(value);
-    if (errors.password) {
-      setErrors((prev) => ({ ...prev, password: undefined }));
-    }
-  };
+  // Clear error when user starts typing - now with stable callbacks
+  const handleEmailChange = useCallback(
+    (value: string) => {
+      console.log("📧 handleEmailChange called - clearing email error");
+      if (errors.email) {
+        setErrors((prev) => ({ ...prev, email: undefined }));
+      }
+    },
+    [errors.email]
+  );
+
+  const handlePasswordChange = useCallback(
+    (value: string) => {
+      console.log("🔒 handlePasswordChange called - clearing password error");
+      if (errors.password) {
+        setErrors((prev) => ({ ...prev, password: undefined }));
+      }
+    },
+    [errors.password]
+  );
+
+  // Memoize individual error values to prevent unnecessary re-renders
+  const emailError = useMemo(() => errors.email, [errors.email]);
+  const passwordError = useMemo(() => errors.password, [errors.password]);
 
   const setFieldError = (field: "email" | "password", message: string) => {
     setErrors((prev) => ({ ...prev, [field]: message }));
@@ -130,6 +146,10 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ navigation, onLoginSuc
     clearAllErrors();
 
     try {
+      // Get values from refs instead of state
+      const email = emailFieldRef.current?.getValue() || "";
+      const password = passwordFieldRef.current?.getValue() || "";
+
       // Validate form data
       const formData: LoginFormData = {
         email,
@@ -200,13 +220,53 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ navigation, onLoginSuc
     }
   };
 
-  const navigateToSignup = () => {
+  const navigateToSignup = useCallback(() => {
     navigation.navigate("Register");
-  };
+  }, [navigation]);
 
-  const navigateToForgotPassword = () => {
+  const navigateToForgotPassword = useCallback(() => {
     navigation.navigate("ForgotPassword");
-  };
+  }, [navigation]);
+
+  // Memoize secondary action to prevent AuthForm re-renders
+  const secondaryAction = useMemo(
+    () => ({
+      text: AUTH_FLOWS.login.switchText,
+      onPress: navigateToSignup,
+    }),
+    [navigateToSignup]
+  );
+
+  // Memoize footer content to prevent AuthForm re-renders
+  const footerContent = useMemo(
+    () => (
+      <View style={styles.footer}>
+        {/* Biometric Login */}
+        {biometricAvailable && (
+          <View style={styles.biometricContainer}>
+            <Button variant='secondary' size='medium' onPress={handleBiometricLogin} style={styles.biometricButton}>
+              Sign in with {biometricType}
+            </Button>
+          </View>
+        )}
+
+        {/* Forgot Password */}
+        <Button variant='text' size='small' onPress={navigateToForgotPassword} style={styles.forgotPasswordButton}>
+          Forgot your password?
+        </Button>
+
+        {/* Global Error */}
+        {error && (
+          <View style={styles.errorContainer}>
+            <Text variant='bodySmall' color='error' align='center'>
+              {error}
+            </Text>
+          </View>
+        )}
+      </View>
+    ),
+    [biometricAvailable, biometricType, handleBiometricLogin, navigateToForgotPassword, error]
+  );
 
   // ============================================================================
   // RENDER
@@ -220,43 +280,16 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ navigation, onLoginSuc
       submitText={AUTH_FLOWS.login.submitText}
       submitLoading={isSubmitting || loading.login}
       submitDisabled={isSubmitting}
-      secondaryAction={{
-        text: AUTH_FLOWS.login.switchText,
-        onPress: navigateToSignup,
-      }}
-      footerContent={
-        <View style={styles.footer}>
-          {/* Biometric Login */}
-          {biometricAvailable && (
-            <View style={styles.biometricContainer}>
-              <Button variant='secondary' size='medium' onPress={handleBiometricLogin} style={styles.biometricButton}>
-                Sign in with {biometricType}
-              </Button>
-            </View>
-          )}
-
-          {/* Forgot Password */}
-          <Button variant='text' size='small' onPress={navigateToForgotPassword} style={styles.forgotPasswordButton}>
-            Forgot your password?
-          </Button>
-
-          {/* Global Error */}
-          {error && (
-            <View style={styles.errorContainer}>
-              <Text variant='bodySmall' color='error' align='center'>
-                {error}
-              </Text>
-            </View>
-          )}
-        </View>
-      }>
+      secondaryAction={secondaryAction}
+      footerContent={footerContent}>
       <FormField
+        ref={emailFieldRef}
         name='email'
         label='Email Address'
         placeholder='Enter your email'
-        value={email}
+        defaultValue=''
         onChangeText={handleEmailChange}
-        error={errors.email}
+        error={emailError}
         keyboardType='email-address'
         autoCapitalize='none'
         autoComplete='email'
@@ -265,12 +298,13 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ navigation, onLoginSuc
       />
 
       <FormField
+        ref={passwordFieldRef}
         name='password'
         label='Password'
         placeholder='Enter your password'
-        value={password}
+        defaultValue=''
         onChangeText={handlePasswordChange}
-        error={errors.password}
+        error={passwordError}
         secureTextEntry
         showPasswordToggle
         autoComplete='current-password'

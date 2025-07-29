@@ -43,7 +43,8 @@ const AuthStack = createStackNavigator<AuthStackParamList>();
 // AUTH NAVIGATOR COMPONENT
 // ============================================================================
 
-const AuthNavigator: React.FC = () => {
+const AuthNavigatorComponent: React.FC = () => {
+  console.log("🔄 AuthNavigator RENDER - Testing parent re-render");
   const { isAuthenticated, user } = useAuth();
 
   // Show main app if authenticated and onboarded
@@ -97,5 +98,7 @@ const AuthNavigator: React.FC = () => {
     </NavigationContainer>
   );
 };
+
+const AuthNavigator = React.memo(AuthNavigatorComponent);
 
 export default AuthNavigator;

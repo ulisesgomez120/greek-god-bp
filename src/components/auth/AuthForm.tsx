@@ -35,7 +35,7 @@ export interface AuthFormProps {
 // COMPONENT
 // ============================================================================
 
-export const AuthForm: React.FC<AuthFormProps> = ({
+const AuthFormComponent: React.FC<AuthFormProps> = ({
   title,
   subtitle,
   children,
@@ -178,4 +178,5 @@ const styles = StyleSheet.create({
 // EXPORT
 // ============================================================================
 
+export const AuthForm = React.memo(AuthFormComponent);
 export default AuthForm;

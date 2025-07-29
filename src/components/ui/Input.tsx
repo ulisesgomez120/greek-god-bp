@@ -4,7 +4,7 @@
 // Styled input component following TrainSmart design system with validation
 // states, accessibility support, and keyboard handling
 
-import React, { forwardRef, useState } from "react";
+import React, { forwardRef, useState, useRef, useImperativeHandle } from "react";
 import {
   TextInput,
   TextInputProps,
@@ -24,7 +24,7 @@ import Text from "./Text";
 export type InputVariant = "default" | "search" | "rpe";
 export type InputState = "default" | "focused" | "error" | "success" | "disabled";
 
-export interface InputProps extends Omit<TextInputProps, "style"> {
+export interface InputProps extends Omit<TextInputProps, "style" | "value"> {
   variant?: InputVariant;
   state?: InputState;
   label?: string;
@@ -36,6 +36,16 @@ export interface InputProps extends Omit<TextInputProps, "style"> {
   containerStyle?: ViewStyle;
   inputStyle?: TextStyle;
   required?: boolean;
+  defaultValue?: string;
+}
+
+// Imperative methods exposed by the Input component
+export interface InputRef {
+  getValue: () => string;
+  setValue: (value: string) => void;
+  focus: () => void;
+  blur: () => void;
+  clear: () => void;
 }
 
 // ============================================================================
@@ -109,7 +119,7 @@ const TEXT_COLORS = {
 // COMPONENT
 // ============================================================================
 
-export const Input = forwardRef<TextInput, InputProps>(
+const InputComponent = forwardRef<InputRef, InputProps>(
   (
     {
       variant = "default",
@@ -127,12 +137,52 @@ export const Input = forwardRef<TextInput, InputProps>(
       onFocus,
       onBlur,
       editable = true,
+      defaultValue = "",
       ...props
     },
     ref
   ) => {
+    console.log("🎯 Input RENDER (UNCONTROLLED) - label:", label, "defaultValue:", defaultValue, "error:", error);
+
+    // Internal ref to the TextInput
+    const inputRef = useRef<TextInput>(null);
+
     // Remove isFocused state to prevent re-renders during focus events
     const [isPasswordVisible, setIsPasswordVisible] = useState(false);
+
+    // Track current value internally for getValue method
+    const [currentValue, setCurrentValue] = useState(defaultValue);
+
+    // Expose imperative methods via useImperativeHandle
+    useImperativeHandle(
+      ref,
+      () => ({
+        getValue: () => {
+          return currentValue;
+        },
+        setValue: (value: string) => {
+          setCurrentValue(value);
+          inputRef.current?.setNativeProps({ text: value });
+        },
+        focus: () => {
+          inputRef.current?.focus();
+        },
+        blur: () => {
+          inputRef.current?.blur();
+        },
+        clear: () => {
+          setCurrentValue("");
+          inputRef.current?.clear();
+        },
+      }),
+      [currentValue]
+    );
+
+    // Handle text changes to keep track of current value
+    const handleChangeText = (text: string) => {
+      setCurrentValue(text);
+      props.onChangeText?.(text);
+    };
 
     // Determine current state without internal focus tracking
     const currentState = !editable ? "disabled" : error ? "error" : state;
@@ -188,12 +238,14 @@ export const Input = forwardRef<TextInput, InputProps>(
           {leftIcon && <View style={styles.leftIconContainer}>{leftIcon}</View>}
 
           <TextInput
-            ref={ref}
+            ref={inputRef}
             style={textInputStyles}
+            defaultValue={defaultValue}
             placeholderTextColor={TEXT_COLORS.placeholder}
             secureTextEntry={showPasswordToggle ? !isPasswordVisible : secureTextEntry}
             onFocus={handleFocus}
             onBlur={handleBlur}
+            onChangeText={handleChangeText}
             editable={editable}
             accessibilityLabel={label}
             accessibilityHint={helperText || error}
@@ -229,6 +281,8 @@ export const Input = forwardRef<TextInput, InputProps>(
     );
   }
 );
+
+export const Input = React.memo(InputComponent);
 
 Input.displayName = "Input";
 

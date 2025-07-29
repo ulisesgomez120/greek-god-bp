@@ -71,7 +71,8 @@ const FAST_CONNECTION_THRESHOLD = 1;
 
 export function useNetworkStatus(): UseNetworkStatusReturn {
   const dispatch = useAppDispatch();
-  const networkStatus = useAppSelector((state) => state.ui.networkStatus);
+  // Note: We're not actually using networkStatus from Redux in this implementation
+  // const networkStatus = useAppSelector((state) => state.ui.networkStatus);
 
   const [localStatus, setLocalStatus] = useState<NetworkStatus>({
     isConnected: true,
@@ -178,23 +179,25 @@ export function useNetworkStatus(): UseNetworkStatusReturn {
     const unsubscribe = NetInfo.addEventListener((netInfoState: NetInfoState) => {
       const status = processNetworkState(netInfoState);
 
-      setLocalStatus(status);
+      setLocalStatus((prevStatus) => {
+        // Log significant network changes
+        if (status.isConnected !== prevStatus.isConnected) {
+          logger.info(`Network status changed: ${status.isConnected ? "Connected" : "Disconnected"}`, {
+            connectionType: status.connectionType,
+            isSlowConnection: status.isSlowConnection,
+          });
+        }
+        return status;
+      });
+
       // Dispatch simple online/offline status to Redux
       dispatch(setNetworkStatus(status.isConnected ? "online" : "offline"));
-
-      // Log significant network changes
-      if (status.isConnected !== localStatus.isConnected) {
-        logger.info(`Network status changed: ${status.isConnected ? "Connected" : "Disconnected"}`, {
-          connectionType: status.connectionType,
-          isSlowConnection: status.isSlowConnection,
-        });
-      }
     });
 
     return () => {
       unsubscribe();
     };
-  }, [dispatch, localStatus.isConnected]);
+  }, [dispatch]); // Remove localStatus.isConnected dependency to prevent loops
 
   // ============================================================================
   // RETURN HOOK INTERFACE
