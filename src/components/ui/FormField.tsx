@@ -54,7 +54,7 @@ const FormFieldComponent = forwardRef<TextInput, FormFieldProps | FormFieldWrapp
     // Standard mode - handle input internally with uncontrolled pattern
     const {
       name,
-      defaultValue,
+      defaultValue = "",
       onChangeText,
       onBlur,
       error,

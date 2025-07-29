@@ -17,7 +17,7 @@ import {
 } from "@/utils/validation";
 import { AUTH_FLOWS, EXPERIENCE_LEVELS, FITNESS_GOALS } from "@/constants/auth";
 import AuthForm from "@/components/auth/AuthForm";
-import FormField from "@/components/ui/FormField";
+import Input from "@/components/ui/Input";
 import Text from "@/components/ui/Text";
 import Button from "@/components/ui/Button";
 
@@ -41,7 +41,7 @@ export const RegisterScreen: React.FC<RegisterScreenProps> = ({ navigation, onRe
   const [currentStep, setCurrentStep] = useState<RegistrationStep>("credentials");
   const [selectedGoals, setSelectedGoals] = useState<string[]>([]);
 
-  // Uncontrolled form with refs - no more state-based re-renders!
+  // Uncontrolled form with refs - no state-based re-renders!
   const emailFieldRef = useRef<TextInput>(null);
   const passwordFieldRef = useRef<TextInput>(null);
   const confirmPasswordFieldRef = useRef<TextInput>(null);
@@ -63,9 +63,10 @@ export const RegisterScreen: React.FC<RegisterScreenProps> = ({ navigation, onRe
   const [errors, setErrors] = useState<Partial<RegistrationFormData>>({});
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  // Clear error when user starts typing and track values
+  // Clear error when user starts typing and track values - NO STATE UPDATES
   const handleEmailChange = (value: string) => {
     emailValueRef.current = value;
+    // Only clear error if it exists, but don't cause re-render unless necessary
     if (errors.email) {
       setErrors((prev) => ({ ...prev, email: undefined }));
     }
@@ -302,13 +303,13 @@ export const RegisterScreen: React.FC<RegisterScreenProps> = ({ navigation, onRe
     clearAllErrors();
 
     try {
-      // Get values from tracked refs
+      // Get values from refs
       const email = emailValueRef.current;
       const password = passwordValueRef.current;
       const confirmPassword = confirmPasswordValueRef.current;
       const displayName = displayNameValueRef.current;
-      const heightText = heightValueRef.current;
-      const weightText = weightValueRef.current;
+      const heightCm = heightValueRef.current;
+      const weightKg = weightValueRef.current;
 
       // Create form data
       const formData: RegistrationFormData = {
@@ -318,8 +319,8 @@ export const RegisterScreen: React.FC<RegisterScreenProps> = ({ navigation, onRe
         displayName,
         experienceLevel,
         fitnessGoals: selectedGoals,
-        heightCm: heightText ? parseInt(heightText) : undefined,
-        weightKg: weightText ? parseFloat(weightText) : undefined,
+        heightCm: heightCm ? parseInt(heightCm) : undefined,
+        weightKg: weightKg ? parseFloat(weightKg) : undefined,
         agreeToTerms: false,
         subscribeToNewsletter: false,
       };
@@ -391,12 +392,10 @@ export const RegisterScreen: React.FC<RegisterScreenProps> = ({ navigation, onRe
 
   const renderCredentialsStep = () => (
     <>
-      <FormField
+      <Input
         ref={emailFieldRef}
-        name='email'
         label='Email Address'
         placeholder='Enter your email'
-        defaultValue=''
         onChangeText={handleEmailChange}
         onBlur={handleEmailBlur}
         error={errors.email}
@@ -407,12 +406,10 @@ export const RegisterScreen: React.FC<RegisterScreenProps> = ({ navigation, onRe
         required
       />
 
-      <FormField
+      <Input
         ref={passwordFieldRef}
-        name='password'
         label='Password'
         placeholder='Create a strong password'
-        defaultValue=''
         onChangeText={handlePasswordChange}
         onBlur={handlePasswordBlur}
         error={errors.password}
@@ -424,12 +421,10 @@ export const RegisterScreen: React.FC<RegisterScreenProps> = ({ navigation, onRe
         required
       />
 
-      <FormField
+      <Input
         ref={confirmPasswordFieldRef}
-        name='confirmPassword'
         label='Confirm Password'
         placeholder='Confirm your password'
-        defaultValue=''
         onChangeText={handleConfirmPasswordChange}
         onBlur={handleConfirmPasswordBlur}
         error={errors.confirmPassword}
@@ -443,12 +438,10 @@ export const RegisterScreen: React.FC<RegisterScreenProps> = ({ navigation, onRe
 
   const renderProfileStep = () => (
     <>
-      <FormField
+      <Input
         ref={displayNameFieldRef}
-        name='displayName'
         label='Display Name'
         placeholder='How should we call you?'
-        defaultValue=''
         onChangeText={handleDisplayNameChange}
         onBlur={handleDisplayNameBlur}
         error={errors.displayName}
@@ -542,24 +535,20 @@ export const RegisterScreen: React.FC<RegisterScreenProps> = ({ navigation, onRe
       </Text>
 
       <View style={styles.statsRow}>
-        <FormField
+        <Input
           ref={heightFieldRef}
-          name='heightCm'
           label='Height (cm)'
           placeholder='170'
-          defaultValue=''
           onChangeText={handleHeightChange}
           error={typeof errors.heightCm === "string" ? errors.heightCm : undefined}
           keyboardType='numeric'
           containerStyle={styles.statField}
         />
 
-        <FormField
+        <Input
           ref={weightFieldRef}
-          name='weightKg'
           label='Weight (kg)'
           placeholder='70'
-          defaultValue=''
           onChangeText={handleWeightChange}
           error={typeof errors.weightKg === "string" ? errors.weightKg : undefined}
           keyboardType='numeric'

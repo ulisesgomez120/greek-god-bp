@@ -24,7 +24,7 @@ import Text from "./Text";
 export type InputVariant = "default" | "search" | "rpe";
 export type InputState = "default" | "focused" | "error" | "success" | "disabled";
 
-export interface InputProps extends Omit<TextInputProps, "style" | "value"> {
+export interface InputProps extends Omit<TextInputProps, "style" | "value" | "onChangeText"> {
   variant?: InputVariant;
   state?: InputState;
   label?: string;
@@ -37,6 +37,7 @@ export interface InputProps extends Omit<TextInputProps, "style" | "value"> {
   inputStyle?: TextStyle;
   required?: boolean;
   defaultValue?: string;
+  onChangeText?: (text: string) => void;
 }
 
 // ============================================================================
@@ -129,16 +130,17 @@ const InputComponent = forwardRef<TextInput, InputProps>(
       onBlur,
       editable = true,
       defaultValue = "",
+      onChangeText,
       ...props
     },
     ref
   ) => {
-    // Remove isFocused state to prevent re-renders during focus events
+    // Only track password visibility state - no input value state
     const [isPasswordVisible, setIsPasswordVisible] = useState(false);
 
-    // Handle text changes
+    // Handle text changes - just notify parent, no internal state
     const handleChangeText = (text: string) => {
-      props.onChangeText?.(text);
+      onChangeText?.(text);
     };
 
     // Determine current state without internal focus tracking
@@ -250,6 +252,7 @@ Input.displayName = "Input";
 const styles = StyleSheet.create({
   container: {
     width: "100%",
+    marginBottom: 16, // Add FormField's container margin
   },
   labelContainer: {
     marginBottom: 8,
