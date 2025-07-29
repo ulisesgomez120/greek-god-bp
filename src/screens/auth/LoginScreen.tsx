@@ -11,7 +11,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { loginFormSchema, type LoginFormData, validateFormData } from "@/utils/validation";
 import { AUTH_FLOWS, LOADING_MESSAGES } from "@/constants/auth";
 import AuthForm from "@/components/auth/AuthForm";
-import FormField from "@/components/ui/FormField";
+import Input from "@/components/ui/Input";
 import Text from "@/components/ui/Text";
 import Button from "@/components/ui/Button";
 
@@ -258,12 +258,10 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ navigation, onLoginSuc
       submitDisabled={isSubmitting}
       secondaryAction={secondaryAction}
       footerContent={footerContent}>
-      <FormField
+      <Input
         ref={emailFieldRef}
-        name='email'
         label='Email Address'
         placeholder='Enter your email'
-        defaultValue=''
         onChangeText={handleEmailChange}
         error={errors.email}
         keyboardType='email-address'
@@ -273,12 +271,10 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ navigation, onLoginSuc
         required
       />
 
-      <FormField
+      <Input
         ref={passwordFieldRef}
-        name='password'
         label='Password'
         placeholder='Enter your password'
-        defaultValue=''
         onChangeText={handlePasswordChange}
         error={errors.password}
         secureTextEntry

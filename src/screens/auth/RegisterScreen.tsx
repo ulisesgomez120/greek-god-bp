@@ -63,34 +63,21 @@ export const RegisterScreen: React.FC<RegisterScreenProps> = ({ navigation, onRe
   const [errors, setErrors] = useState<Partial<RegistrationFormData>>({});
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  // Clear error when user starts typing and track values - NO STATE UPDATES
+  // Track values without clearing errors on keystroke
   const handleEmailChange = (value: string) => {
     emailValueRef.current = value;
-    // Only clear error if it exists, but don't cause re-render unless necessary
-    if (errors.email) {
-      setErrors((prev) => ({ ...prev, email: undefined }));
-    }
   };
 
   const handlePasswordChange = (value: string) => {
     passwordValueRef.current = value;
-    if (errors.password) {
-      setErrors((prev) => ({ ...prev, password: undefined }));
-    }
   };
 
   const handleConfirmPasswordChange = (value: string) => {
     confirmPasswordValueRef.current = value;
-    if (errors.confirmPassword) {
-      setErrors((prev) => ({ ...prev, confirmPassword: undefined }));
-    }
   };
 
   const handleDisplayNameChange = (value: string) => {
     displayNameValueRef.current = value;
-    if (errors.displayName) {
-      setErrors((prev) => ({ ...prev, displayName: undefined }));
-    }
   };
 
   const handleHeightChange = (value: string) => {
@@ -179,8 +166,9 @@ export const RegisterScreen: React.FC<RegisterScreenProps> = ({ navigation, onRe
         break;
       case "goals":
         if (selectedGoals.length === 0) {
-          // We don't have a specific field for this, but we could show a general message
-          // For now, we'll handle this in the canProceedToNextStep logic
+          // For goals, we'll show an alert since there's no specific field error
+          Alert.alert("Selection Required", "Please select at least one fitness goal to continue.");
+          return false;
         }
         break;
       case "stats":
@@ -246,36 +234,22 @@ export const RegisterScreen: React.FC<RegisterScreenProps> = ({ navigation, onRe
     return ((currentIndex + 1) / steps.length) * 100;
   };
 
-  const canProceedToNextStep = () => {
-    switch (currentStep) {
-      case "credentials":
-        const email = emailValueRef.current;
-        const password = passwordValueRef.current;
-        const confirmPassword = confirmPasswordValueRef.current;
-        return email && password && confirmPassword && !errors.email && !errors.password && !errors.confirmPassword;
-      case "profile":
-        const displayName = displayNameValueRef.current;
-        return displayName && experienceLevel && !errors.displayName;
-      case "goals":
-        return selectedGoals.length > 0;
-      case "stats":
-        return true; // Optional step
-      default:
-        return false;
-    }
-  };
-
   const nextStep = () => {
-    // Validate current step before proceeding
-    if (!validateCurrentStep()) {
-      return; // Don't proceed if validation fails
-    }
+    // Clear previous errors first
+    clearAllErrors();
 
-    const steps: RegistrationStep[] = ["credentials", "profile", "goals", "stats"];
-    const currentIndex = steps.indexOf(currentStep);
-    if (currentIndex < steps.length - 1) {
-      setCurrentStep(steps[currentIndex + 1]);
+    // Validate current step before proceeding
+    const isValid = validateCurrentStep();
+
+    if (isValid) {
+      // Proceed to next step if validation passes
+      const steps: RegistrationStep[] = ["credentials", "profile", "goals", "stats"];
+      const currentIndex = steps.indexOf(currentStep);
+      if (currentIndex < steps.length - 1) {
+        setCurrentStep(steps[currentIndex + 1]);
+      }
     }
+    // If validation fails, errors are already set by validateCurrentStep()
   };
 
   const previousStep = () => {
@@ -601,7 +575,7 @@ export const RegisterScreen: React.FC<RegisterScreenProps> = ({ navigation, onRe
       onSubmit={isLastStep ? onSubmit : nextStep}
       submitText={isLastStep ? "Create Account" : "Continue"}
       submitLoading={isSubmitting || loading.signup}
-      submitDisabled={!canProceedToNextStep() || isSubmitting}
+      submitDisabled={isSubmitting}
       secondaryAction={{
         text: currentStep === "credentials" ? AUTH_FLOWS.signup.switchText : "Back",
         onPress: currentStep === "credentials" ? navigateToLogin : previousStep,

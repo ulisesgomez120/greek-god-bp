@@ -9,7 +9,7 @@ import { View, StyleSheet, Alert, TextInput } from "react-native";
 import { useAuth } from "@/hooks/useAuth";
 import { AUTH_FLOWS } from "@/constants/auth";
 import AuthForm from "@/components/auth/AuthForm";
-import FormField from "@/components/ui/FormField";
+import Input from "@/components/ui/Input";
 import Text from "@/components/ui/Text";
 import Button from "@/components/ui/Button";
 
@@ -197,9 +197,8 @@ export const ForgotPasswordScreen: React.FC<ForgotPasswordScreenProps> = ({ navi
           </View>
         )
       }>
-      <FormField
+      <Input
         ref={emailFieldRef}
-        name='email'
         label='Email Address'
         placeholder='Enter your email address'
         defaultValue={initialEmail}

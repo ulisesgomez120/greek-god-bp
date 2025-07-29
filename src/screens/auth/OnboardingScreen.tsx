@@ -9,7 +9,7 @@ import { View, StyleSheet, Alert, TextInput } from "react-native";
 import { useAuth } from "@/hooks/useAuth";
 import { EXPERIENCE_LEVELS, FITNESS_GOALS } from "@/constants/auth";
 import AuthForm from "@/components/auth/AuthForm";
-import FormField from "@/components/ui/FormField";
+import Input from "@/components/ui/Input";
 import Text from "@/components/ui/Text";
 import Button from "@/components/ui/Button";
 
@@ -208,9 +208,8 @@ export const OnboardingScreen: React.FC<OnboardingScreenProps> = ({ navigation, 
         text: "Back",
         onPress: previousStep,
       }}>
-      <FormField
+      <Input
         ref={displayNameFieldRef}
-        name='displayName'
         label='Display Name'
         placeholder='How should we call you?'
         defaultValue={initialDisplayName}
