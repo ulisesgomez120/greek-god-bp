@@ -142,8 +142,6 @@ const InputComponent = forwardRef<InputRef, InputProps>(
     },
     ref
   ) => {
-    console.log("🎯 Input RENDER (UNCONTROLLED) - label:", label, "defaultValue:", defaultValue, "error:", error);
-
     // Internal ref to the TextInput
     const inputRef = useRef<TextInput>(null);
 
@@ -282,7 +280,7 @@ const InputComponent = forwardRef<InputRef, InputProps>(
   }
 );
 
-export const Input = React.memo(InputComponent);
+export const Input = InputComponent;
 
 Input.displayName = "Input";
 

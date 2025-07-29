@@ -51,7 +51,6 @@ const FormFieldComponent = forwardRef<FormFieldRef, FormFieldProps | FormFieldWr
   if (isWrapper) {
     // Wrapper mode - display children with label and error
     const { label, error, containerStyle, children } = props;
-    console.log("📝 FormField WRAPPER RENDER - label:", label, "error:", error);
 
     return (
       <View style={[styles.container, containerStyle]}>
@@ -120,15 +119,6 @@ const FormFieldComponent = forwardRef<FormFieldRef, FormFieldProps | FormFieldWr
       []
     );
 
-    console.log(
-      "📝 FormField STANDARD RENDER (UNCONTROLLED) - name:",
-      name,
-      "defaultValue:",
-      defaultValue,
-      "error:",
-      error
-    );
-
     return (
       <View style={[styles.container, containerStyle]}>
         <Input
@@ -178,85 +168,7 @@ const FormFieldComponent = forwardRef<FormFieldRef, FormFieldProps | FormFieldWr
   }
 });
 
-// Custom comparison function to ensure React.memo works properly
-const arePropsEqual = (
-  prevProps: FormFieldProps | FormFieldWrapperProps,
-  nextProps: FormFieldProps | FormFieldWrapperProps
-) => {
-  console.log("🔍 React.memo comparison called for FormField");
-  // Handle wrapper props
-  if ("children" in prevProps && "children" in nextProps) {
-    const isEqual =
-      prevProps.label === nextProps.label &&
-      prevProps.error === nextProps.error &&
-      prevProps.containerStyle === nextProps.containerStyle &&
-      prevProps.children === nextProps.children;
-
-    if (!isEqual) {
-      console.log("� FormField WRAPPER props changed:", {
-        label: prevProps.label !== nextProps.label,
-        error: prevProps.error !== nextProps.error,
-        containerStyle: prevProps.containerStyle !== nextProps.containerStyle,
-        children: prevProps.children !== nextProps.children,
-      });
-    }
-
-    return isEqual;
-  }
-
-  // Handle standard FormField props
-  if ("name" in prevProps && "name" in nextProps) {
-    const propComparisons = {
-      name: prevProps.name === nextProps.name,
-      defaultValue: prevProps.defaultValue === nextProps.defaultValue,
-      onChangeText: prevProps.onChangeText === nextProps.onChangeText,
-      onBlur: prevProps.onBlur === nextProps.onBlur,
-      error: prevProps.error === nextProps.error,
-      label: prevProps.label === nextProps.label,
-      placeholder: prevProps.placeholder === nextProps.placeholder,
-      keyboardType: prevProps.keyboardType === nextProps.keyboardType,
-      autoCapitalize: prevProps.autoCapitalize === nextProps.autoCapitalize,
-      autoComplete: prevProps.autoComplete === nextProps.autoComplete,
-      textContentType: prevProps.textContentType === nextProps.textContentType,
-      secureTextEntry: prevProps.secureTextEntry === nextProps.secureTextEntry,
-      showPasswordToggle: prevProps.showPasswordToggle === nextProps.showPasswordToggle,
-      required: prevProps.required === nextProps.required,
-      variant: prevProps.variant === nextProps.variant,
-      helperText: prevProps.helperText === nextProps.helperText,
-      leftIcon: prevProps.leftIcon === nextProps.leftIcon,
-      rightIcon: prevProps.rightIcon === nextProps.rightIcon,
-      inputStyle: prevProps.inputStyle === nextProps.inputStyle,
-      editable: prevProps.editable === nextProps.editable,
-      containerStyle: prevProps.containerStyle === nextProps.containerStyle,
-    };
-
-    const isEqual = Object.values(propComparisons).every(Boolean);
-
-    if (!isEqual) {
-      const changedProps = Object.entries(propComparisons)
-        .filter(([_, isEqual]) => !isEqual)
-        .map(([prop]) => prop);
-
-      console.log(`🔍 FormField STANDARD props changed for ${nextProps.name}:`, changedProps);
-
-      // Log specific values for debugging
-      changedProps.forEach((prop) => {
-        console.log(
-          `  ${prop}: ${JSON.stringify(prevProps[prop as keyof typeof prevProps])} -> ${JSON.stringify(
-            nextProps[prop as keyof typeof nextProps]
-          )}`
-        );
-      });
-    }
-
-    return isEqual;
-  }
-
-  // Different prop types, not equal
-  return false;
-};
-
-export const FormField = React.memo(FormFieldComponent, arePropsEqual);
+export const FormField = FormFieldComponent;
 
 // ============================================================================
 // STYLES

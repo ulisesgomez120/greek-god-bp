@@ -195,6 +195,128 @@ alwaysApply: false
 - Implement proper error boundaries and loading states
 - Optimize images and assets for mobile performance
 
+## **Input Component Architecture**
+
+description: TrainSmart uses an uncontrolled input pattern with refs to prevent keyboard interference and improve performance.
+globs: **/\*.jsx,**/\*.tsx
+alwaysApply: true
+
+---
+
+### **Uncontrolled Inputs with Refs Pattern**
+
+**Core Principle**: Use `defaultValue` instead of `value` prop and access current values via refs to prevent re-renders during typing.
+
+**Implementation**:
+
+```typescript
+// ✅ CORRECT - Uncontrolled pattern
+const MyForm = () => {
+  const emailFieldRef = useRef<FormFieldRef>(null);
+
+  const handleSubmit = () => {
+    const email = emailFieldRef.current?.getValue() || "";
+    // Process form data...
+  };
+
+  return (
+    <FormField
+      ref={emailFieldRef}
+      name='email'
+      defaultValue='' // Use defaultValue, not value
+      onChangeText={handleEmailChange}
+      error={errors.email}
+    />
+  );
+};
+
+// ❌ INCORRECT - Controlled pattern (causes keyboard issues)
+const MyForm = () => {
+  const [email, setEmail] = useState("");
+
+  return (
+    <FormField
+      name='email'
+      value={email} // Causes re-renders on every keystroke
+      onChangeText={setEmail}
+    />
+  );
+};
+```
+
+**FormField Ref Interface**:
+
+```typescript
+interface FormFieldRef {
+  getValue: () => string;
+  setValue: (value: string) => void;
+  focus: () => void;
+  blur: () => void;
+  clear: () => void;
+}
+```
+
+### **Performance Optimizations**
+
+**Avoid Unnecessary Memoization**:
+
+- Don't use `useMemo` for simple property access (e.g., `errors.email`)
+- Don't use `useCallback` for handlers that depend on frequently changing values
+- Don't use custom `React.memo` comparison functions unless absolutely necessary
+
+**Error Handling Pattern**:
+
+```typescript
+// ✅ CORRECT - Simple error state management
+const [errors, setErrors] = useState<{ email?: string }>({});
+
+const handleEmailChange = (value: string) => {
+  if (errors.email) {
+    setErrors((prev) => ({ ...prev, email: undefined }));
+  }
+};
+
+// ❌ INCORRECT - Over-memoized error handling
+const emailError = useMemo(() => errors.email, [errors.email]);
+const handleEmailChange = useCallback(
+  (value: string) => {
+    if (errors.email) {
+      setErrors((prev) => ({ ...prev, email: undefined }));
+    }
+  },
+  [errors.email]
+);
+```
+
+### **Component Structure**
+
+**Input Component**:
+
+- Uses `forwardRef` with `useImperativeHandle` to expose ref methods
+- Tracks internal value state for `getValue()` method
+- No React.memo wrapper (unnecessary with uncontrolled pattern)
+
+**FormField Component**:
+
+- Wraps Input component and handles label/error display
+- Forwards ref to underlying Input component
+- No custom comparison functions or complex memoization
+
+**Form Screens**:
+
+- Use refs for all form fields instead of state
+- Get values from refs during form submission
+- Keep error state for validation feedback only
+- Avoid memoizing simple callbacks and computed values
+
+### **Key Benefits**
+
+1. **Eliminates Keyboard Issues**: No re-renders during typing
+2. **Better Performance**: Fewer unnecessary re-renders
+3. **Simpler Code**: Less complex memoization and optimization code
+4. **Maintainable**: Easier to understand and debug
+5. **Consistent**: Same pattern across all forms in the app
+
 ## 3. Feature Specifications
 
 ### 3.1 User Authentication \& Profile Management

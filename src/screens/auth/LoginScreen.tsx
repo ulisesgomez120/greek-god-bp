@@ -4,7 +4,7 @@
 // Login screen with email/password authentication, form validation, biometric
 // support, and smooth error handling
 
-import React, { useState, useEffect, useCallback, useMemo, useRef } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { View, StyleSheet, Alert, Platform, TextInput } from "react-native";
 import * as LocalAuthentication from "expo-local-authentication";
 import { useAuth } from "@/hooks/useAuth";
@@ -29,7 +29,6 @@ export interface LoginScreenProps {
 // ============================================================================
 
 export const LoginScreen: React.FC<LoginScreenProps> = ({ navigation, onLoginSuccess }) => {
-  console.log("🔄 LoginScreen RENDER - Testing keyboard fix");
   const authHook = useAuth();
   const { login, loading, error, clearError } = authHook;
 
@@ -42,33 +41,18 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ navigation, onLoginSuc
   const [errors, setErrors] = useState<{ email?: string; password?: string }>({});
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  // Debug logging for refs
-  console.log("🔍 LoginScreen UNCONTROLLED - using refs instead of state");
+  // Clear error when user starts typing
+  const handleEmailChange = (value: string) => {
+    if (errors.email) {
+      setErrors((prev) => ({ ...prev, email: undefined }));
+    }
+  };
 
-  // Clear error when user starts typing - now with stable callbacks
-  const handleEmailChange = useCallback(
-    (value: string) => {
-      console.log("📧 handleEmailChange called - clearing email error");
-      if (errors.email) {
-        setErrors((prev) => ({ ...prev, email: undefined }));
-      }
-    },
-    [errors.email]
-  );
-
-  const handlePasswordChange = useCallback(
-    (value: string) => {
-      console.log("🔒 handlePasswordChange called - clearing password error");
-      if (errors.password) {
-        setErrors((prev) => ({ ...prev, password: undefined }));
-      }
-    },
-    [errors.password]
-  );
-
-  // Memoize individual error values to prevent unnecessary re-renders
-  const emailError = useMemo(() => errors.email, [errors.email]);
-  const passwordError = useMemo(() => errors.password, [errors.password]);
+  const handlePasswordChange = (value: string) => {
+    if (errors.password) {
+      setErrors((prev) => ({ ...prev, password: undefined }));
+    }
+  };
 
   const setFieldError = (field: "email" | "password", message: string) => {
     setErrors((prev) => ({ ...prev, [field]: message }));
@@ -220,52 +204,44 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ navigation, onLoginSuc
     }
   };
 
-  const navigateToSignup = useCallback(() => {
+  const navigateToSignup = () => {
     navigation.navigate("Register");
-  }, [navigation]);
+  };
 
-  const navigateToForgotPassword = useCallback(() => {
+  const navigateToForgotPassword = () => {
     navigation.navigate("ForgotPassword");
-  }, [navigation]);
+  };
 
-  // Memoize secondary action to prevent AuthForm re-renders
-  const secondaryAction = useMemo(
-    () => ({
-      text: AUTH_FLOWS.login.switchText,
-      onPress: navigateToSignup,
-    }),
-    [navigateToSignup]
-  );
+  const secondaryAction = {
+    text: AUTH_FLOWS.login.switchText,
+    onPress: navigateToSignup,
+  };
 
-  // Memoize footer content to prevent AuthForm re-renders
-  const footerContent = useMemo(
-    () => (
-      <View style={styles.footer}>
-        {/* Biometric Login */}
-        {biometricAvailable && (
-          <View style={styles.biometricContainer}>
-            <Button variant='secondary' size='medium' onPress={handleBiometricLogin} style={styles.biometricButton}>
-              Sign in with {biometricType}
-            </Button>
-          </View>
-        )}
+  const footerContent = (
+    <View style={styles.footer}>
+      {/* Biometric Login */}
+      {biometricAvailable && (
+        <View style={styles.biometricContainer}>
+          <Button variant='secondary' size='medium' onPress={handleBiometricLogin} style={styles.biometricButton}>
+            Sign in with {biometricType}
+          </Button>
+        </View>
+      )}
 
-        {/* Forgot Password */}
-        <Button variant='text' size='small' onPress={navigateToForgotPassword} style={styles.forgotPasswordButton}>
-          Forgot your password?
-        </Button>
+      {/* Forgot Password */}
+      <Button variant='text' size='small' onPress={navigateToForgotPassword} style={styles.forgotPasswordButton}>
+        Forgot your password?
+      </Button>
 
-        {/* Global Error */}
-        {error && (
-          <View style={styles.errorContainer}>
-            <Text variant='bodySmall' color='error' align='center'>
-              {error}
-            </Text>
-          </View>
-        )}
-      </View>
-    ),
-    [biometricAvailable, biometricType, handleBiometricLogin, navigateToForgotPassword, error]
+      {/* Global Error */}
+      {error && (
+        <View style={styles.errorContainer}>
+          <Text variant='bodySmall' color='error' align='center'>
+            {error}
+          </Text>
+        </View>
+      )}
+    </View>
   );
 
   // ============================================================================
@@ -289,7 +265,7 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ navigation, onLoginSuc
         placeholder='Enter your email'
         defaultValue=''
         onChangeText={handleEmailChange}
-        error={emailError}
+        error={errors.email}
         keyboardType='email-address'
         autoCapitalize='none'
         autoComplete='email'
@@ -304,7 +280,7 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ navigation, onLoginSuc
         placeholder='Enter your password'
         defaultValue=''
         onChangeText={handlePasswordChange}
-        error={passwordError}
+        error={errors.password}
         secureTextEntry
         showPasswordToggle
         autoComplete='current-password'
