@@ -272,7 +272,7 @@ const [errors, setErrors] = useState<{ email?: string }>({});
 
 const handleEmailChange = (value: string) => {
   if (errors.email) {
-    setErrors((prev) => ({ ...prev, email: undefined }));
+    setErrors((prev) => ({ ...prev, error: undefined }));
   }
 };
 
@@ -316,6 +316,153 @@ const handleEmailChange = useCallback(
 3. **Simpler Code**: Less complex memoization and optimization code
 4. **Maintainable**: Easier to understand and debug
 5. **Consistent**: Same pattern across all forms in the app
+
+## **Code Simplicity Guidelines**
+
+description: TrainSmart follows strict simplicity principles to prevent over-engineering and maintain code quality.
+globs: **/\*.jsx,**/\*.tsx,\*\*/\*.ts
+alwaysApply: true
+
+---
+
+### **Anti-Patterns to Avoid**
+
+**❌ Over-Memoization**:
+
+```typescript
+// DON'T - Unnecessary memoization of simple transformations
+const loading = useMemo(
+  () => ({
+    login: globalLoading,
+    signup: globalLoading,
+  }),
+  [globalLoading]
+);
+
+// DO - Simple object transformation
+const loading = {
+  login: globalLoading,
+  signup: globalLoading,
+};
+```
+
+**❌ Excessive useCallback**:
+
+```typescript
+// DON'T - Wrapping every function in useCallback
+const handleClick = useCallback(() => {
+  console.log("clicked");
+}, []);
+
+// DO - Only use useCallback when actually needed for performance
+const handleClick = () => {
+  console.log("clicked");
+};
+```
+
+**❌ Complex Form Validation Hooks**:
+
+```typescript
+// DON'T - Over-engineered form hooks with debouncing, interaction counting, etc.
+const { values, errors, formState, handleChange, handleBlur, validateField } = useFormValidation(
+  schema,
+  initialValues,
+  {
+    validateOnChange: true,
+    validateOnBlur: true,
+    debounceMs: 300,
+    interactionCount: true,
+    touchedFields: true,
+  }
+);
+
+// DO - Simple error state with refs
+const [errors, setErrors] = useState<{ email?: string }>({});
+const emailFieldRef = useRef<FormFieldRef>(null);
+```
+
+**❌ Singleton Service Classes**:
+
+```typescript
+// DON'T - Complex singleton patterns
+export class AuthService {
+  private static instance: AuthService;
+  private constructor() {}
+  public static getInstance(): AuthService {
+    if (!AuthService.instance) {
+      AuthService.instance = new AuthService();
+    }
+    return AuthService.instance;
+  }
+}
+
+// DO - Simple module exports
+export async function signIn(credentials: LoginCredentials): Promise<AuthResponse> {
+  // Implementation
+}
+export const authService = { signIn, signOut, signUp };
+```
+
+### **Simplicity Principles**
+
+1. **Prefer Simple Functions Over Classes**: Use module exports instead of singleton classes
+2. **Avoid Premature Optimization**: Don't memoize unless there's a proven performance issue
+3. **Keep State Management Simple**: Use basic useState for most cases, avoid complex state machines
+4. **Let Libraries Handle Complexity**: Use Supabase's built-in features (autoRefreshToken) instead of manual implementations
+5. **Eliminate Unused Abstractions**: Remove hooks/utilities that aren't actually needed
+
+### **Service Architecture**
+
+**✅ Simplified Service Pattern**:
+
+```typescript
+// Simple function exports
+export async function signUp(data: SignupData): Promise<AuthResponse> {
+  // Direct implementation without class overhead
+}
+
+export async function signIn(credentials: LoginCredentials): Promise<AuthResponse> {
+  // Direct implementation
+}
+
+// Backward compatibility object
+export const authService = {
+  signUp,
+  signIn,
+  signOut,
+  // ... other functions
+};
+```
+
+### **Hook Simplification Rules**
+
+1. **Remove useMemo for Simple Transformations**: Object creation, property access, simple calculations
+2. **Remove useCallback for Non-Performance-Critical Functions**: Event handlers that don't cause child re-renders
+3. **Simplify Dependency Arrays**: Only include dependencies that actually matter for correctness
+4. **Avoid Custom Hooks for Simple Logic**: If it's just useState + useEffect, keep it inline
+
+### **Form Handling Simplification**
+
+1. **Use Uncontrolled Inputs**: Prevent keyboard issues and unnecessary re-renders
+2. **Simple Error State**: Basic useState for error messages, no complex validation state machines
+3. **Ref-Based Value Access**: Get form values from refs during submission
+4. **Minimal Validation**: Basic client-side validation, let server handle complex rules
+
+### **Performance Guidelines**
+
+1. **Measure Before Optimizing**: Don't add memoization without profiling first
+2. **Trust React's Performance**: Modern React is fast, avoid premature optimization
+3. **Focus on User Experience**: Eliminate keyboard issues and UI lag over micro-optimizations
+4. **Leverage Platform Features**: Use Supabase's built-in optimizations instead of custom solutions
+
+### **Code Review Checklist**
+
+- [ ] Are there unnecessary useMemo/useCallback wrappers?
+- [ ] Can complex hooks be simplified or removed?
+- [ ] Are we using uncontrolled inputs for forms?
+- [ ] Can singleton classes be converted to simple modules?
+- [ ] Are we letting libraries handle their own complexity?
+- [ ] Is the code easy to understand and debug?
 
 ## 3. Feature Specifications
 
