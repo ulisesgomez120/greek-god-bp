@@ -4,14 +4,12 @@
 // User profile setup and experience level selection after successful registration
 // with motivational copy and smooth transitions
 
-import React, { useState } from "react";
+import React, { useState, useRef } from "react";
 import { View, StyleSheet, Alert } from "react-native";
 import { useAuth } from "@/hooks/useAuth";
-import { useFormValidation } from "@/hooks/useFormValidation";
-import { profileUpdateFormSchema, type ProfileUpdateFormData } from "@/utils/validation";
 import { EXPERIENCE_LEVELS, FITNESS_GOALS } from "@/constants/auth";
 import AuthForm from "@/components/auth/AuthForm";
-import FormField from "@/components/ui/FormField";
+import FormField, { FormFieldRef } from "@/components/ui/FormField";
 import Text from "@/components/ui/Text";
 import Button from "@/components/ui/Button";
 
@@ -34,24 +32,17 @@ export const OnboardingScreen: React.FC<OnboardingScreenProps> = ({ navigation, 
   const { updateProfile, loading, error, clearError, user } = useAuth();
   const [currentStep, setCurrentStep] = useState<OnboardingStep>("welcome");
   const [selectedGoals, setSelectedGoals] = useState<string[]>([]);
+  const [experienceLevel, setExperienceLevel] = useState<string>(
+    (user?.user_metadata?.experience_level as string) || "untrained"
+  );
+  const [errors, setErrors] = useState<{ displayName?: string }>({});
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
-  // Form validation
-  const { values, errors, formState, handleChange, handleBlur, handleSubmit, setError, clearAllErrors, setValue } =
-    useFormValidation<ProfileUpdateFormData>(
-      profileUpdateFormSchema,
-      {
-        displayName: (user?.user_metadata?.display_name as string) || "",
-        experienceLevel: (user?.user_metadata?.experience_level as any) || "untrained",
-        fitnessGoals: (user?.user_metadata?.fitness_goals as string[]) || [],
-        heightCm: user?.user_metadata?.height_cm as number,
-        weightKg: user?.user_metadata?.weight_kg as number,
-      },
-      {
-        validateOnChange: true,
-        validateOnBlur: true,
-        debounceMs: 300,
-      }
-    );
+  // Form field refs
+  const displayNameFieldRef = useRef<FormFieldRef>(null);
+
+  // Initialize form values
+  const initialDisplayName = (user?.user_metadata?.display_name as string) || "";
 
   // ============================================================================
   // STEP MANAGEMENT
@@ -68,7 +59,8 @@ export const OnboardingScreen: React.FC<OnboardingScreenProps> = ({ navigation, 
       case "welcome":
         return true;
       case "profile":
-        return values.displayName && values.experienceLevel && !errors.displayName;
+        const displayName = displayNameFieldRef.current?.getValue() || "";
+        return displayName.trim().length > 0 && experienceLevel && !errors.displayName;
       case "goals":
         return selectedGoals.length > 0;
       case "complete":
@@ -98,26 +90,40 @@ export const OnboardingScreen: React.FC<OnboardingScreenProps> = ({ navigation, 
   // FORM HANDLERS
   // ============================================================================
 
+  const handleDisplayNameChange = (value: string) => {
+    if (errors.displayName) {
+      setErrors((prev) => ({ ...prev, displayName: undefined }));
+    }
+  };
+
   const handleGoalToggle = (goalKey: string) => {
     const newGoals = selectedGoals.includes(goalKey)
       ? selectedGoals.filter((g) => g !== goalKey)
       : [...selectedGoals, goalKey];
 
     setSelectedGoals(newGoals);
-    setValue("fitnessGoals", newGoals);
   };
 
-  const onSubmit = handleSubmit(async (formData: ProfileUpdateFormData) => {
+  const onSubmit = async () => {
     try {
+      const displayName = displayNameFieldRef.current?.getValue() || "";
+
+      // Validate display name
+      if (!displayName.trim()) {
+        setErrors({ displayName: "Display name is required" });
+        return;
+      }
+
       clearError();
-      clearAllErrors();
+      setErrors({});
+      setIsSubmitting(true);
 
       const result = await updateProfile({
-        displayName: formData.displayName,
-        experienceLevel: formData.experienceLevel,
-        fitnessGoals: formData.fitnessGoals,
-        heightCm: formData.heightCm,
-        weightKg: formData.weightKg,
+        displayName: displayName.trim(),
+        experienceLevel: experienceLevel as any,
+        fitnessGoals: selectedGoals,
+        heightCm: undefined,
+        weightKg: undefined,
       });
 
       if (result.success) {
@@ -128,8 +134,10 @@ export const OnboardingScreen: React.FC<OnboardingScreenProps> = ({ navigation, 
     } catch (error) {
       console.error("Profile update error:", error);
       Alert.alert("Profile Update Failed", "An unexpected error occurred. Please try again.");
+    } finally {
+      setIsSubmitting(false);
     }
-  });
+  };
 
   const completeOnboarding = () => {
     onOnboardingComplete?.();
@@ -201,14 +209,13 @@ export const OnboardingScreen: React.FC<OnboardingScreenProps> = ({ navigation, 
         onPress: previousStep,
       }}>
       <FormField
+        ref={displayNameFieldRef}
         name='displayName'
         label='Display Name'
         placeholder='How should we call you?'
-        value={values.displayName}
-        onChangeText={handleChange("displayName")}
-        onBlur={handleBlur("displayName")}
+        defaultValue={initialDisplayName}
+        onChangeText={handleDisplayNameChange}
         error={errors.displayName}
-        touched={formState.fields.displayName?.touched}
         autoCapitalize='words'
         autoComplete='name'
         textContentType='name'
@@ -226,17 +233,17 @@ export const OnboardingScreen: React.FC<OnboardingScreenProps> = ({ navigation, 
         {Object.entries(EXPERIENCE_LEVELS).map(([key, level]) => (
           <Button
             key={key}
-            variant={values.experienceLevel === key ? "primary" : "secondary"}
+            variant={experienceLevel === key ? "primary" : "secondary"}
             size='medium'
             style={styles.experienceButton}
-            onPress={() => setValue("experienceLevel", key)}>
+            onPress={() => setExperienceLevel(key)}>
             <View style={styles.experienceButtonContent}>
-              <Text variant='body' color={values.experienceLevel === key ? "white" : "primary"} weight='medium'>
+              <Text variant='body' color={experienceLevel === key ? "white" : "primary"} weight='medium'>
                 {level.label}
               </Text>
               <Text
                 variant='bodySmall'
-                color={values.experienceLevel === key ? "white" : "secondary"}
+                color={experienceLevel === key ? "white" : "secondary"}
                 style={styles.experienceDescription}>
                 {level.description}
               </Text>
@@ -253,8 +260,8 @@ export const OnboardingScreen: React.FC<OnboardingScreenProps> = ({ navigation, 
       subtitle='What do you want to achieve?'
       onSubmit={onSubmit}
       submitText='Complete Setup'
-      submitLoading={formState.isSubmitting || loading.profileUpdate}
-      submitDisabled={!canProceedToNextStep() || formState.isSubmitting}
+      submitLoading={isSubmitting || loading.profileUpdate}
+      submitDisabled={!canProceedToNextStep() || isSubmitting}
       secondaryAction={{
         text: "Back",
         onPress: previousStep,
@@ -316,7 +323,8 @@ export const OnboardingScreen: React.FC<OnboardingScreenProps> = ({ navigation, 
         </View>
 
         <Text variant='bodyLarge' color='primary' align='center' style={styles.completeMessage}>
-          Welcome to TrainSmart, {values.displayName}! Your personalized fitness journey starts now.
+          Welcome to TrainSmart, {displayNameFieldRef.current?.getValue() || ""}! Your personalized fitness journey
+          starts now.
         </Text>
 
         <View style={styles.summaryContainer}>
@@ -326,7 +334,7 @@ export const OnboardingScreen: React.FC<OnboardingScreenProps> = ({ navigation, 
 
           <View style={styles.summaryItem}>
             <Text variant='body' color='primary' weight='medium'>
-              Experience Level: {EXPERIENCE_LEVELS[values.experienceLevel as keyof typeof EXPERIENCE_LEVELS]?.label}
+              Experience Level: {EXPERIENCE_LEVELS[experienceLevel as keyof typeof EXPERIENCE_LEVELS]?.label}
             </Text>
           </View>
 

@@ -4,14 +4,12 @@
 // Password reset screen with email validation, progress indicator, and
 // clear success/error states
 
-import React, { useState } from "react";
+import React, { useState, useRef } from "react";
 import { View, StyleSheet, Alert } from "react-native";
 import { useAuth } from "@/hooks/useAuth";
-import { useFormValidation } from "@/hooks/useFormValidation";
-import { passwordResetFormSchema, type PasswordResetFormData } from "@/utils/validation";
 import { AUTH_FLOWS } from "@/constants/auth";
 import AuthForm from "@/components/auth/AuthForm";
-import FormField from "@/components/ui/FormField";
+import FormField, { FormFieldRef } from "@/components/ui/FormField";
 import Text from "@/components/ui/Text";
 import Button from "@/components/ui/Button";
 
@@ -39,40 +37,51 @@ export const ForgotPasswordScreen: React.FC<ForgotPasswordScreenProps> = ({ navi
   const [resetState, setResetState] = useState<ResetState>("form");
   const [resetEmail, setResetEmail] = useState("");
   const [resendCooldown, setResendCooldown] = useState(0);
+  const [errors, setErrors] = useState<{ email?: string }>({});
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   // Pre-fill email if provided from navigation
   const initialEmail = route?.params?.email || "";
 
-  // Form validation
-  const { values, errors, formState, handleChange, handleBlur, handleSubmit, setError, clearAllErrors } =
-    useFormValidation<PasswordResetFormData>(
-      passwordResetFormSchema,
-      {
-        email: initialEmail,
-      },
-      {
-        validateOnChange: true,
-        validateOnBlur: true,
-        debounceMs: 300,
-      }
-    );
+  // Form field refs
+  const emailFieldRef = useRef<FormFieldRef>(null);
 
   // ============================================================================
   // FORM HANDLERS
   // ============================================================================
 
-  const onSubmit = handleSubmit(async (formData: PasswordResetFormData) => {
+  const validateEmail = (email: string): string | undefined => {
+    if (!email) return "Email is required";
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return "Please enter a valid email address";
+    return undefined;
+  };
+
+  const handleEmailChange = (value: string) => {
+    if (errors.email) {
+      setErrors((prev) => ({ ...prev, email: undefined }));
+    }
+  };
+
+  const onSubmit = async () => {
     try {
+      const email = emailFieldRef.current?.getValue() || "";
+
+      // Validate email
+      const emailError = validateEmail(email);
+      if (emailError) {
+        setErrors({ email: emailError });
+        return;
+      }
+
       clearError();
-      clearAllErrors();
+      setErrors({});
+      setIsSubmitting(true);
       setResetState("sending");
 
-      const result = await resetPassword({
-        email: formData.email,
-      });
+      const result = await resetPassword({ email });
 
       if (result.success) {
-        setResetEmail(formData.email);
+        setResetEmail(email);
         setResetState("sent");
         startResendCooldown();
       } else if (result.error) {
@@ -81,13 +90,13 @@ export const ForgotPasswordScreen: React.FC<ForgotPasswordScreenProps> = ({ navi
         // Handle specific error types
         switch (result.error.code) {
           case "INVALID_EMAIL":
-            setError("email", "Please enter a valid email address");
+            setErrors({ email: "Please enter a valid email address" });
             setResetState("form");
             break;
           case "USER_NOT_FOUND":
             // For security, we don't reveal if email exists
             // Show success state anyway
-            setResetEmail(formData.email);
+            setResetEmail(email);
             setResetState("sent");
             startResendCooldown();
             break;
@@ -109,8 +118,10 @@ export const ForgotPasswordScreen: React.FC<ForgotPasswordScreenProps> = ({ navi
       console.error("Password reset error:", error);
       setResetState("error");
       Alert.alert("Reset Failed", "An unexpected error occurred. Please try again.");
+    } finally {
+      setIsSubmitting(false);
     }
-  });
+  };
 
   const handleResendEmail = async () => {
     if (resendCooldown > 0) return;
@@ -158,7 +169,7 @@ export const ForgotPasswordScreen: React.FC<ForgotPasswordScreenProps> = ({ navi
   const tryAgain = () => {
     setResetState("form");
     clearError();
-    clearAllErrors();
+    setErrors({});
   };
 
   // ============================================================================
@@ -171,8 +182,8 @@ export const ForgotPasswordScreen: React.FC<ForgotPasswordScreenProps> = ({ navi
       subtitle={AUTH_FLOWS.forgotPassword.subtitle}
       onSubmit={onSubmit}
       submitText={AUTH_FLOWS.forgotPassword.submitText}
-      submitLoading={formState.isSubmitting || loading.passwordReset}
-      submitDisabled={!formState.isValid || formState.isSubmitting}
+      submitLoading={isSubmitting || loading.passwordReset}
+      submitDisabled={isSubmitting}
       secondaryAction={{
         text: AUTH_FLOWS.forgotPassword.switchText,
         onPress: navigateToLogin,
@@ -187,14 +198,13 @@ export const ForgotPasswordScreen: React.FC<ForgotPasswordScreenProps> = ({ navi
         )
       }>
       <FormField
+        ref={emailFieldRef}
         name='email'
         label='Email Address'
         placeholder='Enter your email address'
-        value={values.email}
-        onChangeText={handleChange("email")}
-        onBlur={handleBlur("email")}
+        defaultValue={initialEmail}
+        onChangeText={handleEmailChange}
         error={errors.email}
-        touched={formState.fields.email?.touched}
         keyboardType='email-address'
         autoCapitalize='none'
         autoComplete='email'

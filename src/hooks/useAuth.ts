@@ -51,20 +51,17 @@ export function useAuth(): UseAuthReturn {
   const globalLoading = useAppSelector(selectAuthLoading);
   const error = useAppSelector(selectAuthError);
 
-  // Create detailed loading states
-  const loading: AuthLoadingStates = useMemo(
-    () => ({
-      login: globalLoading,
-      signup: globalLoading,
-      logout: globalLoading,
-      refresh: false, // Token refresh happens in background
-      passwordReset: globalLoading,
-      emailVerification: globalLoading,
-      profileUpdate: globalLoading,
-      initialization: globalLoading,
-    }),
-    [globalLoading]
-  );
+  // Create detailed loading states - simple object transformation, no memoization needed
+  const loading: AuthLoadingStates = {
+    login: globalLoading,
+    signup: globalLoading,
+    logout: globalLoading,
+    refresh: false, // Token refresh happens in background
+    passwordReset: globalLoading,
+    emailVerification: globalLoading,
+    profileUpdate: globalLoading,
+    initialization: globalLoading,
+  };
 
   // ============================================================================
   // AUTHENTICATION ACTIONS
@@ -274,7 +271,7 @@ export function useAuth(): UseAuthReturn {
   /**
    * Resend email verification
    */
-  const resendEmailVerification = useCallback(async (request: EmailVerificationRequest): Promise<AuthResponse> => {
+  const resendEmailVerification = async (request: EmailVerificationRequest): Promise<AuthResponse> => {
     try {
       logger.info("useAuth: Email verification resend attempt", { email: request.email }, "auth");
 
@@ -298,7 +295,7 @@ export function useAuth(): UseAuthReturn {
         },
       };
     }
-  }, []);
+  };
 
   /**
    * Update user profile
@@ -350,19 +347,19 @@ export function useAuth(): UseAuthReturn {
   /**
    * Check if current token is expired
    */
-  const isTokenExpired = useCallback(async (): Promise<boolean> => {
+  const isTokenExpired = async (): Promise<boolean> => {
     try {
       return await areTokensExpired();
     } catch (error) {
       logger.error("useAuth: Error checking token expiration", error, "auth");
       return true; // Assume expired on error
     }
-  }, []);
+  };
 
   /**
    * Get token expiration time
    */
-  const getTokenExpirationTime = useCallback(async (): Promise<Date | null> => {
+  const getTokenExpirationTime = async (): Promise<Date | null> => {
     try {
       const tokens = await getTokens();
       if (!tokens?.expiresAt) return null;
@@ -372,22 +369,19 @@ export function useAuth(): UseAuthReturn {
       logger.error("useAuth: Error getting token expiration time", error, "auth");
       return null;
     }
-  }, []);
+  };
 
   /**
    * Check if user has specific permission
    * TODO: Implement role-based permissions when backend is ready
    */
-  const hasPermission = useCallback(
-    (permission: string): boolean => {
-      if (!isAuthenticated || !user) return false;
+  const hasPermission = (permission: string): boolean => {
+    if (!isAuthenticated || !user) return false;
 
-      // For now, return true for authenticated users
-      // This will be expanded when we implement role-based access control
-      return true;
-    },
-    [isAuthenticated, user]
-  );
+    // For now, return true for authenticated users
+    // This will be expanded when we implement role-based access control
+    return true;
+  };
 
   // ============================================================================
   // INITIALIZATION EFFECT
@@ -473,6 +467,7 @@ export function useAuth(): UseAuthReturn {
   // RETURN HOOK INTERFACE
   // ============================================================================
 
+  // Return hook interface - only memoize based on essential state changes
   return useMemo(
     () => ({
       // State
@@ -499,22 +494,20 @@ export function useAuth(): UseAuthReturn {
       hasPermission,
     }),
     [
+      // Only essential state that affects the interface
       isAuthenticated,
       user,
       session,
       loading,
       error,
+      // Keep stable functions that depend on dispatch
       login,
       signup,
       logout,
       refreshSession,
       resetPasswordAction,
-      resendEmailVerification,
       updateProfile,
       clearAuthError,
-      isTokenExpired,
-      getTokenExpirationTime,
-      hasPermission,
     ]
   );
 }
