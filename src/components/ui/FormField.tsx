@@ -6,7 +6,7 @@
 
 import React, { forwardRef } from "react";
 import { View, StyleSheet, ViewStyle, TextInput } from "react-native";
-import Input, { InputProps } from "./Input";
+import Input, { InputProps, InputRef } from "./Input";
 import Text from "./Text";
 
 // ============================================================================
@@ -35,7 +35,7 @@ export interface FormFieldWrapperProps {
 // COMPONENT
 // ============================================================================
 
-const FormFieldComponent = forwardRef<TextInput, FormFieldProps | FormFieldWrapperProps>((props, ref) => {
+const FormFieldComponent = forwardRef<InputRef, FormFieldProps | FormFieldWrapperProps>((props, ref) => {
   // Type guard to determine if this is a wrapper usage
   const isWrapper = "children" in props;
 
@@ -47,8 +47,7 @@ const FormFieldComponent = forwardRef<TextInput, FormFieldProps | FormFieldWrapp
       <View style={[styles.container, containerStyle]}>
         {label && <Text style={styles.label}>{label}</Text>}
         {children}
-        {/* Always render error container to prevent layout shifts */}
-        <View style={styles.errorContainer}>{error && <Text style={styles.errorText}>{error}</Text>}</View>
+        {/* Error handling moved to Input component to prevent duplicates */}
       </View>
     );
   } else {
@@ -136,8 +135,6 @@ const FormFieldComponent = forwardRef<TextInput, FormFieldProps | FormFieldWrapp
           allowFontScaling={allowFontScaling}
           maxFontSizeMultiplier={maxFontSizeMultiplier}
         />
-        {/* Always render error container to prevent layout shifts */}
-        <View style={styles.errorContainer}>{error && <Text style={styles.errorText}>{error}</Text>}</View>
       </View>
     );
   }
@@ -158,15 +155,6 @@ const styles = StyleSheet.create({
     fontWeight: "500",
     color: "#1C1C1E",
     marginBottom: 8,
-  },
-  errorContainer: {
-    minHeight: 20, // Reserve space to prevent layout shifts
-    marginTop: 4,
-  },
-  errorText: {
-    fontSize: 13,
-    color: "#FF3B30",
-    lineHeight: 18,
   },
 });
 
