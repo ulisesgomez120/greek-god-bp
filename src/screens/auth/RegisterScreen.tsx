@@ -7,7 +7,14 @@
 import React, { useState, useRef } from "react";
 import { View, StyleSheet, Alert, ScrollView, TextInput } from "react-native";
 import { useAuth } from "@/hooks/useAuth";
-import { registrationFormSchema, type RegistrationFormData, validateFormData } from "@/utils/validation";
+import {
+  registrationFormSchema,
+  type RegistrationFormData,
+  validateFormData,
+  validateEmail,
+  validatePassword,
+  validateDisplayName,
+} from "@/utils/validation";
 import { AUTH_FLOWS, EXPERIENCE_LEVELS, FITNESS_GOALS } from "@/constants/auth";
 import AuthForm from "@/components/auth/AuthForm";
 import FormField from "@/components/ui/FormField";
@@ -42,35 +49,55 @@ export const RegisterScreen: React.FC<RegisterScreenProps> = ({ navigation, onRe
   const heightFieldRef = useRef<TextInput>(null);
   const weightFieldRef = useRef<TextInput>(null);
 
+  // Value tracking refs - updated via onChangeText callbacks
+  const emailValueRef = useRef("");
+  const passwordValueRef = useRef("");
+  const confirmPasswordValueRef = useRef("");
+  const displayNameValueRef = useRef("");
+  const heightValueRef = useRef("");
+  const weightValueRef = useRef("");
+
   const [experienceLevel, setExperienceLevel] = useState<
     "untrained" | "beginner" | "early_intermediate" | "intermediate"
   >("untrained");
   const [errors, setErrors] = useState<Partial<RegistrationFormData>>({});
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  // Clear error when user starts typing
+  // Clear error when user starts typing and track values
   const handleEmailChange = (value: string) => {
+    emailValueRef.current = value;
     if (errors.email) {
       setErrors((prev) => ({ ...prev, email: undefined }));
     }
   };
 
   const handlePasswordChange = (value: string) => {
+    passwordValueRef.current = value;
     if (errors.password) {
       setErrors((prev) => ({ ...prev, password: undefined }));
     }
   };
 
   const handleConfirmPasswordChange = (value: string) => {
+    confirmPasswordValueRef.current = value;
     if (errors.confirmPassword) {
       setErrors((prev) => ({ ...prev, confirmPassword: undefined }));
     }
   };
 
   const handleDisplayNameChange = (value: string) => {
+    displayNameValueRef.current = value;
     if (errors.displayName) {
       setErrors((prev) => ({ ...prev, displayName: undefined }));
     }
+  };
+
+  const handleHeightChange = (value: string) => {
+    heightValueRef.current = value;
+  };
+
+  const handleWeightChange = (value: string) => {
+    weightValueRef.current = value;
   };
 
   const setFieldError = (field: keyof RegistrationFormData, message: string) => {
@@ -79,6 +106,133 @@ export const RegisterScreen: React.FC<RegisterScreenProps> = ({ navigation, onRe
 
   const clearAllErrors = () => {
     setErrors({});
+  };
+
+  // ============================================================================
+  // STEP-SPECIFIC VALIDATION
+  // ============================================================================
+
+  const validateCredentialsStep = () => {
+    const email = emailValueRef.current;
+    const password = passwordValueRef.current;
+    const confirmPassword = confirmPasswordValueRef.current;
+
+    const stepErrors: Partial<RegistrationFormData> = {};
+
+    // Validate email
+    if (!email.trim()) {
+      stepErrors.email = "Email is required";
+    } else {
+      const emailValidation = validateEmail(email);
+      if (!emailValidation.isValid) {
+        stepErrors.email = emailValidation.error;
+      }
+    }
+
+    // Validate password
+    if (!password) {
+      stepErrors.password = "Password is required";
+    } else {
+      const passwordValidation = validatePassword(password);
+      if (!passwordValidation.isValid) {
+        stepErrors.password = passwordValidation.errors[0]; // Show first error
+      }
+    }
+
+    // Validate confirm password
+    if (!confirmPassword) {
+      stepErrors.confirmPassword = "Please confirm your password";
+    } else if (password && confirmPassword !== password) {
+      stepErrors.confirmPassword = "Passwords do not match";
+    }
+
+    return stepErrors;
+  };
+
+  const validateProfileStep = () => {
+    const displayName = displayNameValueRef.current;
+    const stepErrors: Partial<RegistrationFormData> = {};
+
+    // Validate display name
+    if (!displayName.trim()) {
+      stepErrors.displayName = "Display name is required";
+    } else {
+      const nameValidation = validateDisplayName(displayName);
+      if (!nameValidation.isValid) {
+        stepErrors.displayName = nameValidation.error;
+      }
+    }
+
+    return stepErrors;
+  };
+
+  const validateCurrentStep = () => {
+    let stepErrors: Partial<RegistrationFormData> = {};
+
+    switch (currentStep) {
+      case "credentials":
+        stepErrors = validateCredentialsStep();
+        break;
+      case "profile":
+        stepErrors = validateProfileStep();
+        break;
+      case "goals":
+        if (selectedGoals.length === 0) {
+          // We don't have a specific field for this, but we could show a general message
+          // For now, we'll handle this in the canProceedToNextStep logic
+        }
+        break;
+      case "stats":
+        // Optional step, no validation needed
+        break;
+    }
+
+    // Update errors state
+    setErrors((prev) => ({ ...prev, ...stepErrors }));
+
+    return Object.keys(stepErrors).length === 0;
+  };
+
+  // ============================================================================
+  // REAL-TIME VALIDATION HANDLERS
+  // ============================================================================
+
+  const handleEmailBlur = () => {
+    const email = emailValueRef.current;
+    if (email.trim()) {
+      const emailValidation = validateEmail(email);
+      if (!emailValidation.isValid) {
+        setFieldError("email", emailValidation.error || "Invalid email");
+      }
+    }
+  };
+
+  const handlePasswordBlur = () => {
+    const password = passwordValueRef.current;
+    if (password) {
+      const passwordValidation = validatePassword(password);
+      if (!passwordValidation.isValid) {
+        setFieldError("password", passwordValidation.errors[0]);
+      }
+    }
+  };
+
+  const handleConfirmPasswordBlur = () => {
+    const password = passwordValueRef.current;
+    const confirmPassword = confirmPasswordValueRef.current;
+    if (confirmPassword && password && confirmPassword !== password) {
+      setFieldError("confirmPassword", "Passwords do not match");
+    }
+  };
+
+  const handleDisplayNameBlur = () => {
+    const displayName = displayNameValueRef.current;
+    if (displayName.trim()) {
+      const nameValidation = validateDisplayName(displayName);
+      if (!nameValidation.isValid) {
+        setFieldError("displayName", nameValidation.error || "Invalid display name");
+      }
+    }
   };
 
   // ============================================================================
@@ -94,12 +248,12 @@ export const RegisterScreen: React.FC<RegisterScreenProps> = ({ navigation, onRe
   const canProceedToNextStep = () => {
     switch (currentStep) {
       case "credentials":
-        const email = (emailFieldRef.current as any)?._lastNativeText || "";
-        const password = (passwordFieldRef.current as any)?._lastNativeText || "";
-        const confirmPassword = (confirmPasswordFieldRef.current as any)?._lastNativeText || "";
+        const email = emailValueRef.current;
+        const password = passwordValueRef.current;
+        const confirmPassword = confirmPasswordValueRef.current;
         return email && password && confirmPassword && !errors.email && !errors.password && !errors.confirmPassword;
       case "profile":
-        const displayName = (displayNameFieldRef.current as any)?._lastNativeText || "";
+        const displayName = displayNameValueRef.current;
         return displayName && experienceLevel && !errors.displayName;
       case "goals":
         return selectedGoals.length > 0;
@@ -111,6 +265,11 @@ export const RegisterScreen: React.FC<RegisterScreenProps> = ({ navigation, onRe
   };
 
   const nextStep = () => {
+    // Validate current step before proceeding
+    if (!validateCurrentStep()) {
+      return; // Don't proceed if validation fails
+    }
+
     const steps: RegistrationStep[] = ["credentials", "profile", "goals", "stats"];
     const currentIndex = steps.indexOf(currentStep);
     if (currentIndex < steps.length - 1) {
@@ -143,13 +302,13 @@ export const RegisterScreen: React.FC<RegisterScreenProps> = ({ navigation, onRe
     clearAllErrors();
 
     try {
-      // Get values from refs instead of state
-      const email = (emailFieldRef.current as any)?._lastNativeText || "";
-      const password = (passwordFieldRef.current as any)?._lastNativeText || "";
-      const confirmPassword = (confirmPasswordFieldRef.current as any)?._lastNativeText || "";
-      const displayName = (displayNameFieldRef.current as any)?._lastNativeText || "";
-      const heightText = (heightFieldRef.current as any)?._lastNativeText || "";
-      const weightText = (weightFieldRef.current as any)?._lastNativeText || "";
+      // Get values from tracked refs
+      const email = emailValueRef.current;
+      const password = passwordValueRef.current;
+      const confirmPassword = confirmPasswordValueRef.current;
+      const displayName = displayNameValueRef.current;
+      const heightText = heightValueRef.current;
+      const weightText = weightValueRef.current;
 
       // Create form data
       const formData: RegistrationFormData = {
@@ -239,6 +398,7 @@ export const RegisterScreen: React.FC<RegisterScreenProps> = ({ navigation, onRe
         placeholder='Enter your email'
         defaultValue=''
         onChangeText={handleEmailChange}
+        onBlur={handleEmailBlur}
         error={errors.email}
         keyboardType='email-address'
         autoCapitalize='none'
@@ -254,6 +414,7 @@ export const RegisterScreen: React.FC<RegisterScreenProps> = ({ navigation, onRe
         placeholder='Create a strong password'
         defaultValue=''
         onChangeText={handlePasswordChange}
+        onBlur={handlePasswordBlur}
         error={errors.password}
         secureTextEntry
         showPasswordToggle
@@ -270,6 +431,7 @@ export const RegisterScreen: React.FC<RegisterScreenProps> = ({ navigation, onRe
         placeholder='Confirm your password'
         defaultValue=''
         onChangeText={handleConfirmPasswordChange}
+        onBlur={handleConfirmPasswordBlur}
         error={errors.confirmPassword}
         secureTextEntry
         autoComplete='new-password'
@@ -288,6 +450,7 @@ export const RegisterScreen: React.FC<RegisterScreenProps> = ({ navigation, onRe
         placeholder='How should we call you?'
         defaultValue=''
         onChangeText={handleDisplayNameChange}
+        onBlur={handleDisplayNameBlur}
         error={errors.displayName}
         autoCapitalize='words'
         autoComplete='name'
@@ -385,6 +548,7 @@ export const RegisterScreen: React.FC<RegisterScreenProps> = ({ navigation, onRe
           label='Height (cm)'
           placeholder='170'
           defaultValue=''
+          onChangeText={handleHeightChange}
           error={typeof errors.heightCm === "string" ? errors.heightCm : undefined}
           keyboardType='numeric'
           containerStyle={styles.statField}
@@ -396,6 +560,7 @@ export const RegisterScreen: React.FC<RegisterScreenProps> = ({ navigation, onRe
           label='Weight (kg)'
           placeholder='70'
           defaultValue=''
+          onChangeText={handleWeightChange}
           error={typeof errors.weightKg === "string" ? errors.weightKg : undefined}
           keyboardType='numeric'
           containerStyle={styles.statField}
