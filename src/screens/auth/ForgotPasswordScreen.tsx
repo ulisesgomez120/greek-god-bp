@@ -5,11 +5,11 @@
 // clear success/error states
 
 import React, { useState, useRef } from "react";
-import { View, StyleSheet, Alert } from "react-native";
+import { View, StyleSheet, Alert, TextInput } from "react-native";
 import { useAuth } from "@/hooks/useAuth";
 import { AUTH_FLOWS } from "@/constants/auth";
 import AuthForm from "@/components/auth/AuthForm";
-import FormField, { FormFieldRef } from "@/components/ui/FormField";
+import FormField from "@/components/ui/FormField";
 import Text from "@/components/ui/Text";
 import Button from "@/components/ui/Button";
 
@@ -44,7 +44,7 @@ export const ForgotPasswordScreen: React.FC<ForgotPasswordScreenProps> = ({ navi
   const initialEmail = route?.params?.email || "";
 
   // Form field refs
-  const emailFieldRef = useRef<FormFieldRef>(null);
+  const emailFieldRef = useRef<TextInput>(null);
 
   // ============================================================================
   // FORM HANDLERS
@@ -64,7 +64,7 @@ export const ForgotPasswordScreen: React.FC<ForgotPasswordScreenProps> = ({ navi
 
   const onSubmit = async () => {
     try {
-      const email = emailFieldRef.current?.getValue() || "";
+      const email = (emailFieldRef.current as any)?._lastNativeText || "";
 
       // Validate email
       const emailError = validateEmail(email);

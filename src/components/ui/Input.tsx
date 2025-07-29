@@ -4,7 +4,7 @@
 // Styled input component following TrainSmart design system with validation
 // states, accessibility support, and keyboard handling
 
-import React, { forwardRef, useState, useRef, useImperativeHandle } from "react";
+import React, { forwardRef, useState } from "react";
 import {
   TextInput,
   TextInputProps,
@@ -37,15 +37,6 @@ export interface InputProps extends Omit<TextInputProps, "style" | "value"> {
   inputStyle?: TextStyle;
   required?: boolean;
   defaultValue?: string;
-}
-
-// Imperative methods exposed by the Input component
-export interface InputRef {
-  getValue: () => string;
-  setValue: (value: string) => void;
-  focus: () => void;
-  blur: () => void;
-  clear: () => void;
 }
 
 // ============================================================================
@@ -119,7 +110,7 @@ const TEXT_COLORS = {
 // COMPONENT
 // ============================================================================
 
-const InputComponent = forwardRef<InputRef, InputProps>(
+const InputComponent = forwardRef<TextInput, InputProps>(
   (
     {
       variant = "default",
@@ -142,43 +133,11 @@ const InputComponent = forwardRef<InputRef, InputProps>(
     },
     ref
   ) => {
-    // Internal ref to the TextInput
-    const inputRef = useRef<TextInput>(null);
-
     // Remove isFocused state to prevent re-renders during focus events
     const [isPasswordVisible, setIsPasswordVisible] = useState(false);
 
-    // Track current value internally for getValue method
-    const [currentValue, setCurrentValue] = useState(defaultValue);
-
-    // Expose imperative methods via useImperativeHandle
-    useImperativeHandle(
-      ref,
-      () => ({
-        getValue: () => {
-          return currentValue;
-        },
-        setValue: (value: string) => {
-          setCurrentValue(value);
-          inputRef.current?.setNativeProps({ text: value });
-        },
-        focus: () => {
-          inputRef.current?.focus();
-        },
-        blur: () => {
-          inputRef.current?.blur();
-        },
-        clear: () => {
-          setCurrentValue("");
-          inputRef.current?.clear();
-        },
-      }),
-      [currentValue]
-    );
-
-    // Handle text changes to keep track of current value
+    // Handle text changes
     const handleChangeText = (text: string) => {
-      setCurrentValue(text);
       props.onChangeText?.(text);
     };
 
@@ -236,7 +195,7 @@ const InputComponent = forwardRef<InputRef, InputProps>(
           {leftIcon && <View style={styles.leftIconContainer}>{leftIcon}</View>}
 
           <TextInput
-            ref={inputRef}
+            ref={ref}
             style={textInputStyles}
             defaultValue={defaultValue}
             placeholderTextColor={TEXT_COLORS.placeholder}

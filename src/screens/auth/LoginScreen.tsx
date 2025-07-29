@@ -11,7 +11,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { loginFormSchema, type LoginFormData, validateFormData } from "@/utils/validation";
 import { AUTH_FLOWS, LOADING_MESSAGES } from "@/constants/auth";
 import AuthForm from "@/components/auth/AuthForm";
-import FormField, { FormFieldRef } from "@/components/ui/FormField";
+import FormField from "@/components/ui/FormField";
 import Text from "@/components/ui/Text";
 import Button from "@/components/ui/Button";
 
@@ -36,8 +36,8 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ navigation, onLoginSuc
   const [biometricType, setBiometricType] = useState<string>("");
 
   // Uncontrolled form with refs - no more state-based re-renders!
-  const emailFieldRef = useRef<FormFieldRef>(null);
-  const passwordFieldRef = useRef<FormFieldRef>(null);
+  const emailFieldRef = useRef<TextInput>(null);
+  const passwordFieldRef = useRef<TextInput>(null);
   const [errors, setErrors] = useState<{ email?: string; password?: string }>({});
   const [isSubmitting, setIsSubmitting] = useState(false);
 
@@ -131,8 +131,8 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ navigation, onLoginSuc
 
     try {
       // Get values from refs instead of state
-      const email = emailFieldRef.current?.getValue() || "";
-      const password = passwordFieldRef.current?.getValue() || "";
+      const email = (emailFieldRef.current as any)?._lastNativeText || "";
+      const password = (passwordFieldRef.current as any)?._lastNativeText || "";
 
       // Validate form data
       const formData: LoginFormData = {

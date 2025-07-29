@@ -5,11 +5,11 @@
 // with motivational copy and smooth transitions
 
 import React, { useState, useRef } from "react";
-import { View, StyleSheet, Alert } from "react-native";
+import { View, StyleSheet, Alert, TextInput } from "react-native";
 import { useAuth } from "@/hooks/useAuth";
 import { EXPERIENCE_LEVELS, FITNESS_GOALS } from "@/constants/auth";
 import AuthForm from "@/components/auth/AuthForm";
-import FormField, { FormFieldRef } from "@/components/ui/FormField";
+import FormField from "@/components/ui/FormField";
 import Text from "@/components/ui/Text";
 import Button from "@/components/ui/Button";
 
@@ -39,7 +39,7 @@ export const OnboardingScreen: React.FC<OnboardingScreenProps> = ({ navigation, 
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   // Form field refs
-  const displayNameFieldRef = useRef<FormFieldRef>(null);
+  const displayNameFieldRef = useRef<TextInput>(null);
 
   // Initialize form values
   const initialDisplayName = (user?.user_metadata?.display_name as string) || "";
@@ -59,7 +59,7 @@ export const OnboardingScreen: React.FC<OnboardingScreenProps> = ({ navigation, 
       case "welcome":
         return true;
       case "profile":
-        const displayName = displayNameFieldRef.current?.getValue() || "";
+        const displayName = (displayNameFieldRef.current as any)?._lastNativeText || "";
         return displayName.trim().length > 0 && experienceLevel && !errors.displayName;
       case "goals":
         return selectedGoals.length > 0;
@@ -106,7 +106,7 @@ export const OnboardingScreen: React.FC<OnboardingScreenProps> = ({ navigation, 
 
   const onSubmit = async () => {
     try {
-      const displayName = displayNameFieldRef.current?.getValue() || "";
+      const displayName = (displayNameFieldRef.current as any)?._lastNativeText || "";
 
       // Validate display name
       if (!displayName.trim()) {
@@ -323,8 +323,8 @@ export const OnboardingScreen: React.FC<OnboardingScreenProps> = ({ navigation, 
         </View>
 
         <Text variant='bodyLarge' color='primary' align='center' style={styles.completeMessage}>
-          Welcome to TrainSmart, {displayNameFieldRef.current?.getValue() || ""}! Your personalized fitness journey
-          starts now.
+          Welcome to TrainSmart, {(displayNameFieldRef.current as any)?._lastNativeText || ""}! Your personalized
+          fitness journey starts now.
         </Text>
 
         <View style={styles.summaryContainer}>

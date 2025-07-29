@@ -5,12 +5,12 @@
 // experience level selection
 
 import React, { useState, useRef } from "react";
-import { View, StyleSheet, Alert, ScrollView } from "react-native";
+import { View, StyleSheet, Alert, ScrollView, TextInput } from "react-native";
 import { useAuth } from "@/hooks/useAuth";
 import { registrationFormSchema, type RegistrationFormData, validateFormData } from "@/utils/validation";
 import { AUTH_FLOWS, EXPERIENCE_LEVELS, FITNESS_GOALS } from "@/constants/auth";
 import AuthForm from "@/components/auth/AuthForm";
-import FormField, { FormFieldRef } from "@/components/ui/FormField";
+import FormField from "@/components/ui/FormField";
 import Text from "@/components/ui/Text";
 import Button from "@/components/ui/Button";
 
@@ -35,12 +35,12 @@ export const RegisterScreen: React.FC<RegisterScreenProps> = ({ navigation, onRe
   const [selectedGoals, setSelectedGoals] = useState<string[]>([]);
 
   // Uncontrolled form with refs - no more state-based re-renders!
-  const emailFieldRef = useRef<FormFieldRef>(null);
-  const passwordFieldRef = useRef<FormFieldRef>(null);
-  const confirmPasswordFieldRef = useRef<FormFieldRef>(null);
-  const displayNameFieldRef = useRef<FormFieldRef>(null);
-  const heightFieldRef = useRef<FormFieldRef>(null);
-  const weightFieldRef = useRef<FormFieldRef>(null);
+  const emailFieldRef = useRef<TextInput>(null);
+  const passwordFieldRef = useRef<TextInput>(null);
+  const confirmPasswordFieldRef = useRef<TextInput>(null);
+  const displayNameFieldRef = useRef<TextInput>(null);
+  const heightFieldRef = useRef<TextInput>(null);
+  const weightFieldRef = useRef<TextInput>(null);
 
   const [experienceLevel, setExperienceLevel] = useState<
     "untrained" | "beginner" | "early_intermediate" | "intermediate"
@@ -94,12 +94,12 @@ export const RegisterScreen: React.FC<RegisterScreenProps> = ({ navigation, onRe
   const canProceedToNextStep = () => {
     switch (currentStep) {
       case "credentials":
-        const email = emailFieldRef.current?.getValue() || "";
-        const password = passwordFieldRef.current?.getValue() || "";
-        const confirmPassword = confirmPasswordFieldRef.current?.getValue() || "";
+        const email = (emailFieldRef.current as any)?._lastNativeText || "";
+        const password = (passwordFieldRef.current as any)?._lastNativeText || "";
+        const confirmPassword = (confirmPasswordFieldRef.current as any)?._lastNativeText || "";
         return email && password && confirmPassword && !errors.email && !errors.password && !errors.confirmPassword;
       case "profile":
-        const displayName = displayNameFieldRef.current?.getValue() || "";
+        const displayName = (displayNameFieldRef.current as any)?._lastNativeText || "";
         return displayName && experienceLevel && !errors.displayName;
       case "goals":
         return selectedGoals.length > 0;
@@ -144,12 +144,12 @@ export const RegisterScreen: React.FC<RegisterScreenProps> = ({ navigation, onRe
 
     try {
       // Get values from refs instead of state
-      const email = emailFieldRef.current?.getValue() || "";
-      const password = passwordFieldRef.current?.getValue() || "";
-      const confirmPassword = confirmPasswordFieldRef.current?.getValue() || "";
-      const displayName = displayNameFieldRef.current?.getValue() || "";
-      const heightText = heightFieldRef.current?.getValue() || "";
-      const weightText = weightFieldRef.current?.getValue() || "";
+      const email = (emailFieldRef.current as any)?._lastNativeText || "";
+      const password = (passwordFieldRef.current as any)?._lastNativeText || "";
+      const confirmPassword = (confirmPasswordFieldRef.current as any)?._lastNativeText || "";
+      const displayName = (displayNameFieldRef.current as any)?._lastNativeText || "";
+      const heightText = (heightFieldRef.current as any)?._lastNativeText || "";
+      const weightText = (weightFieldRef.current as any)?._lastNativeText || "";
 
       // Create form data
       const formData: RegistrationFormData = {

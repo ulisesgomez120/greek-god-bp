@@ -4,9 +4,9 @@
 // Simplified form field component that eliminates keyboard interference by
 // removing conditional rendering and complex state management
 
-import React, { useRef, forwardRef, useImperativeHandle } from "react";
-import { View, StyleSheet, ViewStyle } from "react-native";
-import Input, { InputProps, InputRef } from "./Input";
+import React, { forwardRef } from "react";
+import { View, StyleSheet, ViewStyle, TextInput } from "react-native";
+import Input, { InputProps } from "./Input";
 import Text from "./Text";
 
 // ============================================================================
@@ -23,15 +23,6 @@ export interface FormFieldProps extends Omit<InputProps, "error" | "state"> {
   containerStyle?: ViewStyle;
 }
 
-// FormField ref interface for imperative access
-export interface FormFieldRef {
-  getValue: () => string;
-  setValue: (value: string) => void;
-  focus: () => void;
-  blur: () => void;
-  clear: () => void;
-}
-
 // Wrapper FormField props for custom children
 export interface FormFieldWrapperProps {
   label: string;
@@ -44,7 +35,7 @@ export interface FormFieldWrapperProps {
 // COMPONENT
 // ============================================================================
 
-const FormFieldComponent = forwardRef<FormFieldRef, FormFieldProps | FormFieldWrapperProps>((props, ref) => {
+const FormFieldComponent = forwardRef<TextInput, FormFieldProps | FormFieldWrapperProps>((props, ref) => {
   // Type guard to determine if this is a wrapper usage
   const isWrapper = "children" in props;
 
@@ -103,26 +94,10 @@ const FormFieldComponent = forwardRef<FormFieldRef, FormFieldProps | FormFieldWr
       maxFontSizeMultiplier,
     } = props;
 
-    // Create ref to the Input component
-    const inputRef = useRef<InputRef>(null);
-
-    // Expose FormField methods via useImperativeHandle
-    useImperativeHandle(
-      ref,
-      () => ({
-        getValue: () => inputRef.current?.getValue() || "",
-        setValue: (value: string) => inputRef.current?.setValue(value),
-        focus: () => inputRef.current?.focus(),
-        blur: () => inputRef.current?.blur(),
-        clear: () => inputRef.current?.clear(),
-      }),
-      []
-    );
-
     return (
       <View style={[styles.container, containerStyle]}>
         <Input
-          ref={inputRef}
+          ref={ref}
           defaultValue={defaultValue}
           onChangeText={onChangeText}
           onBlur={onBlur}
