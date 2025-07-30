@@ -183,48 +183,6 @@ export const RegisterScreen: React.FC<RegisterScreenProps> = ({ navigation, onRe
   };
 
   // ============================================================================
-  // REAL-TIME VALIDATION HANDLERS
-  // ============================================================================
-
-  const handleEmailBlur = () => {
-    const email = emailValueRef.current;
-    if (email.trim()) {
-      const emailValidation = validateEmail(email);
-      if (!emailValidation.isValid) {
-        setFieldError("email", emailValidation.error || "Invalid email");
-      }
-    }
-  };
-
-  const handlePasswordBlur = () => {
-    const password = passwordValueRef.current;
-    if (password) {
-      const passwordValidation = validatePassword(password);
-      if (!passwordValidation.isValid) {
-        setFieldError("password", passwordValidation.errors[0]);
-      }
-    }
-  };
-
-  const handleConfirmPasswordBlur = () => {
-    const password = passwordValueRef.current;
-    const confirmPassword = confirmPasswordValueRef.current;
-    if (confirmPassword && password && confirmPassword !== password) {
-      setFieldError("confirmPassword", "Passwords do not match");
-    }
-  };
-
-  const handleDisplayNameBlur = () => {
-    const displayName = displayNameValueRef.current;
-    if (displayName.trim()) {
-      const nameValidation = validateDisplayName(displayName);
-      if (!nameValidation.isValid) {
-        setFieldError("displayName", nameValidation.error || "Invalid display name");
-      }
-    }
-  };
-
-  // ============================================================================
   // STEP MANAGEMENT
   // ============================================================================
 
@@ -371,7 +329,6 @@ export const RegisterScreen: React.FC<RegisterScreenProps> = ({ navigation, onRe
         label='Email Address'
         placeholder='Enter your email'
         onChangeText={handleEmailChange}
-        onBlur={handleEmailBlur}
         error={errors.email}
         keyboardType='email-address'
         autoCapitalize='none'
@@ -385,7 +342,6 @@ export const RegisterScreen: React.FC<RegisterScreenProps> = ({ navigation, onRe
         label='Password'
         placeholder='Create a strong password'
         onChangeText={handlePasswordChange}
-        onBlur={handlePasswordBlur}
         error={errors.password}
         secureTextEntry
         showPasswordToggle
@@ -400,7 +356,6 @@ export const RegisterScreen: React.FC<RegisterScreenProps> = ({ navigation, onRe
         label='Confirm Password'
         placeholder='Confirm your password'
         onChangeText={handleConfirmPasswordChange}
-        onBlur={handleConfirmPasswordBlur}
         error={errors.confirmPassword}
         secureTextEntry
         autoComplete='new-password'
@@ -417,7 +372,6 @@ export const RegisterScreen: React.FC<RegisterScreenProps> = ({ navigation, onRe
         label='Display Name'
         placeholder='How should we call you?'
         onChangeText={handleDisplayNameChange}
-        onBlur={handleDisplayNameBlur}
         error={errors.displayName}
         autoCapitalize='words'
         autoComplete='name'

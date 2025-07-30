@@ -129,7 +129,6 @@ const InputComponent = forwardRef<TextInput, InputProps>(
       onFocus,
       onBlur,
       editable = true,
-      defaultValue = "",
       onChangeText,
       ...props
     },
@@ -199,7 +198,6 @@ const InputComponent = forwardRef<TextInput, InputProps>(
           <TextInput
             ref={ref}
             style={textInputStyles}
-            defaultValue={defaultValue}
             placeholderTextColor={TEXT_COLORS.placeholder}
             secureTextEntry={showPasswordToggle ? !isPasswordVisible : secureTextEntry}
             onFocus={handleFocus}
