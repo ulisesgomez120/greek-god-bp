@@ -1,14 +1,16 @@
 // ============================================================================
 // LOGIN SCREEN
 // ============================================================================
-// Login screen with email/password authentication, form validation, biometric
-// support, and smooth error handling
+// Login screen with email/password authentication using react-hook-form,
+// biometric support, and smooth error handling
 
-import React, { useState, useEffect, useRef } from "react";
-import { View, StyleSheet, Alert, Platform, TextInput } from "react-native";
+import React, { useState, useEffect } from "react";
+import { View, StyleSheet, Alert, Platform } from "react-native";
+import { useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
 import * as LocalAuthentication from "expo-local-authentication";
 import { useAuth } from "@/hooks/useAuth";
-import { loginFormSchema, type LoginFormData, validateFormData } from "@/utils/validation";
+import { loginFormSchema, type LoginFormData } from "@/utils/validation";
 import { AUTH_FLOWS, LOADING_MESSAGES } from "@/constants/auth";
 import AuthForm from "@/components/auth/AuthForm";
 import Input from "@/components/ui/Input";
@@ -29,38 +31,28 @@ export interface LoginScreenProps {
 // ============================================================================
 
 export const LoginScreen: React.FC<LoginScreenProps> = ({ navigation, onLoginSuccess }) => {
-  const authHook = useAuth();
-  const { login, loading, error, clearError } = authHook;
+  const { login, loading, error, clearError } = useAuth();
 
   const [biometricAvailable, setBiometricAvailable] = useState(false);
   const [biometricType, setBiometricType] = useState<string>("");
 
-  // Uncontrolled form with refs - no more state-based re-renders!
-  const emailFieldRef = useRef<TextInput>(null);
-  const passwordFieldRef = useRef<TextInput>(null);
-  const [errors, setErrors] = useState<{ email?: string; password?: string }>({});
-  const [isSubmitting, setIsSubmitting] = useState(false);
-
-  // Clear error when user starts typing
-  const handleEmailChange = (value: string) => {
-    if (errors.email) {
-      setErrors((prev) => ({ ...prev, email: undefined }));
-    }
-  };
-
-  const handlePasswordChange = (value: string) => {
-    if (errors.password) {
-      setErrors((prev) => ({ ...prev, password: undefined }));
-    }
-  };
-
-  const setFieldError = (field: "email" | "password", message: string) => {
-    setErrors((prev) => ({ ...prev, [field]: message }));
-  };
-
-  const clearAllErrors = () => {
-    setErrors({});
-  };
+  // React Hook Form setup
+  const {
+    control,
+    handleSubmit,
+    formState: { errors, isSubmitting, isValid },
+    setError,
+    clearErrors,
+  } = useForm<LoginFormData>({
+    resolver: zodResolver(loginFormSchema),
+    mode: "onSubmit", // Only validate on submit initially
+    reValidateMode: "onChange", // Re-validate on change after first submit
+    defaultValues: {
+      email: "",
+      password: "",
+      rememberMe: false,
+    },
+  });
 
   // ============================================================================
   // BIOMETRIC AUTHENTICATION
@@ -125,41 +117,15 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ navigation, onLoginSuc
   // FORM HANDLERS
   // ============================================================================
 
-  const onSubmit = async () => {
-    setIsSubmitting(true);
-    clearAllErrors();
-
+  const onSubmit = async (data: LoginFormData) => {
     try {
-      // Get values from refs instead of state
-      const email = (emailFieldRef.current as any)?._lastNativeText || "";
-      const password = (passwordFieldRef.current as any)?._lastNativeText || "";
-
-      // Validate form data
-      const formData: LoginFormData = {
-        email,
-        password,
-        rememberMe: false,
-      };
-
-      const validationResult = validateFormData(loginFormSchema, formData);
-
-      if (!validationResult.isValid) {
-        // Set validation errors
-        if (validationResult.errors.email) {
-          setFieldError("email", validationResult.errors.email);
-        }
-        if (validationResult.errors.password) {
-          setFieldError("password", validationResult.errors.password);
-        }
-        return;
-      }
-
       clearError();
+      clearErrors();
 
       const result = await login({
-        email: formData.email,
-        password: formData.password,
-        rememberMe: formData.rememberMe,
+        email: data.email,
+        password: data.password,
+        rememberMe: data.rememberMe,
       });
 
       if (result.success) {
@@ -168,8 +134,14 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ navigation, onLoginSuc
         // Handle specific error types
         switch (result.error.code) {
           case "INVALID_CREDENTIALS":
-            setFieldError("email", "Invalid email or password");
-            setFieldError("password", "Invalid email or password");
+            setError("email", {
+              type: "manual",
+              message: "Invalid email or password",
+            });
+            setError("password", {
+              type: "manual",
+              message: "Invalid email or password",
+            });
             break;
           case "EMAIL_NOT_CONFIRMED":
             Alert.alert(
@@ -179,7 +151,7 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ navigation, onLoginSuc
                 { text: "Cancel", style: "cancel" },
                 {
                   text: "Resend Email",
-                  onPress: () => navigation.navigate("EmailVerification", { email: formData.email }),
+                  onPress: () => navigation.navigate("EmailVerification", { email: data.email }),
                 },
               ]
             );
@@ -192,15 +164,16 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ navigation, onLoginSuc
             );
             break;
           default:
-            setFieldError("email", result.error.message);
+            setError("email", {
+              type: "manual",
+              message: result.error.message,
+            });
             break;
         }
       }
     } catch (error) {
       console.error("Login error:", error);
       Alert.alert("Login Failed", "An unexpected error occurred. Please try again.");
-    } finally {
-      setIsSubmitting(false);
     }
   };
 
@@ -212,10 +185,9 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ navigation, onLoginSuc
     navigation.navigate("ForgotPassword");
   };
 
-  const secondaryAction = {
-    text: AUTH_FLOWS.login.switchText,
-    onPress: navigateToSignup,
-  };
+  // ============================================================================
+  // RENDER
+  // ============================================================================
 
   const footerContent = (
     <View style={styles.footer}>
@@ -244,26 +216,25 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ navigation, onLoginSuc
     </View>
   );
 
-  // ============================================================================
-  // RENDER
-  // ============================================================================
-
   return (
     <AuthForm
       title={AUTH_FLOWS.login.title}
       subtitle={AUTH_FLOWS.login.subtitle}
-      onSubmit={onSubmit}
+      onSubmit={handleSubmit(onSubmit)}
       submitText={AUTH_FLOWS.login.submitText}
       submitLoading={isSubmitting || loading.login}
       submitDisabled={isSubmitting}
-      secondaryAction={secondaryAction}
+      secondaryAction={{
+        text: AUTH_FLOWS.login.switchText,
+        onPress: navigateToSignup,
+      }}
       footerContent={footerContent}>
+      {/* Email Field */}
       <Input
-        ref={emailFieldRef}
+        name='email'
+        control={control}
         label='Email Address'
         placeholder='Enter your email'
-        onChangeText={handleEmailChange}
-        error={errors.email}
         keyboardType='email-address'
         autoCapitalize='none'
         autoComplete='email'
@@ -271,12 +242,12 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ navigation, onLoginSuc
         required
       />
 
+      {/* Password Field */}
       <Input
-        ref={passwordFieldRef}
+        name='password'
+        control={control}
         label='Password'
         placeholder='Enter your password'
-        onChangeText={handlePasswordChange}
-        error={errors.password}
         secureTextEntry
         showPasswordToggle
         autoComplete='current-password'

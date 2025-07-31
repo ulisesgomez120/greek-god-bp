@@ -1,44 +1,13 @@
 // ============================================================================
 // INPUT COMPONENT
 // ============================================================================
-// Styled input component following TrainSmart design system with validation
-// states, accessibility support, and keyboard handling
+// React Hook Form compatible input component with enhanced UX, accessibility,
+// and zero re-render issues
 
 import React, { forwardRef, useState } from "react";
-import {
-  TextInput,
-  TextInputProps,
-  View,
-  StyleSheet,
-  ViewStyle,
-  TextStyle,
-  TouchableOpacity,
-  Platform,
-} from "react-native";
+import { View, TextInput, StyleSheet, Pressable, Animated, ViewStyle, TextInputProps, Platform } from "react-native";
+import { Controller, Control, FieldPath, FieldValues } from "react-hook-form";
 import Text from "./Text";
-
-// ============================================================================
-// TYPES
-// ============================================================================
-
-export type InputVariant = "default" | "search" | "rpe";
-export type InputState = "default" | "focused" | "error" | "success" | "disabled";
-
-export interface InputProps extends Omit<TextInputProps, "style" | "value" | "onChangeText"> {
-  variant?: InputVariant;
-  state?: InputState;
-  label?: string;
-  error?: string;
-  helperText?: string;
-  leftIcon?: React.ReactNode;
-  rightIcon?: React.ReactNode;
-  showPasswordToggle?: boolean;
-  containerStyle?: ViewStyle;
-  inputStyle?: TextStyle;
-  required?: boolean;
-  defaultValue?: string;
-  onChangeText?: (text: string) => void;
-}
 
 // ============================================================================
 // DESIGN SYSTEM CONSTANTS
@@ -108,129 +77,226 @@ const TEXT_COLORS = {
 };
 
 // ============================================================================
+// TYPES
+// ============================================================================
+
+interface BaseInputProps extends Omit<TextInputProps, "onChangeText" | "value"> {
+  label?: string;
+  error?: string;
+  helperText?: string;
+  required?: boolean;
+  variant?: keyof typeof INPUT_STYLES;
+  leftIcon?: React.ReactNode;
+  rightIcon?: React.ReactNode;
+  showPasswordToggle?: boolean;
+  containerStyle?: ViewStyle;
+  inputStyle?: ViewStyle;
+  loading?: boolean;
+  success?: boolean;
+}
+
+// For react-hook-form Controller integration
+interface ControlledInputProps<
+  TFieldValues extends FieldValues = FieldValues,
+  TName extends FieldPath<TFieldValues> = FieldPath<TFieldValues>
+> extends BaseInputProps {
+  name: TName;
+  control: Control<TFieldValues>;
+  rules?: any;
+}
+
+// For direct ref usage (backward compatibility)
+interface RefInputProps extends BaseInputProps {
+  onChangeText?: (text: string) => void;
+  value?: string;
+}
+
+type InputProps<
+  TFieldValues extends FieldValues = FieldValues,
+  TName extends FieldPath<TFieldValues> = FieldPath<TFieldValues>
+> = ControlledInputProps<TFieldValues, TName> | RefInputProps;
+
+// ============================================================================
 // COMPONENT
 // ============================================================================
 
-const InputComponent = forwardRef<TextInput, InputProps>(
+const InputComponent = forwardRef<TextInput, RefInputProps>(
   (
     {
-      variant = "default",
-      state = "default",
       label,
       error,
       helperText,
+      required = false,
+      variant = "default",
       leftIcon,
       rightIcon,
       showPasswordToggle = false,
       containerStyle,
       inputStyle,
-      required = false,
-      secureTextEntry,
-      onFocus,
-      onBlur,
+      loading = false,
+      success = false,
+      secureTextEntry = false,
       editable = true,
       onChangeText,
-      ...props
+      value,
+      onFocus,
+      onBlur,
+      ...textInputProps
     },
     ref
   ) => {
-    // Only track password visibility state - no input value state
-    const [isPasswordVisible, setIsPasswordVisible] = useState(false);
+    const [isFocused, setIsFocused] = useState(false);
+    const [isPasswordVisible, setIsPasswordVisible] = useState(!secureTextEntry);
+    const [errorAnimation] = useState(new Animated.Value(0));
 
-    // Handle text changes - just notify parent, no internal state
-    const handleChangeText = (text: string) => {
-      onChangeText?.(text);
+    // Determine input state
+    const getInputState = () => {
+      if (!editable) return "disabled";
+      if (error) return "error";
+      if (success) return "success";
+      if (isFocused) return "focused";
+      return "default";
     };
 
-    // Determine current state without internal focus tracking
-    const currentState = !editable ? "disabled" : error ? "error" : state;
+    const inputState = getInputState();
+    const baseStyle = INPUT_STYLES[variant];
+    const stateStyle = STATE_STYLES[inputState];
 
-    const handleFocus = (event: any) => {
-      onFocus?.(event);
+    // Handle focus events
+    const handleFocus = (e: any) => {
+      setIsFocused(true);
+      onFocus?.(e);
     };
 
-    const handleBlur = (event: any) => {
-      onBlur?.(event);
+    const handleBlur = (e: any) => {
+      setIsFocused(false);
+      onBlur?.(e);
     };
 
+    // Animate error message
+    React.useEffect(() => {
+      Animated.timing(errorAnimation, {
+        toValue: error ? 1 : 0,
+        duration: 200,
+        useNativeDriver: true,
+      }).start();
+    }, [error, errorAnimation]);
+
+    // Password toggle
     const togglePasswordVisibility = () => {
       setIsPasswordVisible(!isPasswordVisible);
     };
 
-    // Get styles based on variant and state
-    const baseInputStyle = INPUT_STYLES[variant];
-    const stateStyle = STATE_STYLES[currentState];
-    const textColor = editable ? TEXT_COLORS.default : TEXT_COLORS.disabled;
+    // Determine if we should show password toggle
+    const shouldShowPasswordToggle = showPasswordToggle && secureTextEntry;
+    const actualSecureTextEntry = secureTextEntry && !isPasswordVisible;
 
-    const containerStyles = [styles.container, containerStyle].filter(Boolean) as ViewStyle[];
+    // Build right icon
+    const buildRightIcon = () => {
+      if (shouldShowPasswordToggle) {
+        return (
+          <Pressable
+            onPress={togglePasswordVisibility}
+            style={styles.passwordToggle}
+            hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+            accessibilityRole='button'
+            accessibilityLabel={isPasswordVisible ? "Hide password" : "Show password"}>
+            <Text style={styles.passwordToggleText}>{isPasswordVisible ? "👁️" : "👁️‍🗨️"}</Text>
+          </Pressable>
+        );
+      }
+      return rightIcon;
+    };
 
-    const inputContainerStyles = [
-      styles.inputContainer,
-      baseInputStyle,
-      stateStyle,
-      leftIcon && styles.inputWithLeftIcon,
-      (rightIcon || showPasswordToggle) && styles.inputWithRightIcon,
-    ].filter(Boolean) as ViewStyle[];
-
-    const textInputStyles = [
-      styles.textInput,
-      {
-        fontSize: baseInputStyle.fontSize,
-        color: textColor,
-      },
-      inputStyle,
-    ].filter(Boolean) as TextStyle[];
+    const finalRightIcon = buildRightIcon();
 
     return (
-      <View style={containerStyles}>
+      <View style={[styles.container, containerStyle]}>
+        {/* Label */}
         {label && (
           <View style={styles.labelContainer}>
             <Text variant='body' color='primary' style={styles.label}>
               {label}
-              {required && <Text color='error'> *</Text>}
+              {required && <Text style={styles.required}> *</Text>}
             </Text>
           </View>
         )}
 
-        <View style={inputContainerStyles}>
+        {/* Input Container */}
+        <View
+          style={[
+            styles.inputContainer,
+            baseStyle,
+            stateStyle,
+            leftIcon ? styles.inputWithLeftIcon : null,
+            finalRightIcon ? styles.inputWithRightIcon : null,
+            inputStyle,
+          ]}>
+          {/* Left Icon */}
           {leftIcon && <View style={styles.leftIconContainer}>{leftIcon}</View>}
 
+          {/* Text Input */}
           <TextInput
             ref={ref}
-            style={textInputStyles}
-            placeholderTextColor={TEXT_COLORS.placeholder}
-            secureTextEntry={showPasswordToggle ? !isPasswordVisible : secureTextEntry}
+            style={[
+              styles.textInput,
+              {
+                color: editable ? TEXT_COLORS.default : TEXT_COLORS.disabled,
+                fontSize: baseStyle.fontSize,
+              },
+            ]}
+            value={value}
+            onChangeText={onChangeText}
             onFocus={handleFocus}
             onBlur={handleBlur}
-            onChangeText={handleChangeText}
+            secureTextEntry={actualSecureTextEntry}
             editable={editable}
-            accessibilityLabel={label}
-            accessibilityHint={helperText || error}
-            accessibilityState={{
-              disabled: !editable,
-            }}
-            {...props}
+            placeholderTextColor={TEXT_COLORS.placeholder}
+            selectionColor='#B5CFF8'
+            autoCorrect={false}
+            spellCheck={false}
+            blurOnSubmit={false}
+            returnKeyType='next'
+            pointerEvents='auto'
+            {...textInputProps}
           />
 
-          {showPasswordToggle && (
-            <TouchableOpacity
-              style={styles.rightIconContainer}
-              onPress={togglePasswordVisibility}
-              accessibilityLabel={isPasswordVisible ? "Hide password" : "Show password"}
-              accessibilityRole='button'>
-              <Text variant='body' color='secondary'>
-                {isPasswordVisible ? "Hide" : "Show"}
-              </Text>
-            </TouchableOpacity>
+          {/* Right Icon */}
+          {finalRightIcon && (
+            <View style={[styles.rightIconContainer, shouldShowPasswordToggle && { pointerEvents: "auto" }]}>
+              {finalRightIcon}
+            </View>
           )}
-
-          {rightIcon && !showPasswordToggle && <View style={styles.rightIconContainer}>{rightIcon}</View>}
         </View>
 
-        {(error || helperText) && (
+        {/* Error Message */}
+        {error && (
+          <Animated.View
+            style={[
+              styles.messageContainer,
+              {
+                opacity: errorAnimation,
+                transform: [
+                  {
+                    translateY: errorAnimation.interpolate({
+                      inputRange: [0, 1],
+                      outputRange: [-10, 0],
+                    }),
+                  },
+                ],
+              },
+            ]}>
+            <Text variant='bodySmall' color='error' style={styles.messageText}>
+              {error}
+            </Text>
+          </Animated.View>
+        )}
+
+        {/* Helper Text */}
+        {helperText && !error && (
           <View style={styles.messageContainer}>
-            <Text variant='bodySmall' color={error ? "error" : "secondary"} style={styles.messageText}>
-              {error || helperText}
+            <Text variant='bodySmall' color='secondary' style={styles.messageText}>
+              {helperText}
             </Text>
           </View>
         )}
@@ -239,9 +305,51 @@ const InputComponent = forwardRef<TextInput, InputProps>(
   }
 );
 
-export const Input = InputComponent;
+// ============================================================================
+// CONTROLLED INPUT (React Hook Form)
+// ============================================================================
 
-Input.displayName = "Input";
+function ControlledInput<
+  TFieldValues extends FieldValues = FieldValues,
+  TName extends FieldPath<TFieldValues> = FieldPath<TFieldValues>
+>({ name, control, rules, ...inputProps }: ControlledInputProps<TFieldValues, TName>) {
+  return (
+    <Controller
+      name={name}
+      control={control}
+      rules={rules}
+      render={({ field: { onChange, onBlur, value, ref }, fieldState: { error, isTouched } }) => {
+        return (
+          <InputComponent
+            {...inputProps}
+            ref={ref}
+            value={value}
+            onChangeText={onChange}
+            onBlur={onBlur}
+            error={isTouched ? error?.message : undefined}
+          />
+        );
+      }}
+    />
+  );
+}
+
+// ============================================================================
+// MAIN INPUT COMPONENT
+// ============================================================================
+
+function Input<
+  TFieldValues extends FieldValues = FieldValues,
+  TName extends FieldPath<TFieldValues> = FieldPath<TFieldValues>
+>(props: InputProps<TFieldValues, TName>) {
+  // Check if this is a controlled input (has name and control props)
+  if ("name" in props && "control" in props) {
+    return <ControlledInput {...(props as ControlledInputProps<TFieldValues, TName>)} />;
+  }
+
+  // Otherwise, render as ref input
+  return <InputComponent {...(props as RefInputProps)} />;
+}
 
 // ============================================================================
 // STYLES
@@ -250,12 +358,16 @@ Input.displayName = "Input";
 const styles = StyleSheet.create({
   container: {
     width: "100%",
-    marginBottom: 16, // Add FormField's container margin
+    marginBottom: 16,
   },
   labelContainer: {
     marginBottom: 8,
   },
   label: {
+    fontWeight: "500",
+  },
+  required: {
+    color: "#FF3B30",
     fontWeight: "500",
   },
   inputContainer: {
@@ -272,9 +384,9 @@ const styles = StyleSheet.create({
   textInput: {
     flex: 1,
     height: "100%",
-    paddingVertical: 0, // Remove default padding
-    includeFontPadding: false, // Android-specific
-    textAlignVertical: "center", // Android-specific
+    paddingVertical: 0,
+    includeFontPadding: false,
+    textAlignVertical: "center",
   },
   leftIconContainer: {
     position: "absolute",
@@ -282,6 +394,7 @@ const styles = StyleSheet.create({
     zIndex: 1,
     alignItems: "center",
     justifyContent: "center",
+    pointerEvents: "none",
   },
   rightIconContainer: {
     position: "absolute",
@@ -289,6 +402,13 @@ const styles = StyleSheet.create({
     zIndex: 1,
     alignItems: "center",
     justifyContent: "center",
+    pointerEvents: "none",
+  },
+  passwordToggle: {
+    padding: 4,
+  },
+  passwordToggleText: {
+    fontSize: 16,
   },
   messageContainer: {
     marginTop: 6,
@@ -304,3 +424,5 @@ const styles = StyleSheet.create({
 // ============================================================================
 
 export default Input;
+export { InputComponent };
+export type { InputProps, BaseInputProps, ControlledInputProps, RefInputProps };

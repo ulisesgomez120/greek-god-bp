@@ -157,6 +157,7 @@ interface SystemArchitecture {
 - **Redux Toolkit**: State management with RTK Query for API calls[^8][^9]
 - **React Navigation 6**: Tab and stack navigation with deep linking[^2]
 - **React Native Reanimated 3.17.4**: Smooth animations for workout interfaces[^2]
+- **React Hook Form**: Form state management and validation with proper focus handling and performance optimization
 
 **Backend Technologies**
 
@@ -351,12 +352,58 @@ export const authService = {
 3. **Simplify Dependency Arrays**: Only include dependencies that actually matter for correctness
 4. **Avoid Custom Hooks for Simple Logic**: If it's just useState + useEffect, keep it inline
 
-### **Form Handling Simplification**
+### **Form Handling with React Hook Form**
 
-1. **Use Uncontrolled Inputs**: Prevent keyboard issues and unnecessary re-renders
-2. **Simple Error State**: Basic useState for error messages, no complex validation state machines
-3. **Ref-Based Value Access**: Get form values from refs during submission
-4. **Minimal Validation**: Basic client-side validation, let server handle complex rules
+1. **Use React Hook Form for All Forms**: Provides optimal performance and proper focus management
+2. **Proper Controller Integration**: Use Controller component with proper ref forwarding for react-hook-form integration
+3. **Focus Management**: Ensure proper onFocus/onBlur coordination between internal state and react-hook-form
+4. **Validation Integration**: Use Zod schemas with @hookform/resolvers/zod for type-safe validation
+5. **Error Display**: Show validation errors only after field is touched (isTouched) to improve UX
+
+**✅ Correct React Hook Form Pattern**:
+
+```typescript
+// Form component with react-hook-form
+const { control, handleSubmit, formState: { errors, isSubmitting } } = useForm({
+  resolver: zodResolver(validationSchema),
+  mode: "onSubmit",
+  reValidateMode: "onChange"
+});
+
+// Input component with proper Controller integration
+<Input
+  name="email"
+  control={control}
+  label="Email Address"
+  placeholder="Enter your email"
+  keyboardType="email-address"
+  autoCapitalize="none"
+  required
+/>
+
+// Controller implementation in Input component
+<Controller
+  name={name}
+  control={control}
+  rules={rules}
+  render={({ field: { onChange, onBlur, value, ref }, fieldState: { error, isTouched } }) => (
+    <InputComponent
+      ref={ref}
+      value={value}
+      onChangeText={onChange}
+      onBlur={onBlur}
+      error={isTouched ? error?.message : undefined}
+      {...inputProps}
+    />
+  )}
+/>
+```
+
+**❌ Avoid These Patterns**:
+
+- Removing ref and onBlur from react-hook-form Controller (causes focus issues)
+- Complex custom form validation hooks when react-hook-form + Zod is sufficient
+- Manual form state management when react-hook-form handles it better
 
 ### **Performance Guidelines**
 

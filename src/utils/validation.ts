@@ -103,8 +103,20 @@ export const loginFormSchema = z.object({
   rememberMe: z.boolean().optional(),
 });
 
-// Registration form schema
+// Registration form schema (simplified)
 export const registrationFormSchema = z
+  .object({
+    email: emailSchema,
+    password: passwordSchema,
+    confirmPassword: z.string().min(1, "Please confirm your password"),
+  })
+  .refine((data) => data.password === data.confirmPassword, {
+    message: "Passwords do not match",
+    path: ["confirmPassword"],
+  });
+
+// Full registration form schema (for backward compatibility)
+export const fullRegistrationFormSchema = z
   .object({
     email: emailSchema,
     password: passwordSchema,
