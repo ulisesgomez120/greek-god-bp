@@ -1,18 +1,21 @@
 // ============================================================================
-// REGISTER SCREEN
+// REGISTER SCREEN - BASIC INPUT TEST
 // ============================================================================
-// Simplified registration screen using react-hook-form with email, password,
-// and confirm password only. Profile setup moved to onboarding.
+// Testing basic TextInput components to isolate keyboard focus issues
 
-import React from "react";
-import { View, StyleSheet, Alert } from "react-native";
-import { useForm } from "react-hook-form";
-import { zodResolver } from "@hookform/resolvers/zod";
+import React, { useState } from "react";
+import {
+  View,
+  StyleSheet,
+  Alert,
+  TextInput,
+  TouchableOpacity,
+  ScrollView,
+  KeyboardAvoidingView,
+  Platform,
+} from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
 import { useAuth } from "@/hooks/useAuth";
-import { registrationFormSchema, type RegistrationFormData } from "@/utils/validation";
-import { AUTH_FLOWS } from "@/constants/auth";
-import AuthForm from "@/components/auth/AuthForm";
-import Input from "@/components/ui/Input";
 import Text from "@/components/ui/Text";
 
 // ============================================================================
@@ -31,30 +34,16 @@ export interface RegisterScreenProps {
 const RegisterScreenComponent: React.FC<RegisterScreenProps> = ({ navigation, onRegistrationSuccess }) => {
   const { signup, loading, error, clearError } = useAuth();
 
-  // React Hook Form setup
-  const {
-    control,
-    handleSubmit,
-    formState: { errors, isSubmitting, isValid },
-    setError,
-    clearErrors,
-  } = useForm<RegistrationFormData>({
-    resolver: zodResolver(registrationFormSchema),
-    mode: "onSubmit", // Only validate on submit initially
-    reValidateMode: "onChange", // Re-validate on change after first submit
-    defaultValues: {
-      email: "",
-      password: "",
-      confirmPassword: "",
-    },
-  });
+  // Basic state management
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
+  const [errors, setErrors] = useState<{ email?: string; password?: string; confirmPassword?: string }>({});
 
-  // Log component renders to track rerender causes
-  console.log("RegisterScreen: Component render", {
-    isSubmitting,
-    loadingSignup: loading.signup,
-    hasError: !!error,
-    hasFormErrors: Object.keys(errors).length > 0,
+  console.log("RegisterScreen: Basic test render", {
+    email: email.length,
+    password: password.length,
+    confirmPassword: confirmPassword.length,
     timestamp: Date.now(),
   });
 
@@ -62,52 +51,57 @@ const RegisterScreenComponent: React.FC<RegisterScreenProps> = ({ navigation, on
   // FORM HANDLERS
   // ============================================================================
 
-  const onSubmit = async (data: RegistrationFormData) => {
+  const validateForm = () => {
+    const newErrors: typeof errors = {};
+
+    if (!email) {
+      newErrors.email = "Email is required";
+    } else if (!/\S+@\S+\.\S+/.test(email)) {
+      newErrors.email = "Please enter a valid email";
+    }
+
+    if (!password) {
+      newErrors.password = "Password is required";
+    } else if (password.length < 8) {
+      newErrors.password = "Password must be at least 8 characters";
+    }
+
+    if (!confirmPassword) {
+      newErrors.confirmPassword = "Please confirm your password";
+    } else if (password !== confirmPassword) {
+      newErrors.confirmPassword = "Passwords do not match";
+    }
+
+    setErrors(newErrors);
+    return Object.keys(newErrors).length === 0;
+  };
+
+  const handleSubmit = async () => {
+    if (!validateForm()) {
+      return;
+    }
+
     try {
       clearError();
-      clearErrors();
 
       const result = await signup({
-        email: data.email,
-        password: data.password,
+        email,
+        password,
         profile: {
-          displayName: "", // Will be set in onboarding
-          experienceLevel: "untrained", // Default, will be updated in onboarding
-          fitnessGoals: [], // Will be set in onboarding
+          displayName: "",
+          experienceLevel: "untrained",
+          fitnessGoals: [],
         },
       });
 
       if (result.success) {
         if (result.requiresEmailConfirmation) {
-          navigation.navigate("EmailVerification", { email: data.email });
+          navigation.navigate("EmailVerification", { email });
         } else {
           onRegistrationSuccess?.();
         }
       } else if (result.error) {
-        // Handle specific error types
-        switch (result.error.code) {
-          case "EMAIL_EXISTS":
-            setError("email", {
-              type: "manual",
-              message: "An account with this email already exists",
-            });
-            break;
-          case "WEAK_PASSWORD":
-            setError("password", {
-              type: "manual",
-              message: result.error.message,
-            });
-            break;
-          case "INVALID_EMAIL":
-            setError("email", {
-              type: "manual",
-              message: "Please enter a valid email address",
-            });
-            break;
-          default:
-            Alert.alert("Registration Failed", result.error.message);
-            break;
-        }
+        Alert.alert("Registration Failed", result.error.message);
       }
     } catch (error) {
       console.error("Registration error:", error);
@@ -123,86 +117,117 @@ const RegisterScreenComponent: React.FC<RegisterScreenProps> = ({ navigation, on
   // RENDER
   // ============================================================================
 
-  const footerContent = (
-    <View style={styles.footer}>
-      {/* Global Error */}
-      {error && (
-        <View style={styles.errorContainer}>
-          <Text variant='bodySmall' color='error' align='center'>
-            {error}
-          </Text>
-        </View>
-      )}
-
-      {/* Terms Notice */}
-      <View style={styles.termsContainer}>
-        <Text variant='bodySmall' color='secondary' align='center' style={styles.termsText}>
-          By creating an account, you agree to our{" "}
-          <Text variant='bodySmall' color='primary' style={styles.termsLink}>
-            Terms of Service
-          </Text>{" "}
-          and{" "}
-          <Text variant='bodySmall' color='primary' style={styles.termsLink}>
-            Privacy Policy
-          </Text>
-        </Text>
-      </View>
-    </View>
-  );
-
   return (
-    <AuthForm
-      title={AUTH_FLOWS.signup.title}
-      subtitle={AUTH_FLOWS.signup.subtitle}
-      onSubmit={handleSubmit(onSubmit)}
-      submitText={AUTH_FLOWS.signup.submitText}
-      submitLoading={isSubmitting || loading.signup}
-      submitDisabled={isSubmitting}
-      secondaryAction={{
-        text: AUTH_FLOWS.signup.switchText,
-        onPress: navigateToLogin,
-      }}
-      footerContent={footerContent}>
-      {/* Email Field */}
-      <Input
-        name='email'
-        control={control}
-        label='Email Address'
-        placeholder='Enter your email'
-        keyboardType='email-address'
-        autoCapitalize='none'
-        autoComplete='email'
-        textContentType='emailAddress'
-        required
-      />
+    <SafeAreaView style={styles.safeArea}>
+      <KeyboardAvoidingView style={styles.keyboardAvoidingView} behavior={Platform.OS === "ios" ? "padding" : "height"}>
+        <ScrollView
+          style={styles.scrollView}
+          contentContainerStyle={styles.scrollContent}
+          keyboardShouldPersistTaps='handled'>
+          <View style={styles.container}>
+            {/* Header */}
+            <View style={styles.header}>
+              <Text variant='h1' color='primary' align='center' style={styles.title}>
+                Create Account
+              </Text>
+              <Text variant='bodyLarge' color='secondary' align='center' style={styles.subtitle}>
+                Join TrainSmart and start your fitness journey
+              </Text>
+            </View>
 
-      {/* Password Field */}
-      <Input
-        name='password'
-        control={control}
-        label='Password'
-        placeholder='Create a strong password'
-        secureTextEntry
-        showPasswordToggle
-        autoComplete='new-password'
-        textContentType='newPassword'
-        helperText='Must be at least 12 characters with uppercase, lowercase, numbers, and special characters'
-        required
-      />
+            {/* Form Fields */}
+            <View style={styles.formContent}>
+              {/* Email Field */}
+              <View style={styles.fieldContainer}>
+                <Text style={styles.label}>Email Address *</Text>
+                <TextInput
+                  style={[styles.input, errors.email && styles.inputError]}
+                  value={email}
+                  onChangeText={(text) => {
+                    setEmail(text);
+                    if (errors.email) {
+                      setErrors((prev) => ({ ...prev, email: undefined }));
+                    }
+                  }}
+                  placeholder='Enter your email'
+                  keyboardType='email-address'
+                  autoCapitalize='none'
+                  autoComplete='email'
+                  textContentType='emailAddress'
+                  autoCorrect={false}
+                  spellCheck={false}
+                />
+                {errors.email && <Text style={styles.errorText}>{errors.email}</Text>}
+              </View>
 
-      {/* Confirm Password Field */}
-      <Input
-        name='confirmPassword'
-        control={control}
-        label='Confirm Password'
-        placeholder='Confirm your password'
-        secureTextEntry
-        showPasswordToggle
-        autoComplete='new-password'
-        textContentType='newPassword'
-        required
-      />
-    </AuthForm>
+              {/* Password Field */}
+              <View style={styles.fieldContainer}>
+                <Text style={styles.label}>Password *</Text>
+                <TextInput
+                  style={[styles.input, errors.password && styles.inputError]}
+                  value={password}
+                  onChangeText={(text) => {
+                    setPassword(text);
+                    if (errors.password) {
+                      setErrors((prev) => ({ ...prev, password: undefined }));
+                    }
+                  }}
+                  placeholder='Create a strong password'
+                  secureTextEntry
+                  autoComplete='new-password'
+                  textContentType='newPassword'
+                  autoCorrect={false}
+                  spellCheck={false}
+                />
+                {errors.password && <Text style={styles.errorText}>{errors.password}</Text>}
+              </View>
+
+              {/* Confirm Password Field */}
+              <View style={styles.fieldContainer}>
+                <Text style={styles.label}>Confirm Password *</Text>
+                <TextInput
+                  style={[styles.input, errors.confirmPassword && styles.inputError]}
+                  value={confirmPassword}
+                  onChangeText={(text) => {
+                    setConfirmPassword(text);
+                    if (errors.confirmPassword) {
+                      setErrors((prev) => ({ ...prev, confirmPassword: undefined }));
+                    }
+                  }}
+                  placeholder='Confirm your password'
+                  secureTextEntry
+                  autoComplete='new-password'
+                  textContentType='newPassword'
+                  autoCorrect={false}
+                  spellCheck={false}
+                />
+                {errors.confirmPassword && <Text style={styles.errorText}>{errors.confirmPassword}</Text>}
+              </View>
+            </View>
+
+            {/* Submit Button */}
+            <TouchableOpacity
+              style={[styles.submitButton, loading.signup && styles.submitButtonDisabled]}
+              onPress={handleSubmit}
+              disabled={loading.signup}>
+              <Text style={styles.submitButtonText}>{loading.signup ? "Creating Account..." : "Create Account"}</Text>
+            </TouchableOpacity>
+
+            {/* Secondary Action */}
+            <TouchableOpacity style={styles.secondaryButton} onPress={navigateToLogin}>
+              <Text style={styles.secondaryButtonText}>Already have an account? Sign In</Text>
+            </TouchableOpacity>
+
+            {/* Global Error */}
+            {error && (
+              <View style={styles.globalErrorContainer}>
+                <Text style={styles.globalErrorText}>{error}</Text>
+              </View>
+            )}
+          </View>
+        </ScrollView>
+      </KeyboardAvoidingView>
+    </SafeAreaView>
   );
 };
 
@@ -211,22 +236,106 @@ const RegisterScreenComponent: React.FC<RegisterScreenProps> = ({ navigation, on
 // ============================================================================
 
 const styles = StyleSheet.create({
-  footer: {
-    width: "100%",
+  safeArea: {
+    flex: 1,
+    backgroundColor: "#FFFFFF",
+  },
+  keyboardAvoidingView: {
+    flex: 1,
+  },
+  scrollView: {
+    flex: 1,
+  },
+  scrollContent: {
+    flexGrow: 1,
+    paddingBottom: 32,
+  },
+  container: {
+    flex: 1,
+    paddingHorizontal: 24,
+    paddingTop: 32,
+    justifyContent: "center",
+  },
+  header: {
+    marginBottom: 40,
     alignItems: "center",
   },
-  errorContainer: {
+  title: {
+    marginBottom: 8,
+  },
+  subtitle: {
+    textAlign: "center",
+    lineHeight: 24,
+  },
+  formContent: {
+    flex: 1,
+    marginBottom: 32,
+  },
+  fieldContainer: {
+    marginBottom: 20,
+  },
+  label: {
+    fontSize: 16,
+    fontWeight: "500",
+    color: "#000000",
+    marginBottom: 8,
+  },
+  input: {
+    height: 52,
+    borderRadius: 12,
+    borderWidth: 1.5,
+    borderColor: "#8E8E93",
+    backgroundColor: "#FFFFFF",
+    paddingHorizontal: 16,
+    fontSize: 17,
+    color: "#000000",
+  },
+  inputError: {
+    borderColor: "#FF3B30",
+    backgroundColor: "rgba(255, 59, 48, 0.05)",
+  },
+  errorText: {
+    fontSize: 13,
+    color: "#FF3B30",
+    marginTop: 6,
+    paddingHorizontal: 4,
+  },
+  submitButton: {
+    height: 50,
+    backgroundColor: "#B5CFF8",
+    borderRadius: 12,
+    alignItems: "center",
+    justifyContent: "center",
     marginBottom: 16,
-    paddingHorizontal: 16,
   },
-  termsContainer: {
-    paddingHorizontal: 16,
+  submitButtonDisabled: {
+    opacity: 0.6,
   },
-  termsText: {
-    lineHeight: 18,
+  submitButtonText: {
+    fontSize: 17,
+    fontWeight: "500",
+    color: "#1C1C1E",
   },
-  termsLink: {
+  secondaryButton: {
+    alignItems: "center",
+    paddingVertical: 12,
+    marginBottom: 24,
+  },
+  secondaryButtonText: {
+    fontSize: 15,
+    color: "#B5CFF8",
     textDecorationLine: "underline",
+  },
+  globalErrorContainer: {
+    backgroundColor: "rgba(255, 59, 48, 0.1)",
+    borderRadius: 8,
+    padding: 12,
+    marginTop: 16,
+  },
+  globalErrorText: {
+    fontSize: 14,
+    color: "#FF3B30",
+    textAlign: "center",
   },
 });
 

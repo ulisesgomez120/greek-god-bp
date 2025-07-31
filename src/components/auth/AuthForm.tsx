@@ -48,13 +48,25 @@ const AuthFormComponent: React.FC<AuthFormProps> = ({
   containerStyle,
   showKeyboardAvoidance = true,
 }) => {
+  // Log AuthForm renders to track any rerender issues
+  console.log("AuthForm: Component render", {
+    title,
+    submitLoading,
+    submitDisabled,
+    timestamp: Date.now(),
+  });
+
   const FormContent = () => (
     <SafeAreaView style={styles.safeArea} edges={["top", "left", "right"]}>
       <ScrollView
         style={styles.scrollView}
         contentContainerStyle={styles.scrollContent}
-        keyboardShouldPersistTaps='handled'
-        showsVerticalScrollIndicator={false}>
+        keyboardShouldPersistTaps='handled' // Back to standard 'handled'
+        showsVerticalScrollIndicator={false}
+        scrollEnabled={true}
+        bounces={true} // Restore normal bounce behavior
+        automaticallyAdjustKeyboardInsets={true} // Re-enable automatic adjustment
+        automaticallyAdjustContentInsets={true}>
         <View style={[styles.container, containerStyle]}>
           {/* Header */}
           <View style={styles.header}>
@@ -103,17 +115,7 @@ const AuthFormComponent: React.FC<AuthFormProps> = ({
     </SafeAreaView>
   );
 
-  if (showKeyboardAvoidance) {
-    return (
-      <KeyboardAvoidingView
-        style={styles.keyboardAvoidingView}
-        behavior={Platform.OS === "ios" ? "padding" : "height"}
-        keyboardVerticalOffset={Platform.OS === "ios" ? 0 : 20}>
-        <FormContent />
-      </KeyboardAvoidingView>
-    );
-  }
-
+  // Temporarily disable KeyboardAvoidingView to test if it's causing the issue
   return <FormContent />;
 };
 

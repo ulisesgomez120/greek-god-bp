@@ -173,7 +173,7 @@ const InputComponent = forwardRef<TextInput, RefInputProps>(
     const baseStyle = INPUT_STYLES[variant];
     const stateStyle = STATE_STYLES[inputState];
 
-    // Handle focus events
+    // Handle focus events with iOS-specific focus retention
     const handleFocus = (e: any) => {
       console.log("InputComponent: Focus event", {
         label,
@@ -190,6 +190,8 @@ const InputComponent = forwardRef<TextInput, RefInputProps>(
         timestamp: Date.now(),
         nativeEvent: e.nativeEvent,
       });
+
+      // Restore immediate blur handling for React Hook Form compatibility
       setIsFocused(false);
       onBlur?.(e);
     };
@@ -279,6 +281,15 @@ const InputComponent = forwardRef<TextInput, RefInputProps>(
             blurOnSubmit={false}
             returnKeyType='next'
             pointerEvents='auto'
+            // iOS-specific props to improve focus stability
+            clearButtonMode='never'
+            enablesReturnKeyAutomatically={false}
+            keyboardAppearance='default'
+            // Prevent automatic keyboard dismissal
+            onSubmitEditing={undefined}
+            // Ensure proper focus handling
+            caretHidden={false}
+            contextMenuHidden={false}
             {...textInputProps}
           />
 
