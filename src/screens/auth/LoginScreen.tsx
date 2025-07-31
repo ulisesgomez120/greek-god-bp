@@ -30,7 +30,7 @@ export interface LoginScreenProps {
 // COMPONENT
 // ============================================================================
 
-export const LoginScreen: React.FC<LoginScreenProps> = ({ navigation, onLoginSuccess }) => {
+const LoginScreenComponent: React.FC<LoginScreenProps> = ({ navigation, onLoginSuccess }) => {
   const { login, loading, error, clearError } = useAuth();
 
   const [biometricAvailable, setBiometricAvailable] = useState(false);
@@ -52,6 +52,16 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ navigation, onLoginSuc
       password: "",
       rememberMe: false,
     },
+  });
+
+  // Log component renders to track rerender causes
+  console.log("LoginScreen: Component render", {
+    isSubmitting,
+    loadingLogin: loading.login,
+    hasError: !!error,
+    hasFormErrors: Object.keys(errors).length > 0,
+    biometricAvailable,
+    timestamp: Date.now(),
   });
 
   // ============================================================================
@@ -301,6 +311,19 @@ const styles = StyleSheet.create({
   rememberMeText: {
     marginLeft: 12,
   },
+});
+
+// ============================================================================
+// MEMOIZED COMPONENT
+// ============================================================================
+
+// Wrap with React.memo to prevent unnecessary rerenders
+export const LoginScreen = React.memo(LoginScreenComponent, (prevProps, nextProps) => {
+  // Custom comparison to prevent rerenders when navigation object changes
+  return (
+    prevProps.onLoginSuccess === nextProps.onLoginSuccess &&
+    prevProps.navigation?.state?.key === nextProps.navigation?.state?.key
+  );
 });
 
 // ============================================================================

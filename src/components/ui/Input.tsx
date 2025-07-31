@@ -149,6 +149,17 @@ const InputComponent = forwardRef<TextInput, RefInputProps>(
     const [isPasswordVisible, setIsPasswordVisible] = useState(!secureTextEntry);
     const [errorAnimation] = useState(new Animated.Value(0));
 
+    // Log component renders to track rerender causes
+    console.log("InputComponent: Render", {
+      label,
+      isFocused,
+      hasError: !!error,
+      hasValue: !!value,
+      editable,
+      variant,
+      timestamp: Date.now(),
+    });
+
     // Determine input state
     const getInputState = () => {
       if (!editable) return "disabled";
@@ -164,11 +175,21 @@ const InputComponent = forwardRef<TextInput, RefInputProps>(
 
     // Handle focus events
     const handleFocus = (e: any) => {
+      console.log("InputComponent: Focus event", {
+        label,
+        timestamp: Date.now(),
+        nativeEvent: e.nativeEvent,
+      });
       setIsFocused(true);
       onFocus?.(e);
     };
 
     const handleBlur = (e: any) => {
+      console.log("InputComponent: Blur event", {
+        label,
+        timestamp: Date.now(),
+        nativeEvent: e.nativeEvent,
+      });
       setIsFocused(false);
       onBlur?.(e);
     };
@@ -313,12 +334,25 @@ function ControlledInput<
   TFieldValues extends FieldValues = FieldValues,
   TName extends FieldPath<TFieldValues> = FieldPath<TFieldValues>
 >({ name, control, rules, ...inputProps }: ControlledInputProps<TFieldValues, TName>) {
+  console.log("ControlledInput: Render", {
+    name,
+    timestamp: Date.now(),
+  });
+
   return (
     <Controller
       name={name}
       control={control}
       rules={rules}
       render={({ field: { onChange, onBlur, value, ref }, fieldState: { error, isTouched } }) => {
+        console.log("ControlledInput: Controller render", {
+          name,
+          hasValue: !!value,
+          hasError: !!error,
+          isTouched,
+          timestamp: Date.now(),
+        });
+
         return (
           <InputComponent
             {...inputProps}

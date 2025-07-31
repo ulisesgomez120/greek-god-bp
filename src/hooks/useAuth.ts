@@ -51,17 +51,20 @@ export function useAuth(): UseAuthReturn {
   const globalLoading = useAppSelector(selectAuthLoading);
   const error = useAppSelector(selectAuthError);
 
-  // Create detailed loading states - simple object transformation, no memoization needed
-  const loading: AuthLoadingStates = {
-    login: globalLoading,
-    signup: globalLoading,
-    logout: globalLoading,
-    refresh: false, // Token refresh happens in background
-    passwordReset: globalLoading,
-    emailVerification: globalLoading,
-    profileUpdate: globalLoading,
-    initialization: globalLoading,
-  };
+  // Create stable loading states - memoize to prevent unnecessary rerenders
+  const loading: AuthLoadingStates = useMemo(() => {
+    console.log("useAuth: Loading state recalculated", { globalLoading });
+    return {
+      login: globalLoading,
+      signup: globalLoading,
+      logout: globalLoading,
+      refresh: false, // Token refresh happens in background
+      passwordReset: globalLoading,
+      emailVerification: globalLoading,
+      profileUpdate: globalLoading,
+      initialization: globalLoading,
+    };
+  }, [globalLoading]);
 
   // ============================================================================
   // AUTHENTICATION ACTIONS
@@ -467,7 +470,17 @@ export function useAuth(): UseAuthReturn {
   // RETURN HOOK INTERFACE
   // ============================================================================
 
-  // Return hook interface - only memoize based on essential state changes
+  // Log hook renders to track rerender causes
+  console.log("useAuth: Hook render", {
+    isAuthenticated,
+    hasUser: !!user,
+    hasSession: !!session,
+    globalLoading,
+    error: !!error,
+    timestamp: Date.now(),
+  });
+
+  // Return hook interface - simplified memoization to prevent cascade rerenders
   return useMemo(
     () => ({
       // State
@@ -494,13 +507,13 @@ export function useAuth(): UseAuthReturn {
       hasPermission,
     }),
     [
-      // Only essential state that affects the interface
+      // Simplified dependencies - only core state that should trigger rerenders
       isAuthenticated,
       user,
       session,
       loading,
       error,
-      // Keep stable functions that depend on dispatch
+      // Stable functions - these shouldn't change unless dispatch changes
       login,
       signup,
       logout,

@@ -28,7 +28,7 @@ export interface RegisterScreenProps {
 // COMPONENT
 // ============================================================================
 
-export const RegisterScreen: React.FC<RegisterScreenProps> = ({ navigation, onRegistrationSuccess }) => {
+const RegisterScreenComponent: React.FC<RegisterScreenProps> = ({ navigation, onRegistrationSuccess }) => {
   const { signup, loading, error, clearError } = useAuth();
 
   // React Hook Form setup
@@ -47,6 +47,15 @@ export const RegisterScreen: React.FC<RegisterScreenProps> = ({ navigation, onRe
       password: "",
       confirmPassword: "",
     },
+  });
+
+  // Log component renders to track rerender causes
+  console.log("RegisterScreen: Component render", {
+    isSubmitting,
+    loadingSignup: loading.signup,
+    hasError: !!error,
+    hasFormErrors: Object.keys(errors).length > 0,
+    timestamp: Date.now(),
   });
 
   // ============================================================================
@@ -219,6 +228,19 @@ const styles = StyleSheet.create({
   termsLink: {
     textDecorationLine: "underline",
   },
+});
+
+// ============================================================================
+// MEMOIZED COMPONENT
+// ============================================================================
+
+// Wrap with React.memo to prevent unnecessary rerenders
+export const RegisterScreen = React.memo(RegisterScreenComponent, (prevProps, nextProps) => {
+  // Custom comparison to prevent rerenders when navigation object changes
+  return (
+    prevProps.onRegistrationSuccess === nextProps.onRegistrationSuccess &&
+    prevProps.navigation?.state?.key === nextProps.navigation?.state?.key
+  );
 });
 
 // ============================================================================
