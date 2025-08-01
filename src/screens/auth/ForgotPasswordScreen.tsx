@@ -18,6 +18,7 @@ import {
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useAuth } from "@/hooks/useAuth";
 import { AUTH_FLOWS } from "@/constants/auth";
+import AuthForm from "@/components/auth/AuthForm";
 import Text from "@/components/ui/Text";
 import Button from "@/components/ui/Button";
 import {

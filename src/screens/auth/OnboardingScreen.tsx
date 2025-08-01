@@ -9,9 +9,16 @@ import { View, StyleSheet, Alert, TextInput } from "react-native";
 import { useAuth } from "@/hooks/useAuth";
 import { EXPERIENCE_LEVELS, FITNESS_GOALS } from "@/constants/auth";
 import AuthForm from "@/components/auth/AuthForm";
-import Input from "@/components/ui/Input";
 import Text from "@/components/ui/Text";
 import Button from "@/components/ui/Button";
+import {
+  getInputStyle,
+  getInputState,
+  getInputProps,
+  LABEL_STYLES,
+  ERROR_STYLES,
+  FIELD_STYLES,
+} from "@/styles/inputStyles";
 
 // ============================================================================
 // TYPES
@@ -208,18 +215,20 @@ export const OnboardingScreen: React.FC<OnboardingScreenProps> = ({ navigation, 
         text: "Back",
         onPress: previousStep,
       }}>
-      <Input
-        ref={displayNameFieldRef}
-        label='Display Name'
-        placeholder='How should we call you?'
-        defaultValue={initialDisplayName}
-        onChangeText={handleDisplayNameChange}
-        error={errors.displayName}
-        autoCapitalize='words'
-        autoComplete='name'
-        textContentType='name'
-        required
-      />
+      <View style={FIELD_STYLES.container}>
+        <Text style={LABEL_STYLES.base}>Display Name *</Text>
+        <TextInput
+          ref={displayNameFieldRef}
+          style={getInputStyle(undefined, getInputState(false, !!errors.displayName))}
+          defaultValue={initialDisplayName}
+          onChangeText={handleDisplayNameChange}
+          autoCapitalize='words'
+          autoComplete='name'
+          textContentType='name'
+          placeholder='How should we call you?'
+        />
+        {errors.displayName && <Text style={ERROR_STYLES.text}>{errors.displayName}</Text>}
+      </View>
 
       <View style={styles.experienceLevelContainer}>
         <Text variant='body' color='primary' style={styles.sectionLabel}>
