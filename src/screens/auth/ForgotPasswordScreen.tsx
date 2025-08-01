@@ -5,13 +5,29 @@
 // clear success/error states
 
 import React, { useState, useRef } from "react";
-import { View, StyleSheet, Alert, TextInput } from "react-native";
+import {
+  View,
+  StyleSheet,
+  Alert,
+  TextInput,
+  TouchableOpacity,
+  ScrollView,
+  KeyboardAvoidingView,
+  Platform,
+} from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
 import { useAuth } from "@/hooks/useAuth";
 import { AUTH_FLOWS } from "@/constants/auth";
-import AuthForm from "@/components/auth/AuthForm";
-import Input from "@/components/ui/Input";
 import Text from "@/components/ui/Text";
 import Button from "@/components/ui/Button";
+import {
+  getInputStyle,
+  getInputState,
+  getInputProps,
+  LABEL_STYLES,
+  ERROR_STYLES,
+  FIELD_STYLES,
+} from "@/styles/inputStyles";
 
 // ============================================================================
 // TYPES
@@ -39,12 +55,18 @@ export const ForgotPasswordScreen: React.FC<ForgotPasswordScreenProps> = ({ navi
   const [resendCooldown, setResendCooldown] = useState(0);
   const [errors, setErrors] = useState<{ email?: string }>({});
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [focusedField, setFocusedField] = useState<string | null>(null);
+  const [email, setEmail] = useState("");
 
   // Pre-fill email if provided from navigation
   const initialEmail = route?.params?.email || "";
 
-  // Form field refs
-  const emailFieldRef = useRef<TextInput>(null);
+  // Initialize email with initial value
+  React.useEffect(() => {
+    if (initialEmail) {
+      setEmail(initialEmail);
+    }
+  }, [initialEmail]);
 
   // ============================================================================
   // FORM HANDLERS
@@ -64,8 +86,6 @@ export const ForgotPasswordScreen: React.FC<ForgotPasswordScreenProps> = ({ navi
 
   const onSubmit = async () => {
     try {
-      const email = (emailFieldRef.current as any)?._lastNativeText || "";
-
       // Validate email
       const emailError = validateEmail(email);
       if (emailError) {
@@ -177,46 +197,75 @@ export const ForgotPasswordScreen: React.FC<ForgotPasswordScreenProps> = ({ navi
   // ============================================================================
 
   const renderFormState = () => (
-    <AuthForm
-      title={AUTH_FLOWS.forgotPassword.title}
-      subtitle={AUTH_FLOWS.forgotPassword.subtitle}
-      onSubmit={onSubmit}
-      submitText={AUTH_FLOWS.forgotPassword.submitText}
-      submitLoading={isSubmitting || loading.passwordReset}
-      submitDisabled={isSubmitting}
-      secondaryAction={{
-        text: AUTH_FLOWS.forgotPassword.switchText,
-        onPress: navigateToLogin,
-      }}
-      footerContent={
-        error && (
-          <View style={styles.errorContainer}>
-            <Text variant='bodySmall' color='error' align='center'>
-              {error}
-            </Text>
-          </View>
-        )
-      }>
-      <Input
-        ref={emailFieldRef}
-        label='Email Address'
-        placeholder='Enter your email address'
-        defaultValue={initialEmail}
-        onChangeText={handleEmailChange}
-        error={errors.email}
-        keyboardType='email-address'
-        autoCapitalize='none'
-        autoComplete='email'
-        textContentType='emailAddress'
-        required
-      />
+    <SafeAreaView style={styles.safeArea}>
+      <KeyboardAvoidingView style={styles.keyboardAvoidingView} behavior={Platform.OS === "ios" ? "padding" : "height"}>
+        <ScrollView
+          style={styles.scrollView}
+          contentContainerStyle={styles.scrollContent}
+          keyboardShouldPersistTaps='handled'>
+          <View style={styles.container}>
+            {/* Header */}
+            <View style={styles.header}>
+              <Text variant='h1' color='primary' align='center' style={styles.title}>
+                {AUTH_FLOWS.forgotPassword.title}
+              </Text>
+              <Text variant='bodyLarge' color='secondary' align='center' style={styles.subtitle}>
+                {AUTH_FLOWS.forgotPassword.subtitle}
+              </Text>
+            </View>
 
-      <View style={styles.infoContainer}>
-        <Text variant='bodySmall' color='secondary' align='center' style={styles.infoText}>
-          Enter your email address and we'll send you instructions to reset your password.
-        </Text>
-      </View>
-    </AuthForm>
+            {/* Form Fields */}
+            <View style={styles.formContent}>
+              {/* Email Field */}
+              <View style={FIELD_STYLES.container}>
+                <Text style={LABEL_STYLES.base}>Email Address *</Text>
+                <TextInput
+                  style={getInputStyle(undefined, getInputState(focusedField === "email", !!errors.email))}
+                  value={email}
+                  onChangeText={(text) => {
+                    setEmail(text);
+                    handleEmailChange(text);
+                  }}
+                  onFocus={() => setFocusedField("email")}
+                  onBlur={() => setFocusedField(null)}
+                  {...getInputProps("email")}
+                  placeholder='Enter your email address'
+                />
+                {errors.email && <Text style={ERROR_STYLES.text}>{errors.email}</Text>}
+              </View>
+
+              <View style={styles.infoContainer}>
+                <Text variant='bodySmall' color='secondary' align='center' style={styles.infoText}>
+                  Enter your email address and we'll send you instructions to reset your password.
+                </Text>
+              </View>
+            </View>
+
+            {/* Submit Button */}
+            <TouchableOpacity
+              style={[styles.submitButton, (isSubmitting || loading.passwordReset) && styles.submitButtonDisabled]}
+              onPress={onSubmit}
+              disabled={isSubmitting || loading.passwordReset}>
+              <Text style={styles.submitButtonText}>
+                {isSubmitting || loading.passwordReset ? "Sending..." : AUTH_FLOWS.forgotPassword.submitText}
+              </Text>
+            </TouchableOpacity>
+
+            {/* Secondary Action */}
+            <TouchableOpacity style={styles.secondaryButton} onPress={navigateToLogin}>
+              <Text style={styles.secondaryButtonText}>{AUTH_FLOWS.forgotPassword.switchText}</Text>
+            </TouchableOpacity>
+
+            {/* Global Error */}
+            {error && (
+              <View style={styles.globalErrorContainer}>
+                <Text style={styles.globalErrorText}>{error}</Text>
+              </View>
+            )}
+          </View>
+        </ScrollView>
+      </KeyboardAvoidingView>
+    </SafeAreaView>
   );
 
   const renderSendingState = () => (
@@ -335,6 +384,78 @@ export const ForgotPasswordScreen: React.FC<ForgotPasswordScreenProps> = ({ navi
 // ============================================================================
 
 const styles = StyleSheet.create({
+  safeArea: {
+    flex: 1,
+    backgroundColor: "#FFFFFF",
+  },
+  keyboardAvoidingView: {
+    flex: 1,
+  },
+  scrollView: {
+    flex: 1,
+  },
+  scrollContent: {
+    flexGrow: 1,
+    paddingBottom: 32,
+  },
+  container: {
+    flex: 1,
+    paddingHorizontal: 24,
+    paddingTop: 32,
+    justifyContent: "center",
+  },
+  header: {
+    marginBottom: 40,
+    alignItems: "center",
+  },
+  title: {
+    marginBottom: 8,
+  },
+  subtitle: {
+    textAlign: "center",
+    lineHeight: 24,
+  },
+  formContent: {
+    flex: 1,
+    marginBottom: 32,
+  },
+  submitButton: {
+    height: 50,
+    backgroundColor: "#B5CFF8",
+    borderRadius: 12,
+    alignItems: "center",
+    justifyContent: "center",
+    marginBottom: 16,
+  },
+  submitButtonDisabled: {
+    opacity: 0.6,
+  },
+  submitButtonText: {
+    fontSize: 17,
+    fontWeight: "500",
+    color: "#1C1C1E",
+  },
+  secondaryButton: {
+    alignItems: "center",
+    paddingVertical: 12,
+    marginBottom: 24,
+  },
+  secondaryButtonText: {
+    fontSize: 15,
+    color: "#B5CFF8",
+    textDecorationLine: "underline",
+  },
+  globalErrorContainer: {
+    backgroundColor: "rgba(255, 59, 48, 0.1)",
+    borderRadius: 8,
+    padding: 12,
+    marginTop: 16,
+  },
+  globalErrorText: {
+    fontSize: 14,
+    color: "#FF3B30",
+    textAlign: "center",
+  },
   errorContainer: {
     marginTop: 8,
     paddingHorizontal: 16,

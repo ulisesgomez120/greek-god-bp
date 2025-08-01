@@ -5,17 +5,33 @@
 // biometric support, and smooth error handling
 
 import React, { useState, useEffect } from "react";
-import { View, StyleSheet, Alert, Platform } from "react-native";
-import { useForm } from "react-hook-form";
+import {
+  View,
+  StyleSheet,
+  Alert,
+  Platform,
+  TextInput,
+  TouchableOpacity,
+  ScrollView,
+  KeyboardAvoidingView,
+} from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
+import { useForm, Controller } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as LocalAuthentication from "expo-local-authentication";
 import { useAuth } from "@/hooks/useAuth";
 import { loginFormSchema, type LoginFormData } from "@/utils/validation";
 import { AUTH_FLOWS, LOADING_MESSAGES } from "@/constants/auth";
-import AuthForm from "@/components/auth/AuthForm";
-import Input from "@/components/ui/Input";
 import Text from "@/components/ui/Text";
 import Button from "@/components/ui/Button";
+import {
+  getInputStyle,
+  getInputState,
+  getInputProps,
+  LABEL_STYLES,
+  ERROR_STYLES,
+  FIELD_STYLES,
+} from "@/styles/inputStyles";
 
 // ============================================================================
 // TYPES
@@ -35,6 +51,7 @@ const LoginScreenComponent: React.FC<LoginScreenProps> = ({ navigation, onLoginS
 
   const [biometricAvailable, setBiometricAvailable] = useState(false);
   const [biometricType, setBiometricType] = useState<string>("");
+  const [focusedField, setFocusedField] = useState<string | null>(null);
 
   // React Hook Form setup
   const {
@@ -199,83 +216,112 @@ const LoginScreenComponent: React.FC<LoginScreenProps> = ({ navigation, onLoginS
   // RENDER
   // ============================================================================
 
-  const footerContent = (
-    <View style={styles.footer}>
-      {/* Biometric Login */}
-      {biometricAvailable && (
-        <View style={styles.biometricContainer}>
-          <Button variant='secondary' size='medium' onPress={handleBiometricLogin} style={styles.biometricButton}>
-            Sign in with {biometricType}
-          </Button>
-        </View>
-      )}
-
-      {/* Forgot Password */}
-      <Button variant='text' size='small' onPress={navigateToForgotPassword} style={styles.forgotPasswordButton}>
-        Forgot your password?
-      </Button>
-
-      {/* Global Error */}
-      {error && (
-        <View style={styles.errorContainer}>
-          <Text variant='bodySmall' color='error' align='center'>
-            {error}
-          </Text>
-        </View>
-      )}
-    </View>
-  );
-
   return (
-    <AuthForm
-      title={AUTH_FLOWS.login.title}
-      subtitle={AUTH_FLOWS.login.subtitle}
-      onSubmit={handleSubmit(onSubmit)}
-      submitText={AUTH_FLOWS.login.submitText}
-      submitLoading={isSubmitting || loading.login}
-      submitDisabled={isSubmitting}
-      secondaryAction={{
-        text: AUTH_FLOWS.login.switchText,
-        onPress: navigateToSignup,
-      }}
-      footerContent={footerContent}>
-      {/* Email Field */}
-      <Input
-        name='email'
-        control={control}
-        label='Email Address'
-        placeholder='Enter your email'
-        keyboardType='email-address'
-        autoCapitalize='none'
-        autoComplete='email'
-        textContentType='emailAddress'
-        required
-      />
+    <SafeAreaView style={styles.safeArea}>
+      <KeyboardAvoidingView style={styles.keyboardAvoidingView} behavior={Platform.OS === "ios" ? "padding" : "height"}>
+        <ScrollView
+          style={styles.scrollView}
+          contentContainerStyle={styles.scrollContent}
+          keyboardShouldPersistTaps='handled'>
+          <View style={styles.container}>
+            {/* Header */}
+            <View style={styles.header}>
+              <Text variant='h1' color='primary' align='center' style={styles.title}>
+                {AUTH_FLOWS.login.title}
+              </Text>
+              <Text variant='bodyLarge' color='secondary' align='center' style={styles.subtitle}>
+                {AUTH_FLOWS.login.subtitle}
+              </Text>
+            </View>
 
-      {/* Password Field */}
-      <Input
-        name='password'
-        control={control}
-        label='Password'
-        placeholder='Enter your password'
-        secureTextEntry
-        showPasswordToggle
-        autoComplete='current-password'
-        textContentType='password'
-        required
-      />
+            {/* Form Fields */}
+            <View style={styles.formContent}>
+              {/* Email Field */}
+              <Controller
+                name='email'
+                control={control}
+                render={({ field: { onChange, onBlur, value }, fieldState: { error, isTouched } }) => (
+                  <View style={FIELD_STYLES.container}>
+                    <Text style={LABEL_STYLES.base}>Email Address *</Text>
+                    <TextInput
+                      style={getInputStyle(undefined, getInputState(focusedField === "email", !!error))}
+                      value={value}
+                      onChangeText={onChange}
+                      onFocus={() => setFocusedField("email")}
+                      onBlur={() => {
+                        setFocusedField(null);
+                        onBlur();
+                      }}
+                      {...getInputProps("email")}
+                      placeholder='Enter your email'
+                    />
+                    {isTouched && error && <Text style={ERROR_STYLES.text}>{error.message}</Text>}
+                  </View>
+                )}
+              />
 
-      {/* Remember Me - Future Enhancement */}
-      {/* <View style={styles.rememberMeContainer}>
-        <Switch
-          value={values.rememberMe}
-          onValueChange={handleChange("rememberMe")}
-        />
-        <Text variant="body" style={styles.rememberMeText}>
-          Remember me
-        </Text>
-      </View> */}
-    </AuthForm>
+              {/* Password Field */}
+              <Controller
+                name='password'
+                control={control}
+                render={({ field: { onChange, onBlur, value }, fieldState: { error, isTouched } }) => (
+                  <View style={FIELD_STYLES.container}>
+                    <Text style={LABEL_STYLES.base}>Password *</Text>
+                    <TextInput
+                      style={getInputStyle(undefined, getInputState(focusedField === "password", !!error))}
+                      value={value}
+                      onChangeText={onChange}
+                      onFocus={() => setFocusedField("password")}
+                      onBlur={() => {
+                        setFocusedField(null);
+                        onBlur();
+                      }}
+                      {...getInputProps("password")}
+                      placeholder='Enter your password'
+                    />
+                    {isTouched && error && <Text style={ERROR_STYLES.text}>{error.message}</Text>}
+                  </View>
+                )}
+              />
+            </View>
+
+            {/* Submit Button */}
+            <TouchableOpacity
+              style={[styles.submitButton, (isSubmitting || loading.login) && styles.submitButtonDisabled]}
+              onPress={handleSubmit(onSubmit)}
+              disabled={isSubmitting || loading.login}>
+              <Text style={styles.submitButtonText}>
+                {isSubmitting || loading.login ? "Signing In..." : AUTH_FLOWS.login.submitText}
+              </Text>
+            </TouchableOpacity>
+
+            {/* Secondary Action */}
+            <TouchableOpacity style={styles.secondaryButton} onPress={navigateToSignup}>
+              <Text style={styles.secondaryButtonText}>{AUTH_FLOWS.login.switchText}</Text>
+            </TouchableOpacity>
+
+            {/* Biometric Login */}
+            {biometricAvailable && (
+              <TouchableOpacity style={styles.biometricButton} onPress={handleBiometricLogin}>
+                <Text style={styles.biometricButtonText}>Sign in with {biometricType}</Text>
+              </TouchableOpacity>
+            )}
+
+            {/* Forgot Password */}
+            <TouchableOpacity style={styles.forgotPasswordButton} onPress={navigateToForgotPassword}>
+              <Text style={styles.forgotPasswordText}>Forgot your password?</Text>
+            </TouchableOpacity>
+
+            {/* Global Error */}
+            {error && (
+              <View style={styles.globalErrorContainer}>
+                <Text style={styles.globalErrorText}>{error}</Text>
+              </View>
+            )}
+          </View>
+        </ScrollView>
+      </KeyboardAvoidingView>
+    </SafeAreaView>
   );
 };
 
@@ -284,32 +330,101 @@ const LoginScreenComponent: React.FC<LoginScreenProps> = ({ navigation, onLoginS
 // ============================================================================
 
 const styles = StyleSheet.create({
-  footer: {
-    width: "100%",
+  safeArea: {
+    flex: 1,
+    backgroundColor: "#FFFFFF",
+  },
+  keyboardAvoidingView: {
+    flex: 1,
+  },
+  scrollView: {
+    flex: 1,
+  },
+  scrollContent: {
+    flexGrow: 1,
+    paddingBottom: 32,
+  },
+  container: {
+    flex: 1,
+    paddingHorizontal: 24,
+    paddingTop: 32,
+    justifyContent: "center",
+  },
+  header: {
+    marginBottom: 40,
     alignItems: "center",
   },
-  biometricContainer: {
+  title: {
+    marginBottom: 8,
+  },
+  subtitle: {
+    textAlign: "center",
+    lineHeight: 24,
+  },
+  formContent: {
+    flex: 1,
+    marginBottom: 32,
+  },
+  submitButton: {
+    height: 50,
+    backgroundColor: "#B5CFF8",
+    borderRadius: 12,
+    alignItems: "center",
+    justifyContent: "center",
     marginBottom: 16,
-    width: "100%",
+  },
+  submitButtonDisabled: {
+    opacity: 0.6,
+  },
+  submitButtonText: {
+    fontSize: 17,
+    fontWeight: "500",
+    color: "#1C1C1E",
+  },
+  secondaryButton: {
+    alignItems: "center",
+    paddingVertical: 12,
+    marginBottom: 16,
+  },
+  secondaryButtonText: {
+    fontSize: 15,
+    color: "#B5CFF8",
+    textDecorationLine: "underline",
   },
   biometricButton: {
-    width: "100%",
+    alignItems: "center",
+    paddingVertical: 12,
+    marginBottom: 16,
+    borderWidth: 2,
+    borderColor: "#B5CFF8",
+    borderRadius: 12,
+    backgroundColor: "transparent",
+  },
+  biometricButtonText: {
+    fontSize: 15,
+    color: "#B5CFF8",
+    fontWeight: "500",
   },
   forgotPasswordButton: {
-    marginBottom: 16,
-  },
-  errorContainer: {
-    marginTop: 8,
-    paddingHorizontal: 16,
-  },
-  rememberMeContainer: {
-    flexDirection: "row",
     alignItems: "center",
+    paddingVertical: 12,
     marginBottom: 24,
-    paddingHorizontal: 4,
   },
-  rememberMeText: {
-    marginLeft: 12,
+  forgotPasswordText: {
+    fontSize: 14,
+    color: "#B5CFF8",
+    textDecorationLine: "underline",
+  },
+  globalErrorContainer: {
+    backgroundColor: "rgba(255, 59, 48, 0.1)",
+    borderRadius: 8,
+    padding: 12,
+    marginTop: 16,
+  },
+  globalErrorText: {
+    fontSize: 14,
+    color: "#FF3B30",
+    textAlign: "center",
   },
 });
 

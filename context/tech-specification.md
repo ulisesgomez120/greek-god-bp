@@ -352,58 +352,125 @@ export const authService = {
 3. **Simplify Dependency Arrays**: Only include dependencies that actually matter for correctness
 4. **Avoid Custom Hooks for Simple Logic**: If it's just useState + useEffect, keep it inline
 
-### **Form Handling with React Hook Form**
+### **Input Handling: Direct TextInput with Style Constants**
 
-1. **Use React Hook Form for All Forms**: Provides optimal performance and proper focus management
-2. **Proper Controller Integration**: Use Controller component with proper ref forwarding for react-hook-form integration
-3. **Focus Management**: Ensure proper onFocus/onBlur coordination between internal state and react-hook-form
-4. **Validation Integration**: Use Zod schemas with @hookform/resolvers/zod for type-safe validation
-5. **Error Display**: Show validation errors only after field is touched (isTouched) to improve UX
+**CRITICAL: iOS Keyboard Focus Issues**
 
-**✅ Correct React Hook Form Pattern**:
+Due to iOS keyboard focus issues with wrapper components, TrainSmart uses **direct TextInput components** with centralized style constants instead of wrapper components.
+
+**✅ Correct Direct TextInput Pattern**:
 
 ```typescript
-// Form component with react-hook-form
-const { control, handleSubmit, formState: { errors, isSubmitting } } = useForm({
+// Import style constants
+import {
+  getInputStyle,
+  getInputState,
+  getInputProps,
+  LABEL_STYLES,
+  ERROR_STYLES,
+  FIELD_STYLES,
+} from "@/styles/inputStyles";
+
+// Component with focus state management
+const [focusedField, setFocusedField] = useState<string | null>(null);
+const [errors, setErrors] = useState<{ email?: string }>({});
+
+// Direct TextInput usage
+<View style={FIELD_STYLES.container}>
+  <Text style={LABEL_STYLES.base}>Email Address *</Text>
+  <TextInput
+    style={getInputStyle(undefined, getInputState(focusedField === "email", !!errors.email))}
+    value={email}
+    onChangeText={setEmail}
+    onFocus={() => setFocusedField("email")}
+    onBlur={() => setFocusedField(null)}
+    {...getInputProps("email")}
+    placeholder='Enter your email'
+  />
+  {errors.email && <Text style={ERROR_STYLES.text}>{errors.email}</Text>}
+</View>;
+```
+
+**Style Constants System**:
+
+```typescript
+// Centralized input styling in src/styles/inputStyles.ts
+export const INPUT_STYLES = {
+  base: { /* base TextInput styles */ },
+  states: {
+    default: { /* default border/background */ },
+    focused: { /* focus styles with shadow */ },
+    error: { /* error state styling */ },
+    success: { /* success state styling */ }
+  },
+  variants: {
+    search: { /* search field styles */ },
+    rpe: { /* RPE input styles */ },
+    textarea: { /* large text area styles */ }
+  }
+};
+
+// Helper functions
+export const getInputStyle = (variant?, state?) => [/* combined styles */];
+export const getInputState = (isFocused, hasError) => /* state key */;
+export const getInputProps = (type) => /* common TextInput props */;
+```
+
+**Form Integration with React Hook Form**:
+
+For forms requiring validation, combine direct TextInput with React Hook Form:
+
+```typescript
+// Form setup
+const {
+  control,
+  handleSubmit,
+  formState: { errors },
+} = useForm({
   resolver: zodResolver(validationSchema),
   mode: "onSubmit",
-  reValidateMode: "onChange"
+  reValidateMode: "onChange",
 });
 
-// Input component with proper Controller integration
-<Input
-  name="email"
-  control={control}
-  label="Email Address"
-  placeholder="Enter your email"
-  keyboardType="email-address"
-  autoCapitalize="none"
-  required
-/>
-
-// Controller implementation in Input component
+// Direct TextInput with react-hook-form Controller
 <Controller
-  name={name}
+  name='email'
   control={control}
-  rules={rules}
-  render={({ field: { onChange, onBlur, value, ref }, fieldState: { error, isTouched } }) => (
-    <InputComponent
-      ref={ref}
-      value={value}
-      onChangeText={onChange}
-      onBlur={onBlur}
-      error={isTouched ? error?.message : undefined}
-      {...inputProps}
-    />
+  render={({ field: { onChange, onBlur, value }, fieldState: { error, isTouched } }) => (
+    <View style={FIELD_STYLES.container}>
+      <Text style={LABEL_STYLES.base}>Email Address *</Text>
+      <TextInput
+        style={getInputStyle(undefined, getInputState(focusedField === "email", !!error))}
+        value={value}
+        onChangeText={onChange}
+        onFocus={() => setFocusedField("email")}
+        onBlur={() => {
+          setFocusedField(null);
+          onBlur();
+        }}
+        {...getInputProps("email")}
+        placeholder='Enter your email'
+      />
+      {isTouched && error && <Text style={ERROR_STYLES.text}>{error.message}</Text>}
+    </View>
   )}
-/>
+/>;
 ```
 
 **❌ Avoid These Patterns**:
 
-- Removing ref and onBlur from react-hook-form Controller (causes focus issues)
-- Complex custom form validation hooks when react-hook-form + Zod is sufficient
-- Manual form state management when react-hook-form handles it better
+- Wrapper Input components (causes iOS keyboard focus issues)
+- Complex component hierarchies around TextInput
+- Custom Input components with Controller integration
+- Removing onFocus/onBlur handlers (breaks focus state management)
+
+**Benefits of Direct TextInput Approach**:
+
+- ✅ **Reliable iOS keyboard behavior** - No focus issues
+- ✅ **Consistent styling** - Centralized style constants
+- ✅ **Simple debugging** - Clear component hierarchy
+- ✅ **Performance optimized** - No unnecessary wrapper renders
+- ✅ **Easy to customize** - Direct access to TextInput props
 
 ### **Performance Guidelines**
 

@@ -17,6 +17,14 @@ import {
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useAuth } from "@/hooks/useAuth";
 import Text from "@/components/ui/Text";
+import {
+  getInputStyle,
+  getInputState,
+  getInputProps,
+  LABEL_STYLES,
+  ERROR_STYLES,
+  FIELD_STYLES,
+} from "@/styles/inputStyles";
 
 // ============================================================================
 // TYPES
@@ -39,6 +47,7 @@ const RegisterScreenComponent: React.FC<RegisterScreenProps> = ({ navigation, on
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [errors, setErrors] = useState<{ email?: string; password?: string; confirmPassword?: string }>({});
+  const [focusedField, setFocusedField] = useState<string | null>(null);
 
   console.log("RegisterScreen: Basic test render", {
     email: email.length,
@@ -138,10 +147,10 @@ const RegisterScreenComponent: React.FC<RegisterScreenProps> = ({ navigation, on
             {/* Form Fields */}
             <View style={styles.formContent}>
               {/* Email Field */}
-              <View style={styles.fieldContainer}>
-                <Text style={styles.label}>Email Address *</Text>
+              <View style={FIELD_STYLES.container}>
+                <Text style={LABEL_STYLES.base}>Email Address *</Text>
                 <TextInput
-                  style={[styles.input, errors.email && styles.inputError]}
+                  style={getInputStyle(undefined, getInputState(focusedField === "email", !!errors.email))}
                   value={email}
                   onChangeText={(text) => {
                     setEmail(text);
@@ -149,22 +158,19 @@ const RegisterScreenComponent: React.FC<RegisterScreenProps> = ({ navigation, on
                       setErrors((prev) => ({ ...prev, email: undefined }));
                     }
                   }}
+                  onFocus={() => setFocusedField("email")}
+                  onBlur={() => setFocusedField(null)}
+                  {...getInputProps("email")}
                   placeholder='Enter your email'
-                  keyboardType='email-address'
-                  autoCapitalize='none'
-                  autoComplete='email'
-                  textContentType='emailAddress'
-                  autoCorrect={false}
-                  spellCheck={false}
                 />
-                {errors.email && <Text style={styles.errorText}>{errors.email}</Text>}
+                {errors.email && <Text style={ERROR_STYLES.text}>{errors.email}</Text>}
               </View>
 
               {/* Password Field */}
-              <View style={styles.fieldContainer}>
-                <Text style={styles.label}>Password *</Text>
+              <View style={FIELD_STYLES.container}>
+                <Text style={LABEL_STYLES.base}>Password *</Text>
                 <TextInput
-                  style={[styles.input, errors.password && styles.inputError]}
+                  style={getInputStyle(undefined, getInputState(focusedField === "password", !!errors.password))}
                   value={password}
                   onChangeText={(text) => {
                     setPassword(text);
@@ -172,21 +178,22 @@ const RegisterScreenComponent: React.FC<RegisterScreenProps> = ({ navigation, on
                       setErrors((prev) => ({ ...prev, password: undefined }));
                     }
                   }}
+                  onFocus={() => setFocusedField("password")}
+                  onBlur={() => setFocusedField(null)}
+                  {...getInputProps("password")}
                   placeholder='Create a strong password'
-                  secureTextEntry
-                  autoComplete='new-password'
-                  textContentType='newPassword'
-                  autoCorrect={false}
-                  spellCheck={false}
                 />
-                {errors.password && <Text style={styles.errorText}>{errors.password}</Text>}
+                {errors.password && <Text style={ERROR_STYLES.text}>{errors.password}</Text>}
               </View>
 
               {/* Confirm Password Field */}
-              <View style={styles.fieldContainer}>
-                <Text style={styles.label}>Confirm Password *</Text>
+              <View style={FIELD_STYLES.container}>
+                <Text style={LABEL_STYLES.base}>Confirm Password *</Text>
                 <TextInput
-                  style={[styles.input, errors.confirmPassword && styles.inputError]}
+                  style={getInputStyle(
+                    undefined,
+                    getInputState(focusedField === "confirmPassword", !!errors.confirmPassword)
+                  )}
                   value={confirmPassword}
                   onChangeText={(text) => {
                     setConfirmPassword(text);
@@ -194,14 +201,12 @@ const RegisterScreenComponent: React.FC<RegisterScreenProps> = ({ navigation, on
                       setErrors((prev) => ({ ...prev, confirmPassword: undefined }));
                     }
                   }}
+                  onFocus={() => setFocusedField("confirmPassword")}
+                  onBlur={() => setFocusedField(null)}
+                  {...getInputProps("password")}
                   placeholder='Confirm your password'
-                  secureTextEntry
-                  autoComplete='new-password'
-                  textContentType='newPassword'
-                  autoCorrect={false}
-                  spellCheck={false}
                 />
-                {errors.confirmPassword && <Text style={styles.errorText}>{errors.confirmPassword}</Text>}
+                {errors.confirmPassword && <Text style={ERROR_STYLES.text}>{errors.confirmPassword}</Text>}
               </View>
             </View>
 
