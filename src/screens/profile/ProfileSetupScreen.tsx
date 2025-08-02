@@ -9,8 +9,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { useNavigation } from "@react-navigation/native";
 import { Text } from "@/components/ui/Text";
 import { Button } from "@/components/ui/Button";
-import { Input } from "@/components/ui/Input";
-import { FormField } from "@/components/ui/FormField";
+
 import { LoadingButton } from "@/components/ui/LoadingButton";
 import { useProfile } from "@/hooks/useProfile";
 import { useAuth } from "@/hooks/useAuth";

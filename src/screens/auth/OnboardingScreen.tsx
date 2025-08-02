@@ -4,11 +4,11 @@
 // User profile setup and experience level selection after successful registration
 // with motivational copy and smooth transitions
 
-import React, { useState, useRef } from "react";
-import { View, StyleSheet, Alert, TextInput } from "react-native";
+import React, { useState } from "react";
+import { View, StyleSheet, Alert, TextInput, ScrollView, KeyboardAvoidingView, Platform } from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
 import { useAuth } from "@/hooks/useAuth";
 import { EXPERIENCE_LEVELS, FITNESS_GOALS } from "@/constants/auth";
-import AuthForm from "@/components/auth/AuthForm";
 import Text from "@/components/ui/Text";
 import Button from "@/components/ui/Button";
 import {
@@ -44,12 +44,10 @@ export const OnboardingScreen: React.FC<OnboardingScreenProps> = ({ navigation, 
   );
   const [errors, setErrors] = useState<{ displayName?: string }>({});
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [focusedField, setFocusedField] = useState<string | null>(null);
 
-  // Form field refs
-  const displayNameFieldRef = useRef<TextInput>(null);
-
-  // Initialize form values
-  const initialDisplayName = (user?.user_metadata?.display_name as string) || "";
+  // Controlled form state
+  const [displayName, setDisplayName] = useState((user?.user_metadata?.display_name as string) || "");
 
   // ============================================================================
   // STEP MANAGEMENT
@@ -66,7 +64,6 @@ export const OnboardingScreen: React.FC<OnboardingScreenProps> = ({ navigation, 
       case "welcome":
         return true;
       case "profile":
-        const displayName = (displayNameFieldRef.current as any)?._lastNativeText || "";
         return displayName.trim().length > 0 && experienceLevel && !errors.displayName;
       case "goals":
         return selectedGoals.length > 0;
@@ -98,6 +95,7 @@ export const OnboardingScreen: React.FC<OnboardingScreenProps> = ({ navigation, 
   // ============================================================================
 
   const handleDisplayNameChange = (value: string) => {
+    setDisplayName(value);
     if (errors.displayName) {
       setErrors((prev) => ({ ...prev, displayName: undefined }));
     }
@@ -113,8 +111,6 @@ export const OnboardingScreen: React.FC<OnboardingScreenProps> = ({ navigation, 
 
   const onSubmit = async () => {
     try {
-      const displayName = (displayNameFieldRef.current as any)?._lastNativeText || "";
-
       // Validate display name
       if (!displayName.trim()) {
         setErrors({ displayName: "Display name is required" });
@@ -155,211 +151,309 @@ export const OnboardingScreen: React.FC<OnboardingScreenProps> = ({ navigation, 
   // ============================================================================
 
   const renderWelcomeStep = () => (
-    <AuthForm
-      title='Welcome to TrainSmart! 🎉'
-      subtitle="Let's set up your profile to provide personalized workout recommendations"
-      onSubmit={nextStep}
-      submitText='Get Started'
-      showKeyboardAvoidance={false}>
-      <View style={styles.welcomeContainer}>
-        <View style={styles.welcomeIcon}>
-          <Text variant='h1' style={styles.welcomeEmoji}>
-            💪
-          </Text>
-        </View>
+    <SafeAreaView style={styles.safeArea}>
+      <KeyboardAvoidingView style={styles.keyboardAvoidingView} behavior={Platform.OS === "ios" ? "padding" : "height"}>
+        <ScrollView
+          style={styles.scrollView}
+          contentContainerStyle={styles.scrollContent}
+          keyboardShouldPersistTaps='handled'>
+          <View style={styles.container}>
+            {/* Header */}
+            <View style={styles.header}>
+              <Text variant='h1' color='primary' align='center' style={styles.title}>
+                Welcome to TrainSmart! 🎉
+              </Text>
+              <Text variant='bodyLarge' color='secondary' align='center' style={styles.subtitle}>
+                Let's set up your profile to provide personalized workout recommendations
+              </Text>
+            </View>
 
-        <Text variant='bodyLarge' color='primary' align='center' style={styles.welcomeMessage}>
-          You're about to embark on your fitness journey with AI-powered coaching and smart progression tracking.
-        </Text>
+            {/* Content */}
+            <View style={styles.formContent}>
+              <View style={styles.welcomeContainer}>
+                <View style={styles.welcomeIcon}>
+                  <Text variant='h1' style={styles.welcomeEmoji}>
+                    💪
+                  </Text>
+                </View>
 
-        <View style={styles.featuresContainer}>
-          <View style={styles.featureItem}>
-            <Text variant='body' style={styles.featureIcon}>
-              🎯
-            </Text>
-            <Text variant='body' color='primary' style={styles.featureText}>
-              Personalized workout recommendations
-            </Text>
+                <Text variant='bodyLarge' color='primary' align='center' style={styles.welcomeMessage}>
+                  You're about to embark on your fitness journey with AI-powered coaching and smart progression
+                  tracking.
+                </Text>
+
+                <View style={styles.featuresContainer}>
+                  <View style={styles.featureItem}>
+                    <Text variant='body' style={styles.featureIcon}>
+                      🎯
+                    </Text>
+                    <Text variant='body' color='primary' style={styles.featureText}>
+                      Personalized workout recommendations
+                    </Text>
+                  </View>
+
+                  <View style={styles.featureItem}>
+                    <Text variant='body' style={styles.featureIcon}>
+                      📈
+                    </Text>
+                    <Text variant='body' color='primary' style={styles.featureText}>
+                      Smart progression tracking with RPE
+                    </Text>
+                  </View>
+
+                  <View style={styles.featureItem}>
+                    <Text variant='body' style={styles.featureIcon}>
+                      🤖
+                    </Text>
+                    <Text variant='body' color='primary' style={styles.featureText}>
+                      AI coaching for form and technique
+                    </Text>
+                  </View>
+                </View>
+              </View>
+            </View>
+
+            {/* Submit Button */}
+            <Button variant='primary' size='large' style={styles.submitButton} onPress={nextStep}>
+              Get Started
+            </Button>
           </View>
-
-          <View style={styles.featureItem}>
-            <Text variant='body' style={styles.featureIcon}>
-              📈
-            </Text>
-            <Text variant='body' color='primary' style={styles.featureText}>
-              Smart progression tracking with RPE
-            </Text>
-          </View>
-
-          <View style={styles.featureItem}>
-            <Text variant='body' style={styles.featureIcon}>
-              🤖
-            </Text>
-            <Text variant='body' color='primary' style={styles.featureText}>
-              AI coaching for form and technique
-            </Text>
-          </View>
-        </View>
-      </View>
-    </AuthForm>
+        </ScrollView>
+      </KeyboardAvoidingView>
+    </SafeAreaView>
   );
 
   const renderProfileStep = () => (
-    <AuthForm
-      title='Tell Us About Yourself'
-      subtitle='Help us customize your experience'
-      onSubmit={nextStep}
-      submitText='Continue'
-      submitDisabled={!canProceedToNextStep()}
-      secondaryAction={{
-        text: "Back",
-        onPress: previousStep,
-      }}>
-      <View style={FIELD_STYLES.container}>
-        <Text style={LABEL_STYLES.base}>Display Name *</Text>
-        <TextInput
-          ref={displayNameFieldRef}
-          style={getInputStyle(undefined, getInputState(false, !!errors.displayName))}
-          defaultValue={initialDisplayName}
-          onChangeText={handleDisplayNameChange}
-          autoCapitalize='words'
-          autoComplete='name'
-          textContentType='name'
-          placeholder='How should we call you?'
-        />
-        {errors.displayName && <Text style={ERROR_STYLES.text}>{errors.displayName}</Text>}
-      </View>
-
-      <View style={styles.experienceLevelContainer}>
-        <Text variant='body' color='primary' style={styles.sectionLabel}>
-          Experience Level *
-        </Text>
-        <Text variant='bodySmall' color='secondary' style={styles.sectionDescription}>
-          This helps us customize your workout recommendations
-        </Text>
-
-        {Object.entries(EXPERIENCE_LEVELS).map(([key, level]) => (
-          <Button
-            key={key}
-            variant={experienceLevel === key ? "primary" : "secondary"}
-            size='medium'
-            style={styles.experienceButton}
-            onPress={() => setExperienceLevel(key)}>
-            <View style={styles.experienceButtonContent}>
-              <Text variant='body' color={experienceLevel === key ? "white" : "primary"} weight='medium'>
-                {level.label}
+    <SafeAreaView style={styles.safeArea}>
+      <KeyboardAvoidingView style={styles.keyboardAvoidingView} behavior={Platform.OS === "ios" ? "padding" : "height"}>
+        <ScrollView
+          style={styles.scrollView}
+          contentContainerStyle={styles.scrollContent}
+          keyboardShouldPersistTaps='handled'>
+          <View style={styles.container}>
+            {/* Header */}
+            <View style={styles.header}>
+              <Text variant='h1' color='primary' align='center' style={styles.title}>
+                Tell Us About Yourself
               </Text>
-              <Text
-                variant='bodySmall'
-                color={experienceLevel === key ? "white" : "secondary"}
-                style={styles.experienceDescription}>
-                {level.description}
+              <Text variant='bodyLarge' color='secondary' align='center' style={styles.subtitle}>
+                Help us customize your experience
               </Text>
             </View>
-          </Button>
-        ))}
-      </View>
-    </AuthForm>
+
+            {/* Form Content */}
+            <View style={styles.formContent}>
+              <View style={FIELD_STYLES.container}>
+                <Text style={LABEL_STYLES.base}>Display Name *</Text>
+                <TextInput
+                  style={getInputStyle(undefined, getInputState(focusedField === "displayName", !!errors.displayName))}
+                  value={displayName}
+                  onChangeText={handleDisplayNameChange}
+                  onFocus={() => setFocusedField("displayName")}
+                  onBlur={() => setFocusedField(null)}
+                  autoCapitalize='words'
+                  autoComplete='name'
+                  textContentType='name'
+                  placeholder='How should we call you?'
+                />
+                {errors.displayName && <Text style={ERROR_STYLES.text}>{errors.displayName}</Text>}
+              </View>
+
+              <View style={styles.experienceLevelContainer}>
+                <Text variant='body' color='primary' style={styles.sectionLabel}>
+                  Experience Level *
+                </Text>
+                <Text variant='bodySmall' color='secondary' style={styles.sectionDescription}>
+                  This helps us customize your workout recommendations
+                </Text>
+
+                {Object.entries(EXPERIENCE_LEVELS).map(([key, level]) => (
+                  <Button
+                    key={key}
+                    variant={experienceLevel === key ? "primary" : "secondary"}
+                    size='medium'
+                    style={styles.experienceButton}
+                    onPress={() => setExperienceLevel(key)}>
+                    <View style={styles.experienceButtonContent}>
+                      <Text variant='body' color={experienceLevel === key ? "white" : "primary"} weight='medium'>
+                        {level.label}
+                      </Text>
+                      <Text
+                        variant='bodySmall'
+                        color={experienceLevel === key ? "white" : "secondary"}
+                        style={styles.experienceDescription}>
+                        {level.description}
+                      </Text>
+                    </View>
+                  </Button>
+                ))}
+              </View>
+            </View>
+
+            {/* Action Buttons */}
+            <Button
+              variant='primary'
+              size='large'
+              style={styles.submitButton}
+              disabled={!canProceedToNextStep()}
+              onPress={nextStep}>
+              Continue
+            </Button>
+
+            <Button variant='text' size='medium' style={styles.secondaryButton} onPress={previousStep}>
+              Back
+            </Button>
+          </View>
+        </ScrollView>
+      </KeyboardAvoidingView>
+    </SafeAreaView>
   );
 
   const renderGoalsStep = () => (
-    <AuthForm
-      title='Your Fitness Goals'
-      subtitle='What do you want to achieve?'
-      onSubmit={onSubmit}
-      submitText='Complete Setup'
-      submitLoading={isSubmitting || loading.profileUpdate}
-      submitDisabled={!canProceedToNextStep() || isSubmitting}
-      secondaryAction={{
-        text: "Back",
-        onPress: previousStep,
-      }}>
-      <View style={styles.goalsContainer}>
-        <Text variant='body' color='primary' style={styles.sectionLabel}>
-          Select Your Goals *
-        </Text>
-        <Text variant='bodySmall' color='secondary' style={styles.sectionDescription}>
-          Choose one or more goals that match your fitness aspirations
-        </Text>
+    <SafeAreaView style={styles.safeArea}>
+      <KeyboardAvoidingView style={styles.keyboardAvoidingView} behavior={Platform.OS === "ios" ? "padding" : "height"}>
+        <ScrollView
+          style={styles.scrollView}
+          contentContainerStyle={styles.scrollContent}
+          keyboardShouldPersistTaps='handled'>
+          <View style={styles.container}>
+            {/* Header */}
+            <View style={styles.header}>
+              <Text variant='h1' color='primary' align='center' style={styles.title}>
+                Your Fitness Goals
+              </Text>
+              <Text variant='bodyLarge' color='secondary' align='center' style={styles.subtitle}>
+                What do you want to achieve?
+              </Text>
+            </View>
 
-        <View style={styles.goalsGrid}>
-          {Object.entries(FITNESS_GOALS).map(([key, goal]) => (
-            <Button
-              key={key}
-              variant={selectedGoals.includes(key) ? "primary" : "secondary"}
-              size='medium'
-              style={styles.goalButton}
-              onPress={() => handleGoalToggle(key)}>
-              <View style={styles.goalButtonContent}>
-                <Text variant='h3' style={styles.goalIcon}>
-                  {goal.icon}
+            {/* Form Content */}
+            <View style={styles.formContent}>
+              <View style={styles.goalsContainer}>
+                <Text variant='body' color='primary' style={styles.sectionLabel}>
+                  Select Your Goals *
                 </Text>
-                <Text
-                  variant='body'
-                  color={selectedGoals.includes(key) ? "white" : "primary"}
-                  weight='medium'
-                  align='center'>
-                  {goal.label}
+                <Text variant='bodySmall' color='secondary' style={styles.sectionDescription}>
+                  Choose one or more goals that match your fitness aspirations
                 </Text>
-                <Text
-                  variant='bodySmall'
-                  color={selectedGoals.includes(key) ? "white" : "secondary"}
-                  align='center'
-                  style={styles.goalDescription}>
-                  {goal.description}
-                </Text>
+
+                <View style={styles.goalsGrid}>
+                  {Object.entries(FITNESS_GOALS).map(([key, goal]) => (
+                    <Button
+                      key={key}
+                      variant={selectedGoals.includes(key) ? "primary" : "secondary"}
+                      size='medium'
+                      style={styles.goalButton}
+                      onPress={() => handleGoalToggle(key)}>
+                      <View style={styles.goalButtonContent}>
+                        <Text variant='h3' style={styles.goalIcon}>
+                          {goal.icon}
+                        </Text>
+                        <Text
+                          variant='body'
+                          color={selectedGoals.includes(key) ? "white" : "primary"}
+                          weight='medium'
+                          align='center'>
+                          {goal.label}
+                        </Text>
+                        <Text
+                          variant='bodySmall'
+                          color={selectedGoals.includes(key) ? "white" : "secondary"}
+                          align='center'
+                          style={styles.goalDescription}>
+                          {goal.description}
+                        </Text>
+                      </View>
+                    </Button>
+                  ))}
+                </View>
               </View>
+            </View>
+
+            {/* Action Buttons */}
+            <Button
+              variant='primary'
+              size='large'
+              style={styles.submitButton}
+              disabled={!canProceedToNextStep() || isSubmitting}
+              onPress={onSubmit}>
+              {isSubmitting || loading.profileUpdate ? "Setting up..." : "Complete Setup"}
             </Button>
-          ))}
-        </View>
-      </View>
-    </AuthForm>
+
+            <Button variant='text' size='medium' style={styles.secondaryButton} onPress={previousStep}>
+              Back
+            </Button>
+          </View>
+        </ScrollView>
+      </KeyboardAvoidingView>
+    </SafeAreaView>
   );
 
   const renderCompleteStep = () => (
-    <AuthForm
-      title="You're All Set! 🚀"
-      subtitle='Your profile has been created successfully'
-      onSubmit={completeOnboarding}
-      submitText='Start Training'
-      showKeyboardAvoidance={false}>
-      <View style={styles.completeContainer}>
-        <View style={styles.completeIcon}>
-          <Text variant='h1' style={styles.completeEmoji}>
-            ✨
-          </Text>
-        </View>
+    <SafeAreaView style={styles.safeArea}>
+      <KeyboardAvoidingView style={styles.keyboardAvoidingView} behavior={Platform.OS === "ios" ? "padding" : "height"}>
+        <ScrollView
+          style={styles.scrollView}
+          contentContainerStyle={styles.scrollContent}
+          keyboardShouldPersistTaps='handled'>
+          <View style={styles.container}>
+            {/* Header */}
+            <View style={styles.header}>
+              <Text variant='h1' color='primary' align='center' style={styles.title}>
+                You're All Set! 🚀
+              </Text>
+              <Text variant='bodyLarge' color='secondary' align='center' style={styles.subtitle}>
+                Your profile has been created successfully
+              </Text>
+            </View>
 
-        <Text variant='bodyLarge' color='primary' align='center' style={styles.completeMessage}>
-          Welcome to TrainSmart, {(displayNameFieldRef.current as any)?._lastNativeText || ""}! Your personalized
-          fitness journey starts now.
-        </Text>
+            {/* Content */}
+            <View style={styles.formContent}>
+              <View style={styles.completeContainer}>
+                <View style={styles.completeIcon}>
+                  <Text variant='h1' style={styles.completeEmoji}>
+                    ✨
+                  </Text>
+                </View>
 
-        <View style={styles.summaryContainer}>
-          <Text variant='body' color='secondary' align='center' style={styles.summaryTitle}>
-            Your Profile Summary:
-          </Text>
+                <Text variant='bodyLarge' color='primary' align='center' style={styles.completeMessage}>
+                  Welcome to TrainSmart, {displayName || ""}! Your personalized fitness journey starts now.
+                </Text>
 
-          <View style={styles.summaryItem}>
-            <Text variant='body' color='primary' weight='medium'>
-              Experience Level: {EXPERIENCE_LEVELS[experienceLevel as keyof typeof EXPERIENCE_LEVELS]?.label}
-            </Text>
+                <View style={styles.summaryContainer}>
+                  <Text variant='body' color='secondary' align='center' style={styles.summaryTitle}>
+                    Your Profile Summary:
+                  </Text>
+
+                  <View style={styles.summaryItem}>
+                    <Text variant='body' color='primary' weight='medium'>
+                      Experience Level: {EXPERIENCE_LEVELS[experienceLevel as keyof typeof EXPERIENCE_LEVELS]?.label}
+                    </Text>
+                  </View>
+
+                  <View style={styles.summaryItem}>
+                    <Text variant='body' color='primary' weight='medium'>
+                      Goals: {selectedGoals.length} selected
+                    </Text>
+                  </View>
+                </View>
+
+                <View style={styles.motivationContainer}>
+                  <Text variant='body' color='coach' align='center' style={styles.motivationText}>
+                    "The journey of a thousand miles begins with one step. Your first workout awaits!"
+                  </Text>
+                </View>
+              </View>
+            </View>
+
+            {/* Submit Button */}
+            <Button variant='primary' size='large' style={styles.submitButton} onPress={completeOnboarding}>
+              Start Training
+            </Button>
           </View>
-
-          <View style={styles.summaryItem}>
-            <Text variant='body' color='primary' weight='medium'>
-              Goals: {selectedGoals.length} selected
-            </Text>
-          </View>
-        </View>
-
-        <View style={styles.motivationContainer}>
-          <Text variant='body' color='coach' align='center' style={styles.motivationText}>
-            "The journey of a thousand miles begins with one step. Your first workout awaits!"
-          </Text>
-        </View>
-      </View>
-    </AuthForm>
+        </ScrollView>
+      </KeyboardAvoidingView>
+    </SafeAreaView>
   );
 
   // ============================================================================
@@ -400,6 +494,48 @@ export const OnboardingScreen: React.FC<OnboardingScreenProps> = ({ navigation, 
 // ============================================================================
 
 const styles = StyleSheet.create({
+  safeArea: {
+    flex: 1,
+    backgroundColor: "#FFFFFF",
+  },
+  keyboardAvoidingView: {
+    flex: 1,
+  },
+  scrollView: {
+    flex: 1,
+  },
+  scrollContent: {
+    flexGrow: 1,
+    paddingBottom: 32,
+  },
+  container: {
+    flex: 1,
+    paddingHorizontal: 24,
+    paddingTop: 32,
+    justifyContent: "center",
+  },
+  header: {
+    marginBottom: 40,
+    alignItems: "center",
+  },
+  title: {
+    marginBottom: 8,
+  },
+  subtitle: {
+    textAlign: "center",
+    lineHeight: 24,
+  },
+  formContent: {
+    flex: 1,
+    marginBottom: 32,
+  },
+  submitButton: {
+    marginBottom: 16,
+  },
+  secondaryButton: {
+    alignItems: "center",
+    marginBottom: 24,
+  },
   progressContainer: {
     width: "100%",
     alignItems: "center",
