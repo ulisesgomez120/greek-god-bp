@@ -2,20 +2,37 @@
 // PROFILE EDIT SCREEN
 // ============================================================================
 // Profile editing interface with form validation and real-time updates
+// Following Direct TextInput Pattern for iOS keyboard compatibility
 
 import React, { useState, useCallback, useEffect } from "react";
-import { View, ScrollView, StyleSheet, Alert, KeyboardAvoidingView, Platform, Switch } from "react-native";
+import {
+  View,
+  ScrollView,
+  StyleSheet,
+  Alert,
+  KeyboardAvoidingView,
+  Platform,
+  Switch,
+  TextInput,
+  TouchableOpacity,
+} from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useNavigation } from "@react-navigation/native";
 import { Text } from "@/components/ui/Text";
 import { Button } from "@/components/ui/Button";
-import { Input } from "@/components/ui/Input";
-import { FormField } from "@/components/ui/FormField";
 import { LoadingButton } from "@/components/ui/LoadingButton";
 import { useProfile } from "@/hooks/useProfile";
 import { logger } from "@/utils/logger";
 import type { UserProfile, ProfileEditData, PrivacySettings, FitnessGoal } from "@/types/profile";
 import { DEFAULT_FITNESS_GOALS, EXPERIENCE_LEVELS, getExperienceLevelInfo } from "@/types/profile";
+import {
+  getInputStyle,
+  getInputState,
+  getInputProps,
+  LABEL_STYLES,
+  ERROR_STYLES,
+  FIELD_STYLES,
+} from "@/styles/inputStyles";
 
 // ============================================================================
 // TYPES
@@ -39,6 +56,7 @@ export const ProfileEditScreen: React.FC<ProfileEditScreenProps> = () => {
   const [errors, setErrors] = useState<FormErrors>({});
   const [hasChanges, setHasChanges] = useState(false);
   const [activeSection, setActiveSection] = useState<string>("basic");
+  const [focusedField, setFocusedField] = useState<string | null>(null);
 
   // ============================================================================
   // INITIALIZATION
@@ -192,55 +210,89 @@ export const ProfileEditScreen: React.FC<ProfileEditScreenProps> = () => {
     <View style={styles.section}>
       <Text style={styles.sectionTitle}>Basic Information</Text>
 
-      <FormField label='Display Name' error={errors.displayName}>
-        <Input
+      {/* Display Name Field */}
+      <View style={FIELD_STYLES.container}>
+        <Text style={LABEL_STYLES.base}>Display Name</Text>
+        <TextInput
+          style={getInputStyle(undefined, getInputState(focusedField === "displayName", !!errors.displayName))}
           value={formData.displayName || ""}
-          onChangeText={(text) => updateFormData({ displayName: text })}
+          onChangeText={(text: string) => updateFormData({ displayName: text })}
+          onFocus={() => setFocusedField("displayName")}
+          onBlur={() => setFocusedField(null)}
           placeholder='Enter your name'
           autoCapitalize='words'
+          autoCorrect={false}
+          spellCheck={false}
+          placeholderTextColor='#8E8E93'
+          selectionColor='#B5CFF8'
         />
-      </FormField>
+        {errors.displayName && <Text style={ERROR_STYLES.text}>{errors.displayName}</Text>}
+      </View>
 
-      <FormField label='Height (cm)' error={errors.heightCm}>
-        <Input
+      {/* Height Field */}
+      <View style={FIELD_STYLES.container}>
+        <Text style={LABEL_STYLES.base}>Height (cm)</Text>
+        <TextInput
+          style={getInputStyle(undefined, getInputState(focusedField === "heightCm", !!errors.heightCm))}
           value={formData.heightCm?.toString() || ""}
-          onChangeText={(text) => updateFormData({ heightCm: text ? parseInt(text) : undefined })}
+          onChangeText={(text: string) => updateFormData({ heightCm: text ? parseInt(text) : undefined })}
+          onFocus={() => setFocusedField("heightCm")}
+          onBlur={() => setFocusedField(null)}
+          {...getInputProps("number")}
           placeholder='170'
-          keyboardType='numeric'
         />
-      </FormField>
+        {errors.heightCm && <Text style={ERROR_STYLES.text}>{errors.heightCm}</Text>}
+      </View>
 
-      <FormField label='Weight (kg)' error={errors.weightKg}>
-        <Input
+      {/* Weight Field */}
+      <View style={FIELD_STYLES.container}>
+        <Text style={LABEL_STYLES.base}>Weight (kg)</Text>
+        <TextInput
+          style={getInputStyle(undefined, getInputState(focusedField === "weightKg", !!errors.weightKg))}
           value={formData.weightKg?.toString() || ""}
-          onChangeText={(text) => updateFormData({ weightKg: text ? parseFloat(text) : undefined })}
+          onChangeText={(text: string) => updateFormData({ weightKg: text ? parseFloat(text) : undefined })}
+          onFocus={() => setFocusedField("weightKg")}
+          onBlur={() => setFocusedField(null)}
+          {...getInputProps("number")}
           placeholder='70'
-          keyboardType='numeric'
         />
-      </FormField>
+        {errors.weightKg && <Text style={ERROR_STYLES.text}>{errors.weightKg}</Text>}
+      </View>
 
-      <FormField label='Birth Date' error={errors.birthDate}>
-        <Input
+      {/* Birth Date Field */}
+      <View style={FIELD_STYLES.container}>
+        <Text style={LABEL_STYLES.base}>Birth Date</Text>
+        <TextInput
+          style={getInputStyle(undefined, getInputState(focusedField === "birthDate", !!errors.birthDate))}
           value={formData.birthDate || ""}
-          onChangeText={(text) => updateFormData({ birthDate: text })}
+          onChangeText={(text: string) => updateFormData({ birthDate: text })}
+          onFocus={() => setFocusedField("birthDate")}
+          onBlur={() => setFocusedField(null)}
           placeholder='YYYY-MM-DD'
-          keyboardType='numeric'
+          autoCorrect={false}
+          spellCheck={false}
+          placeholderTextColor='#8E8E93'
+          selectionColor='#B5CFF8'
         />
-      </FormField>
+        {errors.birthDate && <Text style={ERROR_STYLES.text}>{errors.birthDate}</Text>}
+      </View>
 
-      <FormField label='Gender'>
+      {/* Gender Selection */}
+      <View style={FIELD_STYLES.container}>
+        <Text style={LABEL_STYLES.base}>Gender</Text>
         <View style={styles.genderContainer}>
           {["male", "female", "other", "prefer_not_to_say"].map((gender) => (
-            <Button
+            <TouchableOpacity
               key={gender}
               onPress={() => updateFormData({ gender: gender as any })}
-              variant={formData.gender === gender ? "primary" : "secondary"}
-              style={styles.genderButton}>
-              {gender.replace("_", " ").replace(/\b\w/g, (l) => l.toUpperCase())}
-            </Button>
+              style={[styles.genderButton, formData.gender === gender && styles.genderButtonSelected]}>
+              <Text style={[styles.genderButtonText, formData.gender === gender && styles.genderButtonTextSelected]}>
+                {gender.replace("_", " ").replace(/\b\w/g, (l) => l.toUpperCase())}
+              </Text>
+            </TouchableOpacity>
           ))}
         </View>
-      </FormField>
+      </View>
     </View>
   );
 
@@ -254,24 +306,25 @@ export const ProfileEditScreen: React.FC<ProfileEditScreenProps> = () => {
           const isSelected = formData.fitnessGoals?.includes(goal.id) || false;
 
           return (
-            <View key={goal.id} style={[styles.goalCard, isSelected && styles.goalCardSelected]}>
-              <Button onPress={() => toggleGoal(goal.id)} style={styles.goalButton}>
-                <View style={styles.goalContent}>
-                  <View style={styles.goalHeader}>
-                    <Text style={[styles.goalName, isSelected && styles.goalNameSelected]}>{goal.name}</Text>
-                    {goal.popular && (
-                      <View style={styles.popularBadge}>
-                        <Text style={styles.popularBadgeText}>Popular</Text>
-                      </View>
-                    )}
-                  </View>
-
-                  <Text style={[styles.goalDescription, isSelected && styles.goalDescriptionSelected]}>
-                    {goal.description}
-                  </Text>
+            <TouchableOpacity
+              key={goal.id}
+              onPress={() => toggleGoal(goal.id)}
+              style={[styles.goalCard, isSelected && styles.goalCardSelected]}>
+              <View style={styles.goalContent}>
+                <View style={styles.goalHeader}>
+                  <Text style={[styles.goalName, isSelected && styles.goalNameSelected]}>{goal.name}</Text>
+                  {goal.popular && (
+                    <View style={styles.popularBadge}>
+                      <Text style={styles.popularBadgeText}>Popular</Text>
+                    </View>
+                  )}
                 </View>
-              </Button>
-            </View>
+
+                <Text style={[styles.goalDescription, isSelected && styles.goalDescriptionSelected]}>
+                  {goal.description}
+                </Text>
+              </View>
+            </TouchableOpacity>
           );
         })}
       </View>
@@ -377,14 +430,18 @@ export const ProfileEditScreen: React.FC<ProfileEditScreenProps> = () => {
       <KeyboardAvoidingView style={styles.keyboardAvoidingView} behavior={Platform.OS === "ios" ? "padding" : "height"}>
         {/* Header */}
         <View style={styles.header}>
-          <Button onPress={handleCancel} variant='secondary' style={styles.headerButton}>
-            Cancel
-          </Button>
+          <TouchableOpacity onPress={handleCancel} style={styles.headerButton}>
+            <Text style={styles.headerButtonText}>Cancel</Text>
+          </TouchableOpacity>
           <Text style={styles.headerTitle}>Edit Profile</Text>
-          <LoadingButton onPress={handleSave} loading={updating} disabled={!hasChanges} style={styles.headerButton}>
-            {" "}
-            Save{" "}
-          </LoadingButton>
+          <TouchableOpacity
+            onPress={handleSave}
+            disabled={!hasChanges || updating}
+            style={[styles.headerButton, (!hasChanges || updating) && styles.headerButtonDisabled]}>
+            <Text style={[styles.headerButtonText, styles.headerButtonTextPrimary]}>
+              {updating ? "Saving..." : "Save"}
+            </Text>
+          </TouchableOpacity>
         </View>
 
         {/* Section Tabs */}
@@ -394,14 +451,14 @@ export const ProfileEditScreen: React.FC<ProfileEditScreenProps> = () => {
             { id: "goals", title: "Goals" },
             { id: "privacy", title: "Privacy" },
           ].map((tab) => (
-            <Button
+            <TouchableOpacity
               key={tab.id}
               onPress={() => setActiveSection(tab.id)}
-              variant={activeSection === tab.id ? "primary" : "secondary"}
-              style={styles.tabButton}>
-              {" "}
-              {tab.id}{" "}
-            </Button>
+              style={[styles.tabButton, activeSection === tab.id && styles.tabButtonActive]}>
+              <Text style={[styles.tabButtonText, activeSection === tab.id && styles.tabButtonTextActive]}>
+                {tab.title}
+              </Text>
+            </TouchableOpacity>
           ))}
         </View>
 
@@ -409,13 +466,14 @@ export const ProfileEditScreen: React.FC<ProfileEditScreenProps> = () => {
         <ScrollView
           style={styles.scrollView}
           contentContainerStyle={styles.scrollViewContent}
-          showsVerticalScrollIndicator={false}>
+          showsVerticalScrollIndicator={false}
+          keyboardShouldPersistTaps='handled'>
           {activeSection === "basic" && renderBasicInfoSection()}
           {activeSection === "goals" && renderFitnessGoalsSection()}
           {activeSection === "privacy" && renderPrivacySection()}
         </ScrollView>
 
-        {/* Error Display */}
+        {/* Global Error Display */}
         {error && (
           <View style={styles.errorContainer}>
             <Text style={styles.errorText}>{error}</Text>
@@ -460,6 +518,22 @@ const styles = StyleSheet.create({
   },
   headerButton: {
     minWidth: 80,
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+    borderRadius: 8,
+  },
+  headerButtonDisabled: {
+    opacity: 0.5,
+  },
+  headerButtonText: {
+    fontSize: 16,
+    fontWeight: "500",
+    color: "#B5CFF8",
+    textAlign: "center",
+  },
+  headerButtonTextPrimary: {
+    color: "#B5CFF8",
+    fontWeight: "600",
   },
   headerTitle: {
     fontSize: 18,
@@ -476,6 +550,26 @@ const styles = StyleSheet.create({
   },
   tabButton: {
     flex: 1,
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    borderRadius: 12,
+    borderWidth: 2,
+    borderColor: "#F2F2F7",
+    backgroundColor: "#FFFFFF",
+    alignItems: "center",
+  },
+  tabButtonActive: {
+    borderColor: "#B5CFF8",
+    backgroundColor: "#F8FAFD",
+  },
+  tabButtonText: {
+    fontSize: 15,
+    fontWeight: "500",
+    color: "#8E8E93",
+  },
+  tabButtonTextActive: {
+    color: "#B5CFF8",
+    fontWeight: "600",
   },
   scrollView: {
     flex: 1,
@@ -502,10 +596,31 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     flexWrap: "wrap",
     gap: 8,
+    marginTop: 8,
   },
   genderButton: {
     flex: 1,
     minWidth: "45%",
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    borderRadius: 12,
+    borderWidth: 2,
+    borderColor: "#F2F2F7",
+    backgroundColor: "#FFFFFF",
+    alignItems: "center",
+  },
+  genderButtonSelected: {
+    borderColor: "#B5CFF8",
+    backgroundColor: "#F8FAFD",
+  },
+  genderButtonText: {
+    fontSize: 15,
+    fontWeight: "500",
+    color: "#1C1C1E",
+  },
+  genderButtonTextSelected: {
+    color: "#B5CFF8",
+    fontWeight: "600",
   },
   goalsContainer: {
     gap: 12,
@@ -519,10 +634,6 @@ const styles = StyleSheet.create({
   goalCardSelected: {
     borderColor: "#B5CFF8",
     backgroundColor: "#F8FAFD",
-  },
-  goalButton: {
-    padding: 0,
-    backgroundColor: "transparent",
   },
   goalContent: {
     padding: 16,
