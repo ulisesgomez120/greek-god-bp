@@ -1,0 +1,165 @@
+Implementation Plan
+Section 1: Project Foundation & Tech Stack Setup
+Step 1: Initialize React Native Project with Complete Expo SDK 53+ Configuration
+* Task: Set up React Native 0.74+ with Expo managed workflow, configure all core dependencies with specific versions, establish TypeScript configuration, and implement proper project structure following React Native best practices with performance optimizations.
+* Files:
+    * package.json: Complete dependency configuration (Expo SDK 53+, React Navigation 6, Redux Toolkit, Supabase, React Native Reanimated 3, Stripe React Native)
+    * app.config.ts: Expo configuration with build settings, deep links, permissions, and environment variables
+    * tsconfig.json: TypeScript configuration optimized for React Native with strict settings
+    * metro.config.js: Metro bundler configuration with custom resolvers and optimizations
+    * babel.config.js: Babel configuration for React Native, Reanimated, and Redux Toolkit
+    * src/types/index.ts: Global TypeScript interfaces and type definitions
+    * src/config/constants.ts: Application constants and environment configuration
+    * .env.example: Environment variable template with all required keys
+    * src/utils/logger.ts: Logging configuration with Flipper integration
+* Dependencies: None
+* User Instructions: User Instructions: Install Expo CLI 6+, create project with TypeScript template, configure all development tools including Flipper, and verify all dependencies resolve correctly.
+*  Run expo start to confirm initial launch.
+UX/UI
+* Splash & Loading: Display branded splash screen. Include animated or skeleton loading overlay during initial setup.
+* First-time Experience: Show concise value prop and onboarding visuals.
+* Error States: Show branded error/retry message for initialization failures or network problems.
+* Accessibility: Ensure all startup text is screen-reader-accessible.
+* Design Principles: Apply base color/typography system on the splash. Begin project with dark/light mode support within the configuration.
+
+Step 2: Configure Redux Toolkit Store with RTK Query and Offline Persistence
+* Task: Implement complete Redux Toolkit store configuration with RTK Query for API calls, Redux Persist for offline storage, and middleware for authentication, logging, and error handling. Include state structure for all app features.
+* Files:
+    * src/store/index.ts: Root store configuration with middleware and persistence
+    * src/store/api/baseApi.ts: RTK Query base API with authentication and error handling
+    * src/store/auth/authSlice.ts: Authentication state management with secure token handling
+    * src/store/workout/workoutSlice.ts: Workout session state with offline queue
+    * src/store/progress/progressSlice.ts: Progress tracking and analytics state
+    * src/store/subscription/subscriptionSlice.ts: Subscription and billing state management
+    * src/store/ui/uiSlice.ts: UI state (modals, loading states, theme, network status)
+    * src/middleware/authMiddleware.ts: Authentication middleware for automatic token refresh
+    * src/middleware/offlineMiddleware.ts: Offline queue management middleware
+    * src/utils/storage.ts: Secure storage utilities using Expo SecureStore
+* Dependencies: Step 1
+* User Instructions: Configure Redux DevTools, test state persistence, and verify offline queue functionality works correctly.
+UX/UI
+* Loading States: Show non-blocking overlays during initial hydration/sync. Use skeletons if possible.
+* Error Handling: Catch/retry failed store hydration, offer offline UX if DB not loaded.
+* Sync Indicators: Display last sync status and pending changes; intuiative colors/icons for offline/online.
+* Performance: Ensure cached workout data is visible immediately, even if sync is pending.
+* Accessibility: All loading/error overlays must be screen-reader-compatible.
+
+Step 3: Establish Supabase Infrastructure with Edge Functions and Real-time
+* Task: Create comprehensive Supabase project setup including PostgreSQL database configuration, Edge Functions for business logic, real-time subscriptions, authentication configuration, and storage buckets for user content.
+* Files:
+    * src/lib/supabase.ts: Supabase client with authentication and real-time configuration
+    * supabase/config.toml: Supabase project configuration
+    * supabase/functions/_shared/cors.ts: CORS configuration for Edge Functions
+    * supabase/functions/_shared/supabase.ts: Shared Supabase client for Edge Functions
+    * src/services/database.service.ts: Database service with connection pooling and error handling
+    * src/types/database.ts: Generated TypeScript types from Supabase schema
+    * src/utils/realtime.ts: Real-time subscription management utilities
+* Dependencies: Step 2
+* User Instructions: Create Supabase project, configure authentication providers, set up Edge Functions, generate TypeScript types, and test database connectivity with real-time subscriptions.
+UX/UI
+* Connection Status: Top-level connection status indicator in main UI (e.g., green/orange/red dot).
+* Real-time Feedback: Animations or non-intrusive popups for real-time data pushes.
+* Service Status: Maintenance banners for downtime; explain effects on app behavior simply.
+* Offline Messaging: Persistent offline banner with "work available offline" reassurance.
+
+
+
+Section 2: Authentication & User Management System
+
+Step 4: Implement Supabase Auth with Secure Token Management
+* Task: Build comprehensive authentication system using Supabase Auth with email/password, implement secure JWT token storage using Expo SecureStore, create authentication state management, and implement automatic token refresh with session management.
+* Files:
+    * src/services/auth.service.ts: Complete Supabase Auth integration with error handling
+    * src/hooks/useAuth.ts: Authentication hook with loading states and error management
+    * src/store/auth/authThunks.ts: Async authentication actions (login, register, refresh, logout)
+    * src/utils/tokenManager.ts: Secure token storage and automatic refresh logic
+    * src/types/auth.ts: Authentication TypeScript interfaces and enums
+    * src/constants/auth.ts: Authentication constants and error messages
+    * supabase/functions/auth-webhook/index.ts: Webhook for authentication events
+* Dependencies: Step 3
+* User Instructions:  Configure Supabase Auth settings, test authentication flow, verify token refresh mechanism, and ensure secure storage is working on both iOS and Android. Validate all flows: register, login, refresh, logout.
+UX/UI
+	moved to step 5
+
+Step 5: Create Authentication Screens with Form Validation and Error States
+* Task: Develop complete authentication UI including login, registration, password reset, and email verification screens. Implement form validation, loading states, error handling, and smooth transitions between authentication states.
+* Files:
+    * src/screens/auth/LoginScreen.tsx: Login screen with validation and biometric support
+    * src/screens/auth/RegisterScreen.tsx: Registration with step-by-step onboarding
+    * src/screens/auth/ForgotPasswordScreen.tsx: Password reset flow
+    * src/screens/auth/EmailVerificationScreen.tsx: Email verification with resend functionality
+    * src/screens/auth/OnboardingScreen.tsx: User profile setup and experience level selection
+    * src/components/auth/AuthForm.tsx: Reusable form component with validation
+    * src/components/ui/FormField.tsx: Base form field with error states and accessibility
+    * src/components/ui/LoadingButton.tsx: Button component with loading states
+    * src/utils/validation.ts: Form validation rules and error messages
+    * src/hooks/useFormValidation.ts: Custom hook for form validation logic
+* Dependencies: Step 4
+* User Instructions: Test all authentication flows, verify form validation works correctly, ensure error states are user-friendly, and confirm accessibility compliance.
+UX/UI
+* Form Design: Thumb-friendly, high-contrast fields; context-appropriate keyboards.
+* Validation: Real-time, inline (not on submit only). Success, warning, and error colors.
+* First Login Welcome: Motivational copy on successful registration.
+* Loading States: Animated loader during API calls, forms disabled, visual progress.
+* Password Reset: Progress indicator, success banner, smart error messages.
+* User Feedback: Button loading indicators during every API/auth action.
+* Error Recovery: Inline errors for invalid passwords, incorrect codes, network timeouts, etc.
+* Security Notices: "Securing your data…" text when storing tokens.
+* Progress Bar: Indicate steps remaining (for onboarding or first login).
+* Connection Status: Top-level connection status indicator in main UI (e.g., green/orange/red dot).
+* Real-time Feedback: Animations or non-intrusive popups for real-time data pushes.
+* Service Status: Maintenance banners for downtime; explain effects on app behavior simply.
+* Offline Messaging: Persistent offline banner with "work available offline" reassurance.
+* Loading States: Show non-blocking overlays during initial hydration/sync. Use skeletons if possible.
+* Error Handling: Catch/retry failed store hydration, offer offline UX if DB not loaded.
+* Sync Indicators: Display last sync status and pending changes; intuiative colors/icons for offline/online.
+* Performance: Ensure cached workout data is visible immediately, even if sync is pending.
+* Accessibility: All loading/error overlays must be screen-reader-compatible.
+* Splash & Loading: Display branded splash screen. Include animated or skeleton loading overlay during initial setup.
+* First-time Experience: Show concise value prop and onboarding visuals.
+* Error States: Show branded error/retry message for initialization failures or network problems.
+* Accessibility: Ensure all startup text is screen-reader-accessible.
+* Design Principles: Apply base color/typography system on the splash. Begin project with dark/light mode support within the configuration.
+
+
+Step 6: Implement User Profile System with Experience Level Management
+* Task: Create user profile management system with experience level detection, fitness goals setup, privacy settings, and profile data synchronization. Include profile picture upload and comprehensive user preferences management
+* Files:
+    * src/services/profile.service.ts: User profile management with Supabase integration
+    * src/screens/profile/ProfileSetupScreen.tsx: Initial profile setup wizard
+    * src/screens/profile/ProfileEditScreen.tsx: Profile editing with image upload
+    * src/screens/profile/ExperienceLevelScreen.tsx: Experience level assessment and selection
+    * src/components/profile/ProfilePicture.tsx: Profile picture component with upload
+    * src/components/profile/ExperienceLevelSelector.tsx: Interactive experience level selection
+    * src/hooks/useProfile.ts: Profile management hook with caching
+    * src/types/profile.ts: User profile TypeScript interfaces
+* Dependencies: Step 5
+* User Instructions: Complete, edit, and save the profile through UI. Test profile creation, image upload functionality, experience level assessment, and data synchronization between local state and Supabase.
+UX/UI
+* Onboarding: Show steps left/completion. Use graphical indicator for experience/skill.
+* Goal Setting: List of example goals, ability to pick/mix. Celebrate completion with confetti/animation.
+* Profile Pic: Immediate local preview, loading on upload, error feedback.
+* Accessibility: Labeling and hints for each profile setting (gender, age, etc).
+
+
+
+
+Section 3: Core Database Schema & Data Management
+
+Step 7: Create Complete PostgreSQL Schema with Advanced Features
+* Task: Implement comprehensive database schema with PostgreSQL-specific features including JSONB columns, full-text search, Row Level Security policies, performance indexes, and automated maintenance procedures
+* Files:
+    * supabase/migrations/001_initial_schema.sql: Core schema with user profiles and authentication
+    * supabase/migrations/002_exercise_database.sql: Exercise catalog with full-text search
+    * supabase/migrations/003_workout_system.sql: Workout plans, sessions, and sets
+    * supabase/migrations/004_progress_tracking.sql: Progress analytics and metrics
+    * supabase/migrations/005_subscription_system.sql: Subscription and billing tables
+    * supabase/migrations/006_ai_system.sql: AI usage tracking and conversation history
+    * supabase/functions/database-maintenance/index.ts: Automated maintenance tasks
+    * supabase/seed.sql: Initial data population script
+* Dependencies: Step 3
+* User Instructions: Run all migrations in sequence, verify Row Level Security policies, test full-text search functionality, and confirm all indexes are created properly
+UX/UI
+* When migrating: Show progress bar, alert if DB is updating/migrating.
+* Search: Confirm full-text search enables partial match/autocomplete on exercises.
+* Data Save: Show instant toast/confirmation on successful data save.
