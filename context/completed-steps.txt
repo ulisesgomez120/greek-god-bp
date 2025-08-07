@@ -199,3 +199,19 @@ UX/UI:
 * Testing Banners: Prominent "Testing Mode - No Payment Required" messaging throughout subscription flows
 * Feature Gates: Smooth upgrade prompts when accessing premium features, with clear testing context
 * Subscription Status: Simple status indicator showing current plan and testing expiry date
+
+Step 10: Create Feature Access Control System
+Task: Implement comprehensive feature gating based on subscription tiers using the temporary subscription system. This creates the foundation for premium features that will work with both temporary testing subscriptions and real IAP later.
+Files:
+* src/components/subscription/TempFeatureGate.tsx: Temporary feature gating wrapper component
+* src/components/subscription/TempUpgradePrompt.tsx: Upgrade prompts with testing context
+* src/utils/featureFlags.ts: Feature definitions and access control logic
+* src/hooks/useFeatureAccess.ts: Hook for checking feature availability
+* src/constants/subscriptionTiers.ts: Subscription tier definitions and feature matrices
+Dependencies: Step 9 (Temporary Subscription Management)
+User Instructions: Implement feature gating throughout the app using the TempFeatureGate component. This system will seamlessly transition to real IAP later by only changing the underlying subscription service while keeping the same feature access logic.
+UX/UI:
+* Feature Locks: Elegant lock icons and upgrade prompts for premium features
+* Progressive Disclosure: Show premium features with upgrade prompts rather than hiding them
+* Testing Context: Clear messaging that upgrades are for testing purposes only
+* Feature Previews: Allow brief previews of premium features before showing upgrade prompts
