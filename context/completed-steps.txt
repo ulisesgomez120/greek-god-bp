@@ -163,3 +163,22 @@ UX/UI
 * When migrating: Show progress bar, alert if DB is updating/migrating.
 * Search: Confirm full-text search enables partial match/autocomplete on exercises.
 * Data Save: Show instant toast/confirmation on successful data save.
+
+Step 8: Import Exercise Database and Workout Programs with Data Validation
+* Task: Import the 52 exercises and 3 workout programs from JSON data with comprehensive data validation, search optimization, and program structure verification. Include exercise alternatives and difficulty progression.
+* Files:
+    * scripts/import-exercises.ts: Exercise import with validation and search indexing
+    * scripts/import-programs.ts: Workout program import with phase structure validation
+    * scripts/validate-data.ts: Data integrity validation and reporting
+    * src/services/exercise.service.ts: Exercise search and filtering with caching
+    * src/services/program.service.ts: Workout program management and selection
+    * src/types/exercise.ts: Exercise and program TypeScript definitions
+    * src/utils/search.ts: Search utilities with fuzzy matching
+    * data/exercises-validated.json: Processed and validated exercise data
+    * data/programs-validated.json: Validated workout program data with metadata
+* Dependencies: Step 7
+* User Instructions: Run import scripts, verify all 52 exercises are properly indexed, test search functionality, and confirm all 3 workout programs load correctly with proper phase progression.
+UX/UI
+* Library Screen: Card grid/list with search, muscle filter, equipment filter. Visually distinguish advanced vs beginner moves.
+* Zero State: "No exercises found" shows tips for discovery.
+* Validation Feedback: Modals for import errors.
