@@ -182,3 +182,20 @@ UX/UI
 * Library Screen: Card grid/list with search, muscle filter, equipment filter. Visually distinguish advanced vs beginner moves.
 * Zero State: "No exercises found" shows tips for discovery.
 * Validation Feedback: Modals for import errors.
+
+Step 9: Implement Temporary Subscription Management (Testing Phase)
+Task: Create a simple subscription simulation system for testing and early user feedback without requiring App Store/Play Store setup. This temporary system allows users to test premium features while you develop other core functionality.
+Files:
+* src/services/tempSubscription.service.ts: Temporary subscription state management with 30-day testing periods
+* src/screens/subscription/TempSubscriptionScreen.tsx: Simple subscription management interface with testing disclaimers
+* src/components/subscription/TempPlanSelector.tsx: Basic plan selection component with clear testing labels
+* src/hooks/useTempSubscription.ts: Temporary subscription state hook with feature gating
+* src/types/tempSubscription.ts: Temporary subscription TypeScript interfaces
+* supabase/functions/temp-subscription/index.ts: Simple subscription state Edge Function
+Dependencies: Step 7 (Authentication & Profile Management)
+User Instructions: This is a temporary testing system that simulates premium access without real payments. Users can "upgrade" to test premium features for 30 days. All temp subscription code will be completely replaced with native IAP when ready for production. Add temporary subscription fields to user_profiles table: temp_subscription_plan TEXT DEFAULT 'free', temp_subscription_expires TIMESTAMP WITH TIME ZONE.
+UX/UI:
+* Plan Selection: Clear cards showing "Free", "Premium (Testing)", "Coach (Testing)" with feature lists and testing disclaimers
+* Testing Banners: Prominent "Testing Mode - No Payment Required" messaging throughout subscription flows
+* Feature Gates: Smooth upgrade prompts when accessing premium features, with clear testing context
+* Subscription Status: Simple status indicator showing current plan and testing expiry date
