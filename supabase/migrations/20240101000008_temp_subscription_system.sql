@@ -210,12 +210,12 @@ $$ LANGUAGE plpgsql SECURITY DEFINER;
 -- SCHEDULED TASKS FOR AUTO-RENEWAL
 -- ============================================================================
 
--- Schedule auto-renewal to run daily at 2 AM
-SELECT cron.schedule(
-  'auto-renew-temp-subscriptions',
-  '0 2 * * *',
-  'SELECT auto_renew_temp_subscriptions();'
-);
+-- Note: Cron scheduling removed for local development compatibility
+-- In production, you can manually enable pg_cron extension and add:
+-- SELECT cron.schedule('auto-renew-temp-subscriptions', '0 2 * * *', 'SELECT auto_renew_temp_subscriptions();');
+
+-- For now, auto-renewal can be triggered manually by calling:
+-- SELECT auto_renew_temp_subscriptions();
 
 -- ============================================================================
 -- ROW LEVEL SECURITY UPDATES
