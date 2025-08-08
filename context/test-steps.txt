@@ -1,0 +1,38 @@
+step 14 test : ## 🔧 User Instructions for Testing
+
+### __1. Configure OpenAI API Key__
+
+Add to your environment variables:
+
+```bash
+OPENAI_API_KEY=your_openai_api_key_here
+```
+
+### __2. Test Cost Tracking Functionality__
+
+- Use the `useAIUsage` hook to monitor usage
+- Check that free users get 2 queries per month
+- Verify premium users have $1 monthly budget
+- Test that limits are enforced properly
+
+### __3. Verify Usage Limits Are Enforced__
+
+- Test with free user account reaching 2 query limit
+- Test with premium user approaching $1 budget
+- Confirm graceful fallbacks are shown
+
+### __4. Confirm Basic AI Insights Display Correctly__
+
+- Import and use `AIInsight` component in workout completion screens
+- Test loading states, error states, and success states
+- Verify privacy messages and usage status display
+
+## 🚀 Integration Points
+
+The AI infrastructure integrates with:
+
+- __Existing progression service__ (`src/services/progression.service.ts`)
+- __Workout tracking system__ (Steps 11-12)
+- __Subscription management__ (Steps 9-10)
+- __User profile system__ (Step 6)
+
