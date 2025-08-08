@@ -16,6 +16,7 @@ import workoutSlice from "./workout/workoutSlice";
 import progressSlice from "./progress/progressSlice";
 import subscriptionSlice from "./subscription/subscriptionSlice";
 import uiSlice from "./ui/uiSlice";
+import offlineSlice from "./offline/offlineSlice";
 
 // Middleware
 import { authMiddleware } from "../middleware/authMiddleware";
@@ -36,7 +37,7 @@ const persistConfig = {
   version: 1,
   storage: AsyncStorage,
   // Only persist essential data for offline functionality
-  whitelist: ["auth", "workout", "ui"],
+  whitelist: ["auth", "workout", "ui", "offline"],
   // Exclude API cache and temporary states
   blacklist: ["api"],
 };
@@ -79,6 +80,7 @@ const rootReducer = combineReducers({
   progress: progressSlice,
   subscription: subscriptionSlice,
   ui: persistReducer(uiPersistConfig, uiSlice),
+  offline: offlineSlice,
 });
 
 // Apply root persistence
