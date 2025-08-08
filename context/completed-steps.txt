@@ -261,4 +261,24 @@ UX/UI
 * Previous Data: Collapsible or always-visible on exercise log screen.
 * Completion Summary: "Congratulations" animation on finish, instant progress recap.
 * Accessibility: Every set/weight field, and all action buttons, must have proper labels and support VoiceOver.
+
+Step 13: Implement Experience-Based Progression Algorithm
+* Task: Build sophisticated progression engine with experience-level specific logic (untrained/beginner/early-intermediate), RPE-based progression decisions, plateau detection, and alternative progression strategies.
+* Files:
+    * src/services/progression.service.ts: Core progression algorithm implementation
+    * src/utils/progressionCalculations.ts: Mathematical progression formulas
+    * src/hooks/useProgression.ts: Progression recommendations hook
+    * supabase/functions/calculate-progression/index.ts: Server-side progression calculations
+    * src/types/progression.ts: Progression algorithm TypeScript interfaces
+    * src/constants/progressionRules.ts: Experience-based progression rule definitions
+    * src/components/workout/ProgressionRecommendation.tsx: Progression suggestion UI
+* Dependencies: Step 12
+* User Instructions: Test progression algorithms for each experience level, verify RPE-based recommendations are accurate, and confirm plateau detection works correctly.
+UX/UI
+* Progression Cues: Green/yellow/red indicator bar, with clickable "why?" for algorithm explanation.
+* Override: User can override with warning modal/explanation.
+* Plateau State: Show trend — graph flattens, suggest practical next-steps, encouragement.
+* Personalized Messages: Congratulates on earned increases, empathic copy if not ready.
+* Microlearning: Short, rotating RPE/progression tips on the log screen.
+ 
  
