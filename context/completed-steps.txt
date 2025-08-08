@@ -236,3 +236,26 @@ UX/UI
 * Safety Cues: "Workout progress saved locally" toast after each log.
 * Accessibility: Aria/live region for banner content.
 
+Step 12: Create Active Workout Interface with Real-time Updates (not tested yet)
+* Task: Build the primary workout interface with real-time exercise logging, rest timers, RPE tracking, weight/rep entry, progress indicators, and workout completion flow. Include accessibility features and haptic feedback
+* Files:
+    * src/screens/workout/ActiveWorkoutScreen.tsx: Main workout logging interface
+    * src/components/workout/ExerciseCard.tsx: Individual exercise logging component
+    * src/components/workout/SetLogger.tsx: Set logging with weight/reps/RPE input
+    * src/components/workout/RestTimer.tsx: Countdown timer with notifications
+    * src/components/workout/ProgressIndicator.tsx: Workout progress visualization
+    * src/components/workout/RPESelector.tsx: RPE selection with educational content
+    * src/hooks/useWorkoutTimer.tsx: Workout timing and rest management
+    * src/hooks/useHapticFeedback.ts: Tactile feedback for interactions
+    * src/utils/workoutCalculations.ts: Volume and progress calculations
+* Dependencies: Step 11
+* User Instructions: Test complete workout flow, verify rest timer functionality, confirm RPE tracking works correctly, and ensure accessibility features are properly implemented.
+UX/UI
+* Thumb-Friendly Inputs: Large, accessible tap targets for set/weight entry.
+* Quick Adjust: Fast +/- controls, long press repeats, haptics on add/remove.
+* Progress Bar: Real-time visual at top; animate forward with each set.
+* Rest Timer: Vibrate or notification when time is up, accommodates background state.
+* Previous Data: Collapsible or always-visible on exercise log screen.
+* Completion Summary: "Congratulations" animation on finish, instant progress recap.
+* Accessibility: Every set/weight field, and all action buttons, must have proper labels and support VoiceOver.
+ 
