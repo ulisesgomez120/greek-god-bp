@@ -262,7 +262,7 @@ UX/UI
 * Completion Summary: "Congratulations" animation on finish, instant progress recap.
 * Accessibility: Every set/weight field, and all action buttons, must have proper labels and support VoiceOver.
 
-Step 13: Implement Experience-Based Progression Algorithm
+Step 13: Implement Experience-Based Progression Algorithm (not tested yet)
 * Task: Build sophisticated progression engine with experience-level specific logic (untrained/beginner/early-intermediate), RPE-based progression decisions, plateau detection, and alternative progression strategies.
 * Files:
     * src/services/progression.service.ts: Core progression algorithm implementation
@@ -281,4 +281,20 @@ UX/UI
 * Personalized Messages: Congratulates on earned increases, empathic copy if not ready.
 * Microlearning: Short, rotating RPE/progression tips on the log screen.
  
- 
+ Step 14: Create Basic AI Infrastructure for Phase 2 Preparation (not tested yet)
+* Task: Implement foundational AI infrastructure including OpenAI integration, cost tracking, usage limits, and conversation framework. This prepares for full AI coaching in Phase 2 while supporting basic progression suggestions.
+* Files:
+    * src/services/ai.service.ts: OpenAI integration with cost optimization
+    * supabase/functions/ai-progression/index.ts: AI-powered progression suggestions
+    * src/hooks/useAIUsage.ts: AI usage tracking and limit management
+    * src/components/ai/AIInsight.tsx: Basic AI progression insights component
+    * src/utils/aiCostManager.ts: Cost tracking and budget enforcement
+    * src/types/ai.ts: AI service TypeScript interfaces
+* Dependencies: Step 13, Step 10
+* User Instructions: Configure OpenAI API key, test cost tracking functionality, verify usage limits are enforced, and confirm basic AI insights display correctly.
+UX/UI
+* AI Status: "AI Coach: n/2 conversations left this month". Subtle, never blocks access.
+* Coaching Preview: Messaging indicating more features available in Premium.
+* Trust/Privacy: Toast/tooltip when AI is active: "Your workout data is always private."
+* AI Loading: Typing indicator during response time, graceful fallback if API down.
+* Error Handling: Clear feedback if rate/cost-limited or error.
