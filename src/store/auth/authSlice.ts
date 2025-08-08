@@ -9,6 +9,7 @@ import { createClient } from "@supabase/supabase-js";
 import { ENV_CONFIG } from "../../config/constants";
 import { getTokens, storeTokens, clearTokens, areTokensExpired } from "../../utils/storage";
 import { logger } from "../../utils/logger";
+import { profileService } from "../../services/profile.service";
 import type { UserProfile, Session, AuthState, LoginCredentials, SignupData } from "../../types/auth";
 import type { User as SupabaseUser } from "@supabase/supabase-js";
 
@@ -36,6 +37,120 @@ const supabase = createClient(ENV_CONFIG.supabaseUrl, ENV_CONFIG.supabaseAnonKey
     detectSessionInUrl: false,
   },
 });
+
+// ============================================================================
+// HELPER FUNCTIONS
+// ============================================================================
+
+/**
+ * Merge user profile data from database with Supabase user metadata
+ */
+async function mergeUserWithProfile(user: SupabaseUser, accessToken?: string): Promise<SupabaseUser> {
+  try {
+    let profileResult;
+
+    if (accessToken) {
+      // Create authenticated client for RLS policies
+      const authenticatedClient = createClient(ENV_CONFIG.supabaseUrl, ENV_CONFIG.supabaseAnonKey, {
+        global: {
+          headers: {
+            Authorization: `Bearer ${accessToken}`,
+          },
+        },
+      });
+
+      // Use authenticated client to fetch profile
+      const { data, error } = await authenticatedClient.from("user_profiles").select("*").eq("id", user.id).single();
+
+      if (error) {
+        profileResult = {
+          success: false,
+          error: {
+            code: "PROFILE_FETCH_FAILED",
+            message: "Failed to fetch user profile",
+            details: error,
+          },
+        };
+      } else if (data) {
+        // Transform database row to UserProfile format
+        const profile = {
+          id: data.id,
+          email: data.email,
+          displayName: data.display_name,
+          avatarUrl: data.avatar_url || undefined,
+          heightCm: data.height_cm || undefined,
+          weightKg: data.weight_kg ? Number(data.weight_kg) : undefined,
+          birthDate: data.birth_date || undefined,
+          gender: data.gender || undefined,
+          experienceLevel: data.experience_level,
+          fitnessGoals: data.fitness_goals || [],
+          availableEquipment: data.available_equipment || [],
+          privacySettings: data.privacy_settings || {},
+          role: data.role || "user",
+          stripeCustomerId: data.stripe_customer_id || undefined,
+          onboardingCompleted: data.onboarding_completed || false,
+          createdAt: data.created_at,
+          updatedAt: data.updated_at,
+        };
+
+        profileResult = { success: true, data: profile };
+      } else {
+        profileResult = {
+          success: false,
+          error: {
+            code: "PROFILE_NOT_FOUND",
+            message: "User profile not found",
+          },
+        };
+      }
+    } else {
+      // Fallback to profile service (less reliable due to RLS)
+      profileResult = await profileService.getProfile(user.id, false);
+    }
+
+    if (profileResult.success && profileResult.data) {
+      const profile = profileResult.data;
+
+      // Merge profile data into user metadata
+      const mergedUser = {
+        ...user,
+        user_metadata: {
+          ...user.user_metadata,
+          onboarding_complete: profile.onboardingCompleted,
+          display_name: profile.displayName,
+          experience_level: profile.experienceLevel,
+        },
+      };
+
+      logger.debug(
+        "User profile merged with auth data",
+        {
+          userId: user.id,
+          onboardingComplete: profile.onboardingCompleted,
+        },
+        "auth",
+        user.id
+      );
+
+      return mergedUser;
+    } else {
+      logger.warn(
+        "Could not fetch user profile, using auth data only",
+        {
+          userId: user.id,
+          error: profileResult.error?.message,
+        },
+        "auth",
+        user.id
+      );
+
+      return user;
+    }
+  } catch (error) {
+    logger.error("Error merging user profile with auth data", error, "auth", user.id);
+    return user;
+  }
+}
 
 // ============================================================================
 // ASYNC THUNKS
@@ -77,15 +192,25 @@ export const initializeAuth = createAsyncThunk("auth/initialize", async (_, { re
         expiresAt: new Date(data.session.expires_at! * 1000).toISOString(),
       });
 
-      logger.info("Tokens refreshed successfully during initialization", undefined, "auth", data.user?.id);
+      // Ensure we have a valid user before proceeding
+      if (!data.user) {
+        logger.error("Token refresh during initialization succeeded but no user data returned", undefined, "auth");
+        await clearTokens();
+        return { user: null, session: null };
+      }
+
+      // Merge user with profile data from database
+      const mergedUser = await mergeUserWithProfile(data.user, data.session.access_token);
+
+      logger.info("Tokens refreshed successfully during initialization", undefined, "auth", data.user.id);
 
       return {
-        user: data.user,
+        user: mergedUser,
         session: {
           accessToken: data.session.access_token,
           refreshToken: data.session.refresh_token,
           expiresAt: new Date(data.session.expires_at! * 1000).toISOString(),
-          user: data.user,
+          user: mergedUser,
         },
       };
     }
@@ -99,15 +224,18 @@ export const initializeAuth = createAsyncThunk("auth/initialize", async (_, { re
       return { user: null, session: null };
     }
 
+    // Merge user with profile data from database
+    const mergedUser = await mergeUserWithProfile(userData.user, tokens.accessToken);
+
     logger.info("Authentication initialized successfully", undefined, "auth", userData.user.id);
 
     return {
-      user: userData.user,
+      user: mergedUser,
       session: {
         accessToken: tokens.accessToken,
         refreshToken: tokens.refreshToken,
         expiresAt: tokens.expiresAt,
-        user: userData.user,
+        user: mergedUser,
       },
     };
   } catch (error) {
@@ -146,15 +274,18 @@ export const loginUser = createAsyncThunk("auth/login", async (credentials: Logi
       expiresAt: new Date(data.session.expires_at! * 1000).toISOString(),
     });
 
+    // Merge user with profile data from database
+    const mergedUser = await mergeUserWithProfile(data.user, data.session.access_token);
+
     logger.info("User logged in successfully", { userId: data.user.id }, "auth", data.user.id);
 
     return {
-      user: data.user,
+      user: mergedUser,
       session: {
         accessToken: data.session.access_token,
         refreshToken: data.session.refresh_token,
         expiresAt: new Date(data.session.expires_at! * 1000).toISOString(),
-        user: data.user,
+        user: mergedUser,
       },
     };
   } catch (error) {
@@ -261,11 +392,15 @@ export const refreshTokens = createAsyncThunk("auth/refreshTokens", async (_, { 
   try {
     const state = getState() as any;
     const currentSession = state.auth.session;
+    const currentUser = state.auth.user;
 
     if (!currentSession?.refreshToken) {
       logger.warn("No refresh token available", undefined, "auth");
       return rejectWithValue("No refresh token available");
     }
+
+    // Preserve existing user metadata before refresh
+    const existingUserMetadata = currentUser?.user_metadata || {};
 
     logger.info("Refreshing authentication tokens", undefined, "auth");
 
@@ -286,15 +421,32 @@ export const refreshTokens = createAsyncThunk("auth/refreshTokens", async (_, { 
       expiresAt: new Date(data.session.expires_at! * 1000).toISOString(),
     });
 
-    logger.info("Tokens refreshed successfully", undefined, "auth", data.user?.id);
+    // Ensure we have a valid user before proceeding
+    if (!data.user) {
+      logger.error("Token refresh succeeded but no user data returned", undefined, "auth");
+      await clearTokens();
+      return rejectWithValue("Token refresh failed: No user data returned");
+    }
+
+    // Merge existing user metadata with refreshed user data
+    // This preserves onboarding_complete and other custom metadata
+    const mergedUser = {
+      ...data.user,
+      user_metadata: {
+        ...existingUserMetadata, // Preserve existing metadata
+        ...data.user.user_metadata, // Allow server-side updates if any
+      },
+    };
+
+    logger.info("Tokens refreshed successfully", undefined, "auth", data.user.id);
 
     return {
-      user: data.user,
+      user: mergedUser,
       session: {
         accessToken: data.session.access_token,
         refreshToken: data.session.refresh_token,
         expiresAt: new Date(data.session.expires_at! * 1000).toISOString(),
-        user: data.user,
+        user: mergedUser,
       },
     };
   } catch (error) {
