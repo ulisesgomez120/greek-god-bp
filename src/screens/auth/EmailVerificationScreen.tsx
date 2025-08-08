@@ -5,12 +5,11 @@
 // and clear success/error states
 
 import React, { useState, useEffect } from "react";
-import { View, StyleSheet, Alert } from "react-native";
+import { View, StyleSheet, Alert, TouchableOpacity, ScrollView, KeyboardAvoidingView, Platform } from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
 import { useAuth } from "@/hooks/useAuth";
 import { AUTH_FLOWS } from "@/constants/auth";
-import AuthForm from "@/components/auth/AuthForm";
 import Text from "@/components/ui/Text";
-import Button from "@/components/ui/Button";
 
 // ============================================================================
 // TYPES
@@ -133,168 +132,173 @@ export const EmailVerificationScreen: React.FC<EmailVerificationScreenProps> = (
   // ============================================================================
 
   const renderWaitingState = () => (
-    <AuthForm
-      title={AUTH_FLOWS.emailVerification.title}
-      subtitle={AUTH_FLOWS.emailVerification.subtitle}
-      secondaryAction={{
-        text: "Back to Sign In",
-        onPress: navigateToLogin,
-      }}
-      showKeyboardAvoidance={false}>
-      <View style={styles.contentContainer}>
-        <View style={styles.emailIcon}>
-          <Text variant='h1' style={styles.emailEmoji}>
-            📧
-          </Text>
-        </View>
-
-        <Text variant='bodyLarge' color='primary' align='center' style={styles.mainMessage}>
-          We've sent a verification link to:
+    <View style={styles.contentContainer}>
+      <View style={styles.emailIcon}>
+        <Text variant='h1' style={styles.emailEmoji}>
+          📧
         </Text>
-
-        <Text variant='body' color='coach' align='center' style={styles.emailText}>
-          {email}
-        </Text>
-
-        <View style={styles.instructionsContainer}>
-          <Text variant='body' color='secondary' align='center' style={styles.instructionText}>
-            1. Check your email inbox (and spam folder)
-          </Text>
-          <Text variant='body' color='secondary' align='center' style={styles.instructionText}>
-            2. Click the verification link in the email
-          </Text>
-          <Text variant='body' color='secondary' align='center' style={styles.instructionText}>
-            3. Return to the app and sign in
-          </Text>
-        </View>
-
-        <View style={styles.resendContainer}>
-          <Text variant='bodySmall' color='secondary' align='center' style={styles.resendText}>
-            Didn't receive the email?
-          </Text>
-
-          <Button
-            variant='text'
-            size='small'
-            onPress={handleResendEmail}
-            disabled={resendCooldown > 0}
-            style={styles.resendButton}>
-            {resendCooldown > 0 ? `Resend in ${resendCooldown}s` : AUTH_FLOWS.emailVerification.resendText}
-          </Button>
-        </View>
-
-        <View style={styles.changeEmailContainer}>
-          <Text variant='bodySmall' color='secondary' align='center' style={styles.changeEmailText}>
-            Wrong email address?
-          </Text>
-
-          <Button variant='text' size='small' onPress={navigateToSignup} style={styles.changeEmailButton}>
-            Sign up with different email
-          </Button>
-        </View>
       </View>
-    </AuthForm>
+
+      <Text variant='bodyLarge' color='primary' align='center' style={styles.mainMessage}>
+        We've sent a verification link to:
+      </Text>
+
+      <Text variant='body' color='coach' align='center' style={styles.emailText}>
+        {email}
+      </Text>
+
+      <View style={styles.instructionsContainer}>
+        <Text variant='body' color='secondary' align='center' style={styles.instructionText}>
+          1. Check your email inbox (and spam folder)
+        </Text>
+        <Text variant='body' color='secondary' align='center' style={styles.instructionText}>
+          2. Click the verification link in the email
+        </Text>
+        <Text variant='body' color='secondary' align='center' style={styles.instructionText}>
+          3. Return to the app and sign in
+        </Text>
+      </View>
+
+      <View style={styles.resendContainer}>
+        <Text variant='bodySmall' color='secondary' align='center' style={styles.resendText}>
+          Didn't receive the email?
+        </Text>
+
+        <TouchableOpacity
+          style={[styles.resendButton, resendCooldown > 0 && styles.resendButtonDisabled]}
+          onPress={handleResendEmail}
+          disabled={resendCooldown > 0}>
+          <Text style={[styles.resendButtonText, resendCooldown > 0 && styles.resendButtonTextDisabled]}>
+            {resendCooldown > 0 ? `Resend in ${resendCooldown}s` : AUTH_FLOWS.emailVerification.resendText}
+          </Text>
+        </TouchableOpacity>
+      </View>
+
+      <View style={styles.changeEmailContainer}>
+        <Text variant='bodySmall' color='secondary' align='center' style={styles.changeEmailText}>
+          Wrong email address?
+        </Text>
+
+        <TouchableOpacity style={styles.changeEmailButton} onPress={navigateToSignup}>
+          <Text style={styles.changeEmailButtonText}>Sign up with different email</Text>
+        </TouchableOpacity>
+      </View>
+    </View>
   );
 
   const renderResendingState = () => (
-    <AuthForm
-      title='Sending Verification Email'
-      subtitle='Please wait while we send your verification email'
-      showKeyboardAvoidance={false}>
-      <View style={styles.loadingContainer}>
-        <View style={styles.loadingSpinner}>
-          <Text variant='body' color='secondary' align='center'>
-            Sending email...
-          </Text>
-        </View>
+    <View style={styles.loadingContainer}>
+      <View style={styles.loadingSpinner}>
+        <Text variant='body' color='secondary' align='center'>
+          Sending email...
+        </Text>
       </View>
-    </AuthForm>
+    </View>
   );
 
   const renderSentState = () => (
-    <AuthForm
-      title='Email Sent Successfully'
-      subtitle="We've resent the verification email to your inbox"
-      secondaryAction={{
-        text: "Back to Sign In",
-        onPress: navigateToLogin,
-      }}
-      showKeyboardAvoidance={false}>
-      <View style={styles.successContainer}>
-        <View style={styles.successIcon}>
-          <Text variant='h1' style={styles.successEmoji}>
-            ✅
-          </Text>
-        </View>
-
-        <Text variant='bodyLarge' color='primary' align='center' style={styles.successMessage}>
-          Verification email has been sent successfully!
+    <View style={styles.successContainer}>
+      <View style={styles.successIcon}>
+        <Text variant='h1' style={styles.successEmoji}>
+          ✅
         </Text>
-
-        <Text variant='body' color='secondary' align='center' style={styles.successSubMessage}>
-          Please check your email and click the verification link to activate your account.
-        </Text>
-
-        <View style={styles.actionContainer}>
-          <Button variant='primary' size='medium' onPress={navigateToLogin} style={styles.actionButton}>
-            Go to Sign In
-          </Button>
-        </View>
       </View>
-    </AuthForm>
+
+      <Text variant='bodyLarge' color='primary' align='center' style={styles.successMessage}>
+        Verification email has been sent successfully!
+      </Text>
+
+      <Text variant='body' color='secondary' align='center' style={styles.successSubMessage}>
+        Please check your email and click the verification link to activate your account.
+      </Text>
+
+      <TouchableOpacity style={styles.actionButton} onPress={navigateToLogin}>
+        <Text style={styles.actionButtonText}>Go to Sign In</Text>
+      </TouchableOpacity>
+    </View>
   );
 
   const renderErrorState = () => (
-    <AuthForm
-      title='Something Went Wrong'
-      subtitle="We couldn't send the verification email"
-      onSubmit={tryAgain}
-      submitText='Try Again'
-      secondaryAction={{
-        text: "Back to Sign In",
-        onPress: navigateToLogin,
-      }}
-      showKeyboardAvoidance={false}>
-      <View style={styles.errorStateContainer}>
-        <View style={styles.errorIcon}>
-          <Text variant='h1' style={styles.errorEmoji}>
-            ⚠️
+    <View style={styles.errorStateContainer}>
+      <View style={styles.errorIcon}>
+        <Text variant='h1' style={styles.errorEmoji}>
+          ⚠️
+        </Text>
+      </View>
+
+      <Text variant='bodyLarge' color='primary' align='center' style={styles.errorMessage}>
+        We encountered an issue while trying to send your verification email.
+      </Text>
+
+      <Text variant='body' color='secondary' align='center' style={styles.errorSubMessage}>
+        Please check your internet connection and try again. If the problem persists, contact support.
+      </Text>
+
+      {error && (
+        <View style={styles.errorDetailsContainer}>
+          <Text variant='bodySmall' color='error' align='center'>
+            {error}
           </Text>
         </View>
+      )}
 
-        <Text variant='bodyLarge' color='primary' align='center' style={styles.errorMessage}>
-          We encountered an issue while trying to send your verification email.
-        </Text>
-
-        <Text variant='body' color='secondary' align='center' style={styles.errorSubMessage}>
-          Please check your internet connection and try again. If the problem persists, contact support.
-        </Text>
-
-        {error && (
-          <View style={styles.errorDetailsContainer}>
-            <Text variant='bodySmall' color='error' align='center'>
-              {error}
-            </Text>
-          </View>
-        )}
-      </View>
-    </AuthForm>
+      <TouchableOpacity style={styles.actionButton} onPress={tryAgain}>
+        <Text style={styles.actionButtonText}>Try Again</Text>
+      </TouchableOpacity>
+    </View>
   );
+
+  // ============================================================================
+  // RENDER MAIN CONTENT
+  // ============================================================================
+
+  const renderContent = () => {
+    switch (verificationState) {
+      case "resending":
+        return renderResendingState();
+      case "sent":
+        return renderSentState();
+      case "error":
+        return renderErrorState();
+      default:
+        return renderWaitingState();
+    }
+  };
 
   // ============================================================================
   // RENDER
   // ============================================================================
 
-  switch (verificationState) {
-    case "resending":
-      return renderResendingState();
-    case "sent":
-      return renderSentState();
-    case "error":
-      return renderErrorState();
-    default:
-      return renderWaitingState();
-  }
+  return (
+    <SafeAreaView style={styles.safeArea}>
+      <KeyboardAvoidingView style={styles.keyboardAvoidingView} behavior={Platform.OS === "ios" ? "padding" : "height"}>
+        <ScrollView
+          style={styles.scrollView}
+          contentContainerStyle={styles.scrollContent}
+          keyboardShouldPersistTaps='handled'>
+          <View style={styles.container}>
+            {/* Header */}
+            <View style={styles.header}>
+              <Text variant='h1' color='primary' align='center' style={styles.title}>
+                {AUTH_FLOWS.emailVerification.title}
+              </Text>
+              <Text variant='bodyLarge' color='secondary' align='center' style={styles.subtitle}>
+                {AUTH_FLOWS.emailVerification.subtitle}
+              </Text>
+            </View>
+
+            {/* Dynamic Content */}
+            <View style={styles.formContent}>{renderContent()}</View>
+
+            {/* Back to Sign In */}
+            <TouchableOpacity style={styles.secondaryButton} onPress={navigateToLogin}>
+              <Text style={styles.secondaryButtonText}>Back to Sign In</Text>
+            </TouchableOpacity>
+          </View>
+        </ScrollView>
+      </KeyboardAvoidingView>
+    </SafeAreaView>
+  );
 };
 
 // ============================================================================
@@ -302,6 +306,41 @@ export const EmailVerificationScreen: React.FC<EmailVerificationScreenProps> = (
 // ============================================================================
 
 const styles = StyleSheet.create({
+  safeArea: {
+    flex: 1,
+    backgroundColor: "#FFFFFF",
+  },
+  keyboardAvoidingView: {
+    flex: 1,
+  },
+  scrollView: {
+    flex: 1,
+  },
+  scrollContent: {
+    flexGrow: 1,
+    paddingBottom: 32,
+  },
+  container: {
+    flex: 1,
+    paddingHorizontal: 24,
+    paddingTop: 32,
+    justifyContent: "center",
+  },
+  header: {
+    marginBottom: 40,
+    alignItems: "center",
+  },
+  title: {
+    marginBottom: 8,
+  },
+  subtitle: {
+    textAlign: "center",
+    lineHeight: 24,
+  },
+  formContent: {
+    flex: 1,
+    marginBottom: 32,
+  },
   contentContainer: {
     flex: 1,
     justifyContent: "center",
@@ -341,7 +380,20 @@ const styles = StyleSheet.create({
     marginBottom: 8,
   },
   resendButton: {
+    paddingVertical: 8,
+    paddingHorizontal: 16,
     marginTop: 4,
+  },
+  resendButtonDisabled: {
+    opacity: 0.5,
+  },
+  resendButtonText: {
+    fontSize: 15,
+    color: "#B5CFF8",
+    textDecorationLine: "underline",
+  },
+  resendButtonTextDisabled: {
+    textDecorationLine: "none",
   },
   changeEmailContainer: {
     alignItems: "center",
@@ -353,7 +405,14 @@ const styles = StyleSheet.create({
     marginBottom: 8,
   },
   changeEmailButton: {
+    paddingVertical: 8,
+    paddingHorizontal: 16,
     marginTop: 4,
+  },
+  changeEmailButtonText: {
+    fontSize: 15,
+    color: "#B5CFF8",
+    textDecorationLine: "underline",
   },
   loadingContainer: {
     flex: 1,
@@ -388,12 +447,19 @@ const styles = StyleSheet.create({
     lineHeight: 20,
     paddingHorizontal: 16,
   },
-  actionContainer: {
-    width: "100%",
-    alignItems: "center",
-  },
   actionButton: {
+    height: 50,
+    backgroundColor: "#B5CFF8",
+    borderRadius: 12,
+    alignItems: "center",
+    justifyContent: "center",
     minWidth: 200,
+    paddingHorizontal: 20,
+  },
+  actionButtonText: {
+    fontSize: 17,
+    fontWeight: "500",
+    color: "#1C1C1E",
   },
   errorStateContainer: {
     flex: 1,
@@ -421,7 +487,18 @@ const styles = StyleSheet.create({
   },
   errorDetailsContainer: {
     marginTop: 16,
+    marginBottom: 24,
     paddingHorizontal: 16,
+  },
+  secondaryButton: {
+    alignItems: "center",
+    paddingVertical: 12,
+    marginBottom: 24,
+  },
+  secondaryButtonText: {
+    fontSize: 15,
+    color: "#B5CFF8",
+    textDecorationLine: "underline",
   },
 });
 

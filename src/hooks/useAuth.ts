@@ -52,9 +52,8 @@ export function useAuth(): UseAuthReturn {
   const error = useAppSelector(selectAuthError);
 
   // Create stable loading states - memoize to prevent unnecessary rerenders
-  const loading: AuthLoadingStates = useMemo(() => {
-    console.log("useAuth: Loading state recalculated", { globalLoading });
-    return {
+  const loading: AuthLoadingStates = useMemo(
+    () => ({
       login: globalLoading,
       signup: globalLoading,
       logout: globalLoading,
@@ -63,8 +62,9 @@ export function useAuth(): UseAuthReturn {
       emailVerification: globalLoading,
       profileUpdate: globalLoading,
       initialization: globalLoading,
-    };
-  }, [globalLoading]);
+    }),
+    [globalLoading]
+  );
 
   // ============================================================================
   // AUTHENTICATION ACTIONS
@@ -469,16 +469,6 @@ export function useAuth(): UseAuthReturn {
   // ============================================================================
   // RETURN HOOK INTERFACE
   // ============================================================================
-
-  // Log hook renders to track rerender causes
-  console.log("useAuth: Hook render", {
-    isAuthenticated,
-    hasUser: !!user,
-    hasSession: !!session,
-    globalLoading,
-    error: !!error,
-    timestamp: Date.now(),
-  });
 
   // Return hook interface - simplified memoization to prevent cascade rerenders
   return useMemo(
