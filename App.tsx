@@ -15,7 +15,7 @@ import { PersistGate } from "redux-persist/integration/react";
 import { store, persistor, waitForRehydration } from "./src/store";
 
 // Components
-import AuthNavigator from "./src/navigation/AuthNavigator";
+import AppNavigator from "./src/navigation/AppNavigator";
 import SplashScreen from "./src/components/ui/SplashScreen";
 import ErrorBoundary from "./src/components/ui/ErrorBoundary";
 import ConnectionStatusIndicator from "./src/components/ui/ConnectionStatusIndicator";
@@ -64,7 +64,7 @@ const AppContent: React.FC = () => {
       <ConnectionStatusIndicator />
 
       {/* Main Navigation */}
-      <AuthNavigator />
+      <AppNavigator />
 
       {/* Status Bar */}
       <StatusBar style='auto' />

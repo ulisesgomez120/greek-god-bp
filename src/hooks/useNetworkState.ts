@@ -8,7 +8,7 @@ import { useState, useEffect, useCallback } from "react";
 import { useAppDispatch, useAppSelector } from "./redux";
 import { setNetworkStatus } from "../store/ui/uiSlice";
 import { logger } from "../utils/logger";
-import NetInfo, { NetInfoState, NetInfoStateType } from "@react-native-netinfo/netinfo";
+import NetInfo, { NetInfoState, NetInfoStateType } from "@react-native-community/netinfo";
 
 // ============================================================================
 // TYPES
@@ -79,7 +79,7 @@ export function useNetworkState(): UseNetworkStateReturn {
 
     // If we have connection details with speed info
     if (details && "downlinkMax" in details && details.downlinkMax) {
-      const speed = details.downlinkMax;
+      const speed = details.downlinkMax as number;
       if (speed >= 50) return "excellent"; // 50+ Mbps
       if (speed >= 10) return "good"; // 10-50 Mbps
       if (speed >= 2) return "fair"; // 2-10 Mbps

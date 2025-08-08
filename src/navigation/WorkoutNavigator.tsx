@@ -1,0 +1,123 @@
+// ============================================================================
+// WORKOUT NAVIGATOR
+// ============================================================================
+// Workout flow stack navigation with program selection, active workout, and exercise details
+
+import React from "react";
+import { createStackNavigator } from "@react-navigation/stack";
+
+// Screens
+import { ActiveWorkoutScreen } from "../screens/workout/ActiveWorkoutScreen";
+
+// Workout screens
+import ProgramSelectionScreen from "../screens/workout/ProgramSelectionScreen";
+import PhaseSelectionScreen from "../screens/workout/PhaseSelectionScreen";
+import DaySelectionScreen from "../screens/workout/DaySelectionScreen";
+import ExerciseDetailScreen from "../screens/workout/ExerciseDetailScreen";
+import WorkoutSummaryScreen from "../screens/workout/WorkoutSummaryScreen";
+
+// Types
+import { WorkoutStackParamList } from "../types/navigation";
+
+// ============================================================================
+// STACK NAVIGATOR
+// ============================================================================
+
+const WorkoutStack = createStackNavigator<WorkoutStackParamList>();
+
+// ============================================================================
+// WORKOUT NAVIGATOR COMPONENT
+// ============================================================================
+
+const WorkoutNavigator: React.FC = () => {
+  return (
+    <WorkoutStack.Navigator
+      initialRouteName='WorkoutHome'
+      screenOptions={{
+        headerShown: true,
+        headerStyle: {
+          backgroundColor: "#FFFFFF",
+          borderBottomColor: "#F2F2F7",
+          borderBottomWidth: 1,
+        },
+        headerTitleStyle: {
+          fontSize: 17,
+          fontWeight: "600",
+          color: "#1C1C1E",
+        },
+        headerBackTitleVisible: false,
+        headerTintColor: "#B5CFF8",
+        gestureEnabled: true,
+        cardStyleInterpolator: ({ current, layouts }) => {
+          return {
+            cardStyle: {
+              transform: [
+                {
+                  translateX: current.progress.interpolate({
+                    inputRange: [0, 1],
+                    outputRange: [layouts.screen.width, 0],
+                  }),
+                },
+              ],
+            },
+          };
+        },
+      }}>
+      <WorkoutStack.Screen
+        name='WorkoutHome'
+        component={ProgramSelectionScreen}
+        options={{
+          title: "Choose Program",
+        }}
+      />
+      <WorkoutStack.Screen
+        name='ProgramSelection'
+        component={ProgramSelectionScreen}
+        options={{
+          title: "Choose Program",
+        }}
+      />
+      <WorkoutStack.Screen
+        name='PhaseSelection'
+        component={PhaseSelectionScreen}
+        options={({ route }) => ({
+          title: "Choose Phase",
+        })}
+      />
+      <WorkoutStack.Screen
+        name='DaySelection'
+        component={DaySelectionScreen}
+        options={{
+          title: "Choose Workout",
+        }}
+      />
+      <WorkoutStack.Screen
+        name='ActiveWorkout'
+        component={ActiveWorkoutScreen}
+        options={({ route }) => ({
+          title: "Workout",
+          headerShown: false, // Hide header during active workout
+        })}
+      />
+      <WorkoutStack.Screen
+        name='ExerciseDetail'
+        component={ExerciseDetailScreen}
+        options={{
+          title: "Exercise Details",
+          presentation: "modal",
+        }}
+      />
+      <WorkoutStack.Screen
+        name='WorkoutSummary'
+        component={WorkoutSummaryScreen}
+        options={{
+          title: "Workout Complete",
+          gestureEnabled: false,
+          headerLeft: () => null, // Prevent going back
+        }}
+      />
+    </WorkoutStack.Navigator>
+  );
+};
+
+export default WorkoutNavigator;

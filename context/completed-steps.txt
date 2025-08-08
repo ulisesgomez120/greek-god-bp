@@ -298,3 +298,23 @@ UX/UI
 * Trust/Privacy: Toast/tooltip when AI is active: "Your workout data is always private."
 * AI Loading: Typing indicator during response time, graceful fallback if API down.
 * Error Handling: Clear feedback if rate/cost-limited or error.
+
+Step 15: Build Comprehensive Progress Tracking System
+* Task: Implement detailed progress tracking including workout history, strength gains calculation, volume tracking, 1RM estimates, personal records, and trend analysis with data visualization.
+* Files:
+    * src/services/progress.service.ts: Progress calculation and analytics service
+    * src/screens/progress/ProgressDashboard.tsx: Main progress overview screen
+    * src/screens/progress/WorkoutHistory.tsx: Detailed workout history with filtering
+    * src/screens/progress/StrengthCharts.tsx: Exercise-specific strength progression charts
+    * src/components/progress/ProgressChart.tsx: Reusable chart component with interactions
+    * src/components/progress/PersonalRecords.tsx: PR tracking and celebration
+    * src/utils/progressCalculations.ts: Progress metrics and statistical calculations
+    * src/hooks/useProgressData.ts: Progress data management with caching
+* Dependencies: Step 12
+* User Instructions: Test progress calculations, verify chart rendering with real data, confirm PR detection works correctly, and ensure performance with large datasets.
+UX/UI
+* Charts: Tap-friendly, scrollable charts; colorblind accessible color use.
+* Zero Data: Friendly onboarding tip with encouragement if no history yet.
+* PRs: "NEW PERSONAL BEST" celebration and persistent marker.
+* Export: Accessible export/share button for premium.
+* Breakdown: Clear muscle group/monthly/weekly summaries.
