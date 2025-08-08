@@ -215,3 +215,24 @@ UX/UI:
 * Progressive Disclosure: Show premium features with upgrade prompts rather than hiding them
 * Testing Context: Clear messaging that upgrades are for testing purposes only
 * Feature Previews: Allow brief previews of premium features before showing upgrade prompts
+
+Step 11: Build Offline-First Workout System with Background Sync
+* Task: Implement comprehensive offline-first workout system with local storage, background synchronization, conflict resolution, and network state management. Include workout session persistence and recovery mechanisms.
+* Files:
+    * src/services/offline.service.ts: Offline storage and synchronization manager
+    * src/services/workout.service.ts: Workout session management with offline support
+    * src/hooks/useNetworkState.ts: Network state monitoring and management
+    * src/hooks/useWorkoutSync.ts: Background sync hook with conflict resolution
+    * src/utils/workoutStorage.ts: Local workout data storage utilities
+    * src/components/workout/SyncIndicator.tsx: Sync status indicator component
+    * src/store/offline/offlineSlice.ts: Offline queue state management
+    * supabase/functions/sync-workouts/index.ts: Server-side sync conflict resolution
+* Dependencies: Step 8, Step 2
+* User Instructions: Test offline workout logging, verify background sync works correctly, test conflict resolution scenarios, and ensure data integrity during network interruptions
+UX/UI
+* Persistent Banner: "Offline Mode: Changes will sync when online"—dismissible, subtle.
+* Sync Progress: Spinner or toast when syncing, status bar with error icon for failed syncs.
+* Conflict UI: Modal shows "Server and device have different data. Keep mine / Keep server / Merge", with safe preview.
+* Safety Cues: "Workout progress saved locally" toast after each log.
+* Accessibility: Aria/live region for banner content.
+
