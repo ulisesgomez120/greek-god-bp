@@ -18,9 +18,7 @@ import {
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useAuth } from "@/hooks/useAuth";
 import { AUTH_FLOWS } from "@/constants/auth";
-import AuthForm from "@/components/auth/AuthForm";
 import Text from "@/components/ui/Text";
-import Button from "@/components/ui/Button";
 import {
   getInputStyle,
   getInputState,
@@ -198,6 +196,136 @@ export const ForgotPasswordScreen: React.FC<ForgotPasswordScreenProps> = ({ navi
   // ============================================================================
 
   const renderFormState = () => (
+    <View style={styles.formContainer}>
+      {/* Email Field */}
+      <View style={FIELD_STYLES.container}>
+        <Text style={LABEL_STYLES.base}>Email Address *</Text>
+        <TextInput
+          style={getInputStyle(undefined, getInputState(focusedField === "email", !!errors.email))}
+          value={email}
+          onChangeText={(text) => {
+            setEmail(text);
+            handleEmailChange(text);
+          }}
+          onFocus={() => setFocusedField("email")}
+          onBlur={() => setFocusedField(null)}
+          {...getInputProps("email")}
+          placeholder='Enter your email address'
+        />
+        {errors.email && <Text style={ERROR_STYLES.text}>{errors.email}</Text>}
+      </View>
+
+      <View style={styles.infoContainer}>
+        <Text variant='bodySmall' color='secondary' align='center' style={styles.infoText}>
+          Enter your email address and we'll send you instructions to reset your password.
+        </Text>
+      </View>
+    </View>
+  );
+
+  const renderSendingState = () => (
+    <View style={styles.loadingContainer}>
+      <View style={styles.loadingSpinner}>
+        <Text variant='body' color='secondary' align='center'>
+          Sending email...
+        </Text>
+      </View>
+    </View>
+  );
+
+  const renderSentState = () => (
+    <View style={styles.successContainer}>
+      <View style={styles.successIcon}>
+        <Text variant='h1' style={styles.successEmoji}>
+          📧
+        </Text>
+      </View>
+
+      <Text variant='bodyLarge' color='primary' align='center' style={styles.successMessage}>
+        Password reset instructions have been sent to your email address.
+      </Text>
+
+      <Text variant='body' color='coach' align='center' style={styles.emailText}>
+        {resetEmail}
+      </Text>
+
+      <View style={styles.instructionsContainer}>
+        <Text variant='body' color='secondary' align='center' style={styles.instructionText}>
+          1. Check your email inbox (and spam folder)
+        </Text>
+        <Text variant='body' color='secondary' align='center' style={styles.instructionText}>
+          2. Click the reset link in the email
+        </Text>
+        <Text variant='body' color='secondary' align='center' style={styles.instructionText}>
+          3. Create a new password
+        </Text>
+      </View>
+
+      <View style={styles.resendContainer}>
+        <Text variant='bodySmall' color='secondary' align='center' style={styles.resendText}>
+          Didn't receive the email?
+        </Text>
+
+        <TouchableOpacity
+          style={[styles.resendButton, resendCooldown > 0 && styles.resendButtonDisabled]}
+          onPress={handleResendEmail}
+          disabled={resendCooldown > 0}>
+          <Text style={[styles.resendButtonText, resendCooldown > 0 && styles.resendButtonTextDisabled]}>
+            {resendCooldown > 0 ? `Resend in ${resendCooldown}s` : "Resend Email"}
+          </Text>
+        </TouchableOpacity>
+      </View>
+    </View>
+  );
+
+  const renderErrorState = () => (
+    <View style={styles.errorStateContainer}>
+      <View style={styles.errorIcon}>
+        <Text variant='h1' style={styles.errorEmoji}>
+          ⚠️
+        </Text>
+      </View>
+
+      <Text variant='bodyLarge' color='primary' align='center' style={styles.errorMessage}>
+        We encountered an issue while trying to send your password reset email.
+      </Text>
+
+      <Text variant='body' color='secondary' align='center' style={styles.errorSubMessage}>
+        Please check your internet connection and try again. If the problem persists, contact support.
+      </Text>
+
+      {error && (
+        <View style={styles.errorDetailsContainer}>
+          <Text variant='bodySmall' color='error' align='center'>
+            {error}
+          </Text>
+        </View>
+      )}
+    </View>
+  );
+
+  // ============================================================================
+  // RENDER MAIN CONTENT
+  // ============================================================================
+
+  const renderContent = () => {
+    switch (resetState) {
+      case "sending":
+        return renderSendingState();
+      case "sent":
+        return renderSentState();
+      case "error":
+        return renderErrorState();
+      default:
+        return renderFormState();
+    }
+  };
+
+  // ============================================================================
+  // RENDER
+  // ============================================================================
+
+  return (
     <SafeAreaView style={styles.safeArea}>
       <KeyboardAvoidingView style={styles.keyboardAvoidingView} behavior={Platform.OS === "ios" ? "padding" : "height"}>
         <ScrollView
@@ -215,50 +343,35 @@ export const ForgotPasswordScreen: React.FC<ForgotPasswordScreenProps> = ({ navi
               </Text>
             </View>
 
-            {/* Form Fields */}
-            <View style={styles.formContent}>
-              {/* Email Field */}
-              <View style={FIELD_STYLES.container}>
-                <Text style={LABEL_STYLES.base}>Email Address *</Text>
-                <TextInput
-                  style={getInputStyle(undefined, getInputState(focusedField === "email", !!errors.email))}
-                  value={email}
-                  onChangeText={(text) => {
-                    setEmail(text);
-                    handleEmailChange(text);
-                  }}
-                  onFocus={() => setFocusedField("email")}
-                  onBlur={() => setFocusedField(null)}
-                  {...getInputProps("email")}
-                  placeholder='Enter your email address'
-                />
-                {errors.email && <Text style={ERROR_STYLES.text}>{errors.email}</Text>}
-              </View>
+            {/* Dynamic Content */}
+            <View style={styles.formContent}>{renderContent()}</View>
 
-              <View style={styles.infoContainer}>
-                <Text variant='bodySmall' color='secondary' align='center' style={styles.infoText}>
-                  Enter your email address and we'll send you instructions to reset your password.
+            {/* Submit Button - Only show in form state */}
+            {resetState === "form" && (
+              <TouchableOpacity
+                style={[styles.submitButton, (isSubmitting || loading.passwordReset) && styles.submitButtonDisabled]}
+                onPress={onSubmit}
+                disabled={isSubmitting || loading.passwordReset}>
+                <Text style={styles.submitButtonText}>
+                  {isSubmitting || loading.passwordReset ? "Sending..." : AUTH_FLOWS.forgotPassword.submitText}
                 </Text>
-              </View>
-            </View>
+              </TouchableOpacity>
+            )}
 
-            {/* Submit Button */}
-            <TouchableOpacity
-              style={[styles.submitButton, (isSubmitting || loading.passwordReset) && styles.submitButtonDisabled]}
-              onPress={onSubmit}
-              disabled={isSubmitting || loading.passwordReset}>
-              <Text style={styles.submitButtonText}>
-                {isSubmitting || loading.passwordReset ? "Sending..." : AUTH_FLOWS.forgotPassword.submitText}
-              </Text>
-            </TouchableOpacity>
+            {/* Try Again Button - Only show in error state */}
+            {resetState === "error" && (
+              <TouchableOpacity style={styles.submitButton} onPress={tryAgain}>
+                <Text style={styles.submitButtonText}>Try Again</Text>
+              </TouchableOpacity>
+            )}
 
-            {/* Secondary Action */}
+            {/* Back to Sign In */}
             <TouchableOpacity style={styles.secondaryButton} onPress={navigateToLogin}>
-              <Text style={styles.secondaryButtonText}>{AUTH_FLOWS.forgotPassword.switchText}</Text>
+              <Text style={styles.secondaryButtonText}>Back to Sign In</Text>
             </TouchableOpacity>
 
-            {/* Global Error */}
-            {error && (
+            {/* Global Error - Only show in form state */}
+            {resetState === "form" && error && (
               <View style={styles.globalErrorContainer}>
                 <Text style={styles.globalErrorText}>{error}</Text>
               </View>
@@ -268,116 +381,6 @@ export const ForgotPasswordScreen: React.FC<ForgotPasswordScreenProps> = ({ navi
       </KeyboardAvoidingView>
     </SafeAreaView>
   );
-
-  const renderSendingState = () => (
-    <AuthForm
-      title='Sending Reset Email'
-      subtitle='Please wait while we send your password reset instructions'
-      showKeyboardAvoidance={false}>
-      <View style={styles.loadingContainer}>
-        <View style={styles.loadingSpinner}>
-          {/* Add loading spinner component here */}
-          <Text variant='body' color='secondary' align='center'>
-            Sending email...
-          </Text>
-        </View>
-      </View>
-    </AuthForm>
-  );
-
-  const renderSentState = () => (
-    <AuthForm
-      title='Check Your Email'
-      subtitle={`We've sent password reset instructions to ${resetEmail}`}
-      secondaryAction={{
-        text: "Back to Sign In",
-        onPress: navigateToLogin,
-      }}
-      showKeyboardAvoidance={false}>
-      <View style={styles.successContainer}>
-        <View style={styles.successIcon}>
-          <Text variant='h1' style={styles.successEmoji}>
-            📧
-          </Text>
-        </View>
-
-        <Text variant='bodyLarge' color='primary' align='center' style={styles.successMessage}>
-          Password reset instructions have been sent to your email address.
-        </Text>
-
-        <View style={styles.instructionsContainer}>
-          <Text variant='body' color='secondary' align='center' style={styles.instructionText}>
-            1. Check your email inbox (and spam folder)
-          </Text>
-          <Text variant='body' color='secondary' align='center' style={styles.instructionText}>
-            2. Click the reset link in the email
-          </Text>
-          <Text variant='body' color='secondary' align='center' style={styles.instructionText}>
-            3. Create a new password
-          </Text>
-        </View>
-
-        <View style={styles.resendContainer}>
-          <Text variant='bodySmall' color='secondary' align='center' style={styles.resendText}>
-            Didn't receive the email?
-          </Text>
-
-          <Button
-            variant='text'
-            size='small'
-            onPress={handleResendEmail}
-            disabled={resendCooldown > 0}
-            style={styles.resendButton}>
-            {resendCooldown > 0 ? `Resend in ${resendCooldown}s` : "Resend Email"}
-          </Button>
-        </View>
-      </View>
-    </AuthForm>
-  );
-
-  const renderErrorState = () => (
-    <AuthForm
-      title='Something Went Wrong'
-      subtitle="We couldn't send the password reset email"
-      onSubmit={tryAgain}
-      submitText='Try Again'
-      secondaryAction={{
-        text: "Back to Sign In",
-        onPress: navigateToLogin,
-      }}
-      showKeyboardAvoidance={false}>
-      <View style={styles.errorStateContainer}>
-        <View style={styles.errorIcon}>
-          <Text variant='h1' style={styles.errorEmoji}>
-            ⚠️
-          </Text>
-        </View>
-
-        <Text variant='bodyLarge' color='primary' align='center' style={styles.errorMessage}>
-          We encountered an issue while trying to send your password reset email.
-        </Text>
-
-        <Text variant='body' color='secondary' align='center' style={styles.errorSubMessage}>
-          Please check your internet connection and try again. If the problem persists, contact support.
-        </Text>
-      </View>
-    </AuthForm>
-  );
-
-  // ============================================================================
-  // RENDER
-  // ============================================================================
-
-  switch (resetState) {
-    case "sending":
-      return renderSendingState();
-    case "sent":
-      return renderSentState();
-    case "error":
-      return renderErrorState();
-    default:
-      return renderFormState();
-  }
 };
 
 // ============================================================================
@@ -420,6 +423,10 @@ const styles = StyleSheet.create({
     flex: 1,
     marginBottom: 32,
   },
+  formContainer: {
+    flex: 1,
+    justifyContent: "center",
+  },
   submitButton: {
     height: 50,
     backgroundColor: "#B5CFF8",
@@ -457,10 +464,6 @@ const styles = StyleSheet.create({
     color: "#FF3B30",
     textAlign: "center",
   },
-  errorContainer: {
-    marginTop: 8,
-    paddingHorizontal: 16,
-  },
   infoContainer: {
     marginTop: 16,
     paddingHorizontal: 8,
@@ -491,9 +494,14 @@ const styles = StyleSheet.create({
     textAlign: "center",
   },
   successMessage: {
-    marginBottom: 32,
+    marginBottom: 16,
     textAlign: "center",
     lineHeight: 24,
+  },
+  emailText: {
+    marginBottom: 32,
+    fontWeight: "600",
+    fontSize: 16,
   },
   instructionsContainer: {
     marginBottom: 40,
@@ -510,7 +518,20 @@ const styles = StyleSheet.create({
     marginBottom: 8,
   },
   resendButton: {
+    paddingVertical: 8,
+    paddingHorizontal: 16,
     marginTop: 4,
+  },
+  resendButtonDisabled: {
+    opacity: 0.5,
+  },
+  resendButtonText: {
+    fontSize: 15,
+    color: "#B5CFF8",
+    textDecorationLine: "underline",
+  },
+  resendButtonTextDisabled: {
+    textDecorationLine: "none",
   },
   errorStateContainer: {
     flex: 1,
@@ -531,8 +552,14 @@ const styles = StyleSheet.create({
     lineHeight: 24,
   },
   errorSubMessage: {
+    marginBottom: 24,
     textAlign: "center",
     lineHeight: 20,
+    paddingHorizontal: 16,
+  },
+  errorDetailsContainer: {
+    marginTop: 16,
+    marginBottom: 24,
     paddingHorizontal: 16,
   },
 });
