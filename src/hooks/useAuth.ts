@@ -5,10 +5,13 @@
 // token refresh handling for React components
 
 import { useEffect, useCallback, useMemo } from "react";
+import { createClient } from "@supabase/supabase-js";
 import { useAppDispatch, useAppSelector } from "./redux";
 import { authService } from "@/services/auth.service";
+import { profileService } from "@/services/profile.service";
 import { logger } from "@/utils/logger";
 import { getTokens, areTokensExpired } from "@/utils/storage";
+import { ENV_CONFIG } from "@/config/constants";
 import type {
   UseAuthReturn,
   LoginCredentials,
@@ -306,20 +309,76 @@ export function useAuth(): UseAuthReturn {
   const updateProfile = useCallback(
     async (data: ProfileUpdateRequest): Promise<AuthResponse> => {
       try {
-        logger.info("useAuth: Profile update attempt", { userId: user?.id }, "auth", user?.id);
+        if (!user?.id) {
+          logger.error("useAuth: Profile update failed - no user ID", undefined, "auth");
+          return {
+            success: false,
+            error: {
+              code: "NO_USER_ID",
+              message: "User ID not available",
+              type: "auth",
+            },
+          };
+        }
 
-        // Update profile in Redux store
-        dispatch(updateUserProfile(data as any));
+        logger.info("useAuth: Profile update attempt", { userId: user.id }, "auth", user.id);
 
-        // TODO: Implement server-side profile update when backend is ready
-        // For now, we just update the local state
+        // Transform ProfileUpdateRequest to ProfileSetupData for the service
+        const profileSetupData = {
+          email: user.email || "",
+          displayName: data.displayName || "", // Provide default empty string if undefined
+          heightCm: data.heightCm,
+          weightKg: data.weightKg,
+          experienceLevel: data.experienceLevel || "untrained", // Provide default if undefined
+          fitnessGoals: data.fitnessGoals || [],
+          // birthDate and gender are optional in ProfileSetupData, so we can omit them
+          // if they're not provided in the ProfileUpdateRequest
+        };
 
-        logger.info("useAuth: Profile update successful", { userId: user?.id }, "auth", user?.id);
+        // Create authenticated Supabase client
+        const authenticatedClient = createClient(ENV_CONFIG.supabaseUrl, ENV_CONFIG.supabaseAnonKey, {
+          global: {
+            headers: {
+              Authorization: `Bearer ${session?.accessToken}`,
+            },
+          },
+        });
+
+        // Create profile in database (this is during onboarding, so it's a create operation)
+        const profileResult = await profileService.createProfile(user.id, profileSetupData, authenticatedClient);
+
+        if (!profileResult.success) {
+          logger.error("useAuth: Profile creation failed", profileResult.error, "auth", user.id);
+          return {
+            success: false,
+            error: {
+              code: "PROFILE_CREATE_FAILED",
+              message: profileResult.error?.message || "Failed to create profile",
+              type: "network",
+            },
+          };
+        }
+
+        // Update user metadata to mark onboarding as complete
+        const updatedUser = {
+          ...user,
+          user_metadata: {
+            ...user.user_metadata,
+            onboarding_complete: true,
+            display_name: data.displayName,
+            experience_level: data.experienceLevel,
+          },
+        };
+
+        // Update profile in Redux store with the created profile data
+        dispatch(updateUserProfile(updatedUser as any));
+
+        logger.info("useAuth: Profile created and updated successfully", { userId: user.id }, "auth", user.id);
         return {
           success: true,
-          user,
+          user: updatedUser,
           session,
-          message: "Profile updated successfully",
+          message: "Profile created successfully",
         };
       } catch (error: any) {
         logger.error("useAuth: Profile update error", error, "auth", user?.id);

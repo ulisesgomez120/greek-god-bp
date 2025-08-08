@@ -47,13 +47,25 @@ const AuthNavigatorComponent: React.FC = () => {
   console.log("🔄 AuthNavigator RENDER - Testing parent re-render");
   const { isAuthenticated, user } = useAuth();
 
+  // Check if user has completed onboarding
+  const isOnboardingComplete = user?.user_metadata?.onboarding_complete === true;
+
+  console.log("AuthNavigator: Navigation state", {
+    isAuthenticated,
+    hasUser: !!user,
+    isOnboardingComplete,
+    userMetadata: user?.user_metadata,
+  });
+
   // Show main app if authenticated and onboarded
-  if (isAuthenticated && user?.user_metadata?.onboarding_complete) {
+  if (isAuthenticated && isOnboardingComplete) {
+    console.log("AuthNavigator: Showing main app");
     return <MainAppNavigator />;
   }
 
   // Show onboarding if authenticated but not onboarded
-  if (isAuthenticated && !user?.user_metadata?.onboarding_complete) {
+  if (isAuthenticated && !isOnboardingComplete) {
+    console.log("AuthNavigator: Showing onboarding");
     return (
       <NavigationContainer>
         <AuthStack.Navigator

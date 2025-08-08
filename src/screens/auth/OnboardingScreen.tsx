@@ -143,6 +143,10 @@ export const OnboardingScreen: React.FC<OnboardingScreenProps> = ({ navigation, 
   };
 
   const completeOnboarding = () => {
+    // The navigation will automatically update because the user metadata
+    // has been updated with onboarding_complete: true in the updateProfile function
+    // The AuthNavigator is watching for this change
+    console.log("OnboardingScreen: Onboarding completed, navigation should update automatically");
     onOnboardingComplete?.();
   };
 

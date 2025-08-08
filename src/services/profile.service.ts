@@ -4,7 +4,7 @@
 // Complete profile management service with Supabase integration,
 // experience level assessment, and offline support
 
-import { createClient } from "@supabase/supabase-js";
+import { createClient, SupabaseClient } from "@supabase/supabase-js";
 import { ENV_CONFIG } from "@/config/constants";
 import { logger } from "@/utils/logger";
 import type { Database } from "@/types/database";
@@ -140,7 +140,11 @@ export class ProfileService {
   /**
    * Create initial user profile during signup
    */
-  async createProfile(userId: string, profileData: ProfileSetupData): Promise<ProfileServiceResponse<UserProfile>> {
+  async createProfile(
+    userId: string,
+    profileData: ProfileSetupData,
+    authenticatedClient?: SupabaseClient<Database>
+  ): Promise<ProfileServiceResponse<UserProfile>> {
     try {
       logger.info("Creating user profile", { userId }, "profile");
 
@@ -173,7 +177,9 @@ export class ProfileService {
         onboarding_completed: true,
       };
 
-      const { data, error } = await supabase.from("user_profiles").insert(insertData).select().single();
+      // Use authenticated client if provided, otherwise fall back to global client
+      const client = authenticatedClient || supabase;
+      const { data, error } = await client.from("user_profiles").insert(insertData).select().single();
 
       if (error) {
         logger.error("Failed to create profile", error, "profile", userId);
