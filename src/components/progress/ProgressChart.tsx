@@ -4,9 +4,25 @@
 // Simple placeholder chart component (charts will be implemented later)
 
 import React, { useMemo } from "react";
-import { View, StyleSheet, Dimensions } from "react-native";
+import { View, StyleSheet, Dimensions, Platform } from "react-native";
 import { Text } from "../ui/Text";
 import type { VolumeDataPoint, StrengthDataPoint } from "../../types";
+
+// Victory Native imports (native only)
+let CartesianChart: any = null;
+let Line: any = null;
+let Axis: any = null;
+
+if (Platform.OS !== "web") {
+  try {
+    const victoryNative = require("victory-native");
+    CartesianChart = victoryNative.CartesianChart;
+    Line = victoryNative.Line;
+    Axis = victoryNative.Axis;
+  } catch (error) {
+    console.warn("Victory Native not available:", error);
+  }
+}
 
 // ============================================================================
 // TYPES
@@ -73,12 +89,40 @@ function calculateStats(data: VolumeDataPoint[] | StrengthDataPoint[] | undefine
   return { current: currentValue, previous: previousValue, change, changePercent };
 }
 
+function transformDataForChart(data: VolumeDataPoint[] | StrengthDataPoint[], type: string) {
+  if (!data || data.length === 0) return [];
+
+  const sortedData = [...data].sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+
+  return sortedData.map((item, index) => {
+    let yValue = 0;
+
+    if (type === "volume") {
+      const volumeItem = item as VolumeDataPoint;
+      yValue = volumeItem.totalVolume || volumeItem.volume || 0;
+    } else if (type === "strength") {
+      const strengthItem = item as StrengthDataPoint;
+      yValue = strengthItem.oneRepMax || strengthItem.estimatedMax || 0;
+    } else if (type === "rpe") {
+      const volumeItem = item as VolumeDataPoint;
+      yValue = volumeItem.averageRpe || 7;
+    }
+
+    return {
+      x: index, // Use index for x-axis to ensure consistent spacing
+      y: yValue,
+      date: item.date, // Keep original date for reference
+    };
+  });
+}
+
 // ============================================================================
 // MAIN COMPONENT
 // ============================================================================
 
 export const ProgressChart: React.FC<ProgressChartProps> = ({ type, data, timeframe, height = 200, title }) => {
   const stats = useMemo(() => calculateStats(data, type), [data, type]);
+  const chartData = useMemo(() => transformDataForChart(data || [], type), [data, type]);
 
   // Handle empty data
   if (!data || data.length === 0) {
@@ -121,14 +165,73 @@ export const ProgressChart: React.FC<ProgressChartProps> = ({ type, data, timefr
     return "→";
   };
 
+  // Get chart dimensions
+  const { width: screenWidth } = Dimensions.get("window");
+  const chartWidth = screenWidth - 64; // Account for container padding
+  const chartHeight = Math.max(120, height - 160); // Reserve space for stats and info
+
+  // Render chart or fallback
+  const renderChart = () => {
+    // Web fallback
+    if (Platform.OS === "web" || !CartesianChart || !Line || !Axis) {
+      return (
+        <View style={styles.chartPlaceholder}>
+          <Text style={styles.placeholderText}>📊</Text>
+          <Text style={styles.placeholderSubtext}>
+            {Platform.OS === "web" ? "Chart available on mobile" : "Chart loading..."}
+          </Text>
+        </View>
+      );
+    }
+
+    // Native chart rendering
+    try {
+      return (
+        <View style={styles.chartContainer}>
+          <CartesianChart
+            data={chartData}
+            xKey='x'
+            yKeys={["y"]}
+            padding={{ left: 40, right: 20, top: 10, bottom: 30 }}
+            domainPadding={{ left: 20, right: 20, top: 20, bottom: 20 }}>
+            {({ points, chartBounds }: { points: any; chartBounds: any }) => (
+              <>
+                <Axis
+                  key='bottom'
+                  orientation='bottom'
+                  font={{ size: 12, color: "#8E8E93" }}
+                  lineColor='#E5E5EA'
+                  labelOffset={{ x: 0, y: 8 }}
+                />
+                <Axis
+                  key='left'
+                  orientation='left'
+                  font={{ size: 12, color: "#8E8E93" }}
+                  lineColor='#E5E5EA'
+                  labelOffset={{ x: -8, y: 0 }}
+                />
+                <Line points={points.y} color='#007AFF' strokeWidth={2} animate={{ type: "timing", duration: 300 }} />
+              </>
+            )}
+          </CartesianChart>
+        </View>
+      );
+    } catch (error) {
+      console.warn("Error rendering chart:", error);
+      return (
+        <View style={styles.chartPlaceholder}>
+          <Text style={styles.placeholderText}>📊</Text>
+          <Text style={styles.placeholderSubtext}>Chart error - check console</Text>
+        </View>
+      );
+    }
+  };
+
   return (
     <View style={[styles.container, { height }]}>
       {title && <Text style={styles.title}>{title}</Text>}
 
-      <View style={styles.chartPlaceholder}>
-        <Text style={styles.placeholderText}>📊</Text>
-        <Text style={styles.placeholderSubtext}>Chart visualization coming soon</Text>
-      </View>
+      {renderChart()}
 
       <View style={styles.statsContainer}>
         <View style={styles.statItem}>
@@ -176,6 +279,13 @@ const styles = StyleSheet.create({
     fontWeight: "600",
     color: "#1C1C1E",
     marginBottom: 12,
+  },
+  chartContainer: {
+    backgroundColor: "#F8FAFD",
+    borderRadius: 8,
+    marginBottom: 16,
+    minHeight: 120,
+    overflow: "hidden",
   },
   chartPlaceholder: {
     flex: 1,
