@@ -1,4 +1,7 @@
 Implementation Plan
+Note: These are completed steps but details may have changed for some. If any questions arise, please ask. i.e. we no longer use authform component.
+
+
 Section 1: Project Foundation & Tech Stack Setup
 Step 1: Initialize React Native Project with Complete Expo SDK 53+ Configuration
 * Task: Set up React Native 0.74+ with Expo managed workflow, configure all core dependencies with specific versions, establish TypeScript configuration, and implement proper project structure following React Native best practices with performance optimizations.
