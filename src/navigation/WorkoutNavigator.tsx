@@ -7,12 +7,13 @@ import React from "react";
 import { createStackNavigator } from "@react-navigation/stack";
 
 // Screens
-import { ActiveWorkoutScreen } from "../screens/workout/ActiveWorkoutScreen";
+import { SimpleActiveWorkoutScreen } from "../screens/workout/SimpleActiveWorkoutScreen";
 
 // Workout screens
 import ProgramSelectionScreen from "../screens/workout/ProgramSelectionScreen";
 import PhaseSelectionScreen from "../screens/workout/PhaseSelectionScreen";
 import DaySelectionScreen from "../screens/workout/DaySelectionScreen";
+import ExerciseListScreen from "../screens/workout/ExerciseListScreen";
 import ExerciseDetailScreen from "../screens/workout/ExerciseDetailScreen";
 import WorkoutSummaryScreen from "../screens/workout/WorkoutSummaryScreen";
 
@@ -92,8 +93,15 @@ const WorkoutNavigator: React.FC = () => {
         }}
       />
       <WorkoutStack.Screen
+        name='ExerciseList'
+        component={ExerciseListScreen}
+        options={{
+          title: "Today's Workout",
+        }}
+      />
+      <WorkoutStack.Screen
         name='ActiveWorkout'
-        component={ActiveWorkoutScreen}
+        component={SimpleActiveWorkoutScreen}
         options={({ route }) => ({
           title: "Workout",
           headerShown: false, // Hide header during active workout

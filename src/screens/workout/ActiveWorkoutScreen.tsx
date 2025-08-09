@@ -52,6 +52,10 @@ interface ActiveWorkoutScreenProps {
     params?: {
       workoutId?: string;
       resumeSession?: boolean;
+      programId?: string;
+      phaseId?: string;
+      dayId?: string;
+      workoutName?: string;
     };
   };
 }

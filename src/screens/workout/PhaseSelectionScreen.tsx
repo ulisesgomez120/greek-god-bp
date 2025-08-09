@@ -11,6 +11,9 @@ import { RouteProp } from "@react-navigation/native";
 // Components
 import Text from "../../components/ui/Text";
 
+// Utils
+import { formatProgramName } from "../../utils/formatters";
+
 // Types
 import { WorkoutStackParamList } from "../../types/navigation";
 
@@ -44,7 +47,7 @@ export const PhaseSelectionScreen: React.FC<PhaseSelectionScreenProps> = ({ navi
           Choose Phase
         </Text>
         <Text variant='body' color='secondary' style={styles.subtitle}>
-          Program: {programId}
+          Program: {formatProgramName(programId)}
         </Text>
 
         <TouchableOpacity style={styles.phaseCard} onPress={() => handlePhaseSelect("phase1")} activeOpacity={0.7}>
