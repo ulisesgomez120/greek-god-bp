@@ -26,6 +26,9 @@ const initialState: AuthState = {
   isInitialized: false,
 };
 
+// Global flag to prevent multiple concurrent initializations
+let isInitializationInProgress = false;
+
 // ============================================================================
 // SUPABASE CLIENT
 // ============================================================================
@@ -159,8 +162,22 @@ async function mergeUserWithProfile(user: SupabaseUser, accessToken?: string): P
 /**
  * Initialize authentication state from stored tokens
  */
-export const initializeAuth = createAsyncThunk("auth/initialize", async (_, { rejectWithValue }) => {
+export const initializeAuth = createAsyncThunk("auth/initialize", async (_, { rejectWithValue, getState }) => {
   try {
+    // Prevent multiple concurrent initializations
+    if (isInitializationInProgress) {
+      logger.info("Authentication initialization already in progress, skipping", undefined, "auth");
+      return rejectWithValue("Initialization already in progress");
+    }
+
+    // Check if already initialized
+    const state = getState() as any;
+    if (state.auth.isInitialized) {
+      logger.info("Authentication already initialized, skipping", undefined, "auth");
+      return { user: state.auth.user, session: state.auth.session };
+    }
+
+    isInitializationInProgress = true;
     logger.info("Initializing authentication state", undefined, "auth");
 
     const tokens = await getTokens();
@@ -242,6 +259,8 @@ export const initializeAuth = createAsyncThunk("auth/initialize", async (_, { re
     logger.error("Authentication initialization failed", error, "auth");
     await clearTokens();
     return rejectWithValue("Failed to initialize authentication");
+  } finally {
+    isInitializationInProgress = false;
   }
 });
 

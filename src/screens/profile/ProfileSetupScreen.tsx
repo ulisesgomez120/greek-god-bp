@@ -4,13 +4,20 @@
 // Initial profile setup wizard with multi-step onboarding flow
 
 import React, { useState, useCallback, useEffect } from "react";
-import { View, ScrollView, StyleSheet, Alert, KeyboardAvoidingView, Platform } from "react-native";
+import { View, ScrollView, StyleSheet, Alert, KeyboardAvoidingView, Platform, TextInput } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useNavigation } from "@react-navigation/native";
 import { Text } from "@/components/ui/Text";
 import { Button } from "@/components/ui/Button";
-
 import { LoadingButton } from "@/components/ui/LoadingButton";
+import {
+  getInputStyle,
+  getInputState,
+  getInputProps,
+  LABEL_STYLES,
+  ERROR_STYLES,
+  FIELD_STYLES,
+} from "@/styles/inputStyles";
 import { useProfile } from "@/hooks/useProfile";
 import { useAuth } from "@/hooks/useAuth";
 import { logger } from "@/utils/logger";
@@ -109,6 +116,7 @@ const WelcomeStep: React.FC<StepComponentProps> = ({ onNext }) => (
 
 const BasicInfoStep: React.FC<StepComponentProps> = ({ data, onUpdate, onNext, canGoNext }) => {
   const [errors, setErrors] = useState<Record<string, string>>({});
+  const [focusedField, setFocusedField] = useState<string | null>(null);
 
   const validateAndNext = () => {
     const newErrors: Record<string, string> = {};
@@ -148,51 +156,102 @@ const BasicInfoStep: React.FC<StepComponentProps> = ({ data, onUpdate, onNext, c
       <Text style={styles.stepDescription}>This helps us provide better recommendations</Text>
 
       <View style={styles.formContainer}>
-        <FormField
-          name='displayName'
-          label='Display Name *'
-          value={data.displayName || ""}
-          onChangeText={(text) => onUpdate({ displayName: text })}
-          error={errors.displayName}
-          touched={true}
-          placeholder='Enter your name'
-          autoCapitalize='words'
-          autoComplete='name'
-          required
-        />
+        {/* Display Name Field */}
+        <View style={FIELD_STYLES.container}>
+          <Text style={LABEL_STYLES.base}>Display Name *</Text>
+          <TextInput
+            style={getInputStyle(undefined, getInputState(focusedField === "displayName", !!errors.displayName))}
+            value={data.displayName || ""}
+            onChangeText={(text: string) => {
+              onUpdate({ displayName: text });
+              if (errors.displayName) {
+                setErrors((prev) => {
+                  const newErrors = { ...prev };
+                  delete newErrors.displayName;
+                  return newErrors;
+                });
+              }
+            }}
+            onFocus={() => setFocusedField("displayName")}
+            onBlur={() => setFocusedField(null)}
+            placeholder='Enter your name'
+            autoCapitalize='words'
+            autoComplete='name'
+          />
+          {errors.displayName && <Text style={ERROR_STYLES.text}>{errors.displayName}</Text>}
+        </View>
 
-        <FormField
-          name='heightCm'
-          label='Height (cm)'
-          value={data.heightCm?.toString() || ""}
-          onChangeText={(text) => onUpdate({ heightCm: text ? parseInt(text) : undefined })}
-          error={errors.heightCm}
-          touched={true}
-          placeholder='170'
-          keyboardType='numeric'
-        />
+        {/* Height Field */}
+        <View style={FIELD_STYLES.container}>
+          <Text style={LABEL_STYLES.base}>Height (cm)</Text>
+          <TextInput
+            style={getInputStyle(undefined, getInputState(focusedField === "heightCm", !!errors.heightCm))}
+            value={data.heightCm?.toString() || ""}
+            onChangeText={(text: string) => {
+              onUpdate({ heightCm: text ? parseInt(text) : undefined });
+              if (errors.heightCm) {
+                setErrors((prev) => {
+                  const newErrors = { ...prev };
+                  delete newErrors.heightCm;
+                  return newErrors;
+                });
+              }
+            }}
+            onFocus={() => setFocusedField("heightCm")}
+            onBlur={() => setFocusedField(null)}
+            {...getInputProps("number")}
+            placeholder='170'
+          />
+          {errors.heightCm && <Text style={ERROR_STYLES.text}>{errors.heightCm}</Text>}
+        </View>
 
-        <FormField
-          name='weightKg'
-          label='Weight (kg)'
-          value={data.weightKg?.toString() || ""}
-          onChangeText={(text) => onUpdate({ weightKg: text ? parseFloat(text) : undefined })}
-          error={errors.weightKg}
-          touched={true}
-          placeholder='70'
-          keyboardType='numeric'
-        />
+        {/* Weight Field */}
+        <View style={FIELD_STYLES.container}>
+          <Text style={LABEL_STYLES.base}>Weight (kg)</Text>
+          <TextInput
+            style={getInputStyle(undefined, getInputState(focusedField === "weightKg", !!errors.weightKg))}
+            value={data.weightKg?.toString() || ""}
+            onChangeText={(text: string) => {
+              onUpdate({ weightKg: text ? parseFloat(text) : undefined });
+              if (errors.weightKg) {
+                setErrors((prev) => {
+                  const newErrors = { ...prev };
+                  delete newErrors.weightKg;
+                  return newErrors;
+                });
+              }
+            }}
+            onFocus={() => setFocusedField("weightKg")}
+            onBlur={() => setFocusedField(null)}
+            {...getInputProps("number")}
+            placeholder='70'
+          />
+          {errors.weightKg && <Text style={ERROR_STYLES.text}>{errors.weightKg}</Text>}
+        </View>
 
-        <FormField
-          name='birthDate'
-          label='Birth Date'
-          value={data.birthDate || ""}
-          onChangeText={(text) => onUpdate({ birthDate: text })}
-          error={errors.birthDate}
-          touched={true}
-          placeholder='YYYY-MM-DD'
-          keyboardType='numeric'
-        />
+        {/* Birth Date Field */}
+        <View style={FIELD_STYLES.container}>
+          <Text style={LABEL_STYLES.base}>Birth Date</Text>
+          <TextInput
+            style={getInputStyle(undefined, getInputState(focusedField === "birthDate", !!errors.birthDate))}
+            value={data.birthDate || ""}
+            onChangeText={(text: string) => {
+              onUpdate({ birthDate: text });
+              if (errors.birthDate) {
+                setErrors((prev) => {
+                  const newErrors = { ...prev };
+                  delete newErrors.birthDate;
+                  return newErrors;
+                });
+              }
+            }}
+            onFocus={() => setFocusedField("birthDate")}
+            onBlur={() => setFocusedField(null)}
+            placeholder='YYYY-MM-DD'
+            keyboardType='numeric'
+          />
+          {errors.birthDate && <Text style={ERROR_STYLES.text}>{errors.birthDate}</Text>}
+        </View>
 
         <View style={styles.fieldContainer}>
           <Text style={styles.fieldLabel}>Gender</Text>

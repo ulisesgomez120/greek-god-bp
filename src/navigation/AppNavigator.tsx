@@ -73,31 +73,43 @@ const RootStack = createStackNavigator<RootStackParamList>();
 // ============================================================================
 
 const AppNavigator: React.FC = () => {
-  const { isAuthenticated, user, loading: authLoading } = useAuth();
+  const {
+    isAuthenticated,
+    user,
+    loading,
+    isInitialized,
+    login,
+    signup,
+    logout,
+    error,
+    clearError,
+    resetPassword,
+    resendEmailVerification,
+    updateProfile,
+  } = useAuth();
   const { isConnected } = useNetworkState();
 
   // Check if user has completed onboarding
   const isOnboardingComplete = user?.user_metadata?.onboarding_complete === true;
 
-  // Show splash screen while loading
-  if (authLoading) {
+  // Show splash screen while initializing
+  if (!isInitialized || loading.initialization) {
     return <SplashScreen />;
   }
 
-  // Determine initial route
-  const getInitialRouteName = (): keyof RootStackParamList => {
-    if (isAuthenticated && isOnboardingComplete) {
-      return "Main";
-    }
-    return "Auth";
-  };
+  // For debugging
+  console.log("AppNavigator: Navigation state", {
+    isAuthenticated,
+    isOnboardingComplete,
+    isInitialized,
+    loadingInitialization: loading.initialization,
+  });
 
   return (
     <>
       <StatusBar style='auto' />
       <NavigationContainer theme={NavigationTheme} linking={linking}>
         <RootStack.Navigator
-          initialRouteName={getInitialRouteName()}
           screenOptions={{
             headerShown: false,
             gestureEnabled: false, // Disable swipe back for root navigator
@@ -108,8 +120,29 @@ const AppNavigator: React.FC = () => {
               },
             }),
           }}>
-          <RootStack.Screen name='Auth' component={AuthNavigator} />
-          <RootStack.Screen name='Main' component={TabNavigator} />
+          {isAuthenticated && isOnboardingComplete ? (
+            <RootStack.Screen name='Main' component={TabNavigator} />
+          ) : (
+            <RootStack.Screen name='Auth'>
+              {() => (
+                <AuthNavigator
+                  authState={{
+                    isAuthenticated,
+                    user,
+                    login,
+                    signup,
+                    logout,
+                    loading,
+                    error,
+                    clearError,
+                    resetPassword,
+                    resendEmailVerification,
+                    updateProfile,
+                  }}
+                />
+              )}
+            </RootStack.Screen>
+          )}
         </RootStack.Navigator>
       </NavigationContainer>
 

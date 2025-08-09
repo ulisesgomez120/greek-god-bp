@@ -19,7 +19,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { useForm, Controller } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as LocalAuthentication from "expo-local-authentication";
-import { useAuth } from "@/hooks/useAuth";
+// import { useAuth } from "@/hooks/useAuth"; // Removed - now using props
 import { loginFormSchema, type LoginFormData } from "@/utils/validation";
 import { AUTH_FLOWS, LOADING_MESSAGES } from "@/constants/auth";
 import Text from "@/components/ui/Text";
@@ -32,6 +32,7 @@ import {
   ERROR_STYLES,
   FIELD_STYLES,
 } from "@/styles/inputStyles";
+import type { UseAuthReturn } from "@/types/auth";
 
 // ============================================================================
 // TYPES
@@ -40,14 +41,15 @@ import {
 export interface LoginScreenProps {
   navigation: any;
   onLoginSuccess?: () => void;
+  authState: Pick<UseAuthReturn, "login" | "loading" | "error" | "clearError">;
 }
 
 // ============================================================================
 // COMPONENT
 // ============================================================================
 
-const LoginScreenComponent: React.FC<LoginScreenProps> = ({ navigation, onLoginSuccess }) => {
-  const { login, loading, error, clearError } = useAuth();
+const LoginScreenComponent: React.FC<LoginScreenProps> = ({ navigation, onLoginSuccess, authState }) => {
+  const { login, loading, error, clearError } = authState;
 
   const [biometricAvailable, setBiometricAvailable] = useState(false);
   const [biometricType, setBiometricType] = useState<string>("");

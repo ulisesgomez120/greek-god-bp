@@ -1,15 +1,10 @@
 // ============================================================================
 // AUTH NAVIGATOR
 // ============================================================================
-// Main navigation component that handles authentication routing and
-// transitions between auth and main app screens
+// Authentication stack navigation for login, register, and onboarding flows
 
 import React from "react";
-import { NavigationContainer } from "@react-navigation/native";
 import { createStackNavigator } from "@react-navigation/stack";
-
-// Hooks
-import { useAuth } from "../hooks/useAuth";
 
 // Auth Screens
 import LoginScreen from "../screens/auth/LoginScreen";
@@ -18,8 +13,8 @@ import ForgotPasswordScreen from "../screens/auth/ForgotPasswordScreen";
 import EmailVerificationScreen from "../screens/auth/EmailVerificationScreen";
 import OnboardingScreen from "../screens/auth/OnboardingScreen";
 
-// Main App (placeholder for now)
-import MainAppNavigator from "./MainAppNavigator";
+// Types
+import type { UseAuthReturn } from "../types/auth";
 
 // ============================================================================
 // TYPES
@@ -33,6 +28,23 @@ export type AuthStackParamList = {
   Onboarding: undefined;
 };
 
+export interface AuthNavigatorProps {
+  authState: Pick<
+    UseAuthReturn,
+    | "isAuthenticated"
+    | "user"
+    | "login"
+    | "signup"
+    | "logout"
+    | "loading"
+    | "error"
+    | "clearError"
+    | "resetPassword"
+    | "resendEmailVerification"
+    | "updateProfile"
+  >;
+}
+
 // ============================================================================
 // STACK NAVIGATOR
 // ============================================================================
@@ -43,74 +55,54 @@ const AuthStack = createStackNavigator<AuthStackParamList>();
 // AUTH NAVIGATOR COMPONENT
 // ============================================================================
 
-const AuthNavigatorComponent: React.FC = () => {
-  console.log("🔄 AuthNavigator RENDER - Testing parent re-render");
-  const { isAuthenticated, user } = useAuth();
+const AuthNavigator: React.FC<AuthNavigatorProps> = ({ authState }) => {
+  const { isAuthenticated, user } = authState;
 
   // Check if user has completed onboarding
   const isOnboardingComplete = user?.user_metadata?.onboarding_complete === true;
 
-  console.log("AuthNavigator: Navigation state", {
+  // Determine initial route based on auth state
+  const getInitialRouteName = (): keyof AuthStackParamList => {
+    if (isAuthenticated && !isOnboardingComplete) {
+      return "Onboarding";
+    }
+    return "Login";
+  };
+
+  console.log("AuthNavigator: Auth state", {
     isAuthenticated,
-    hasUser: !!user,
     isOnboardingComplete,
-    userMetadata: user?.user_metadata,
+    initialRoute: getInitialRouteName(),
   });
 
-  // Show main app if authenticated and onboarded
-  if (isAuthenticated && isOnboardingComplete) {
-    console.log("AuthNavigator: Showing main app");
-    return <MainAppNavigator />;
-  }
-
-  // Show onboarding if authenticated but not onboarded
-  if (isAuthenticated && !isOnboardingComplete) {
-    console.log("AuthNavigator: Showing onboarding");
-    return (
-      <NavigationContainer>
-        <AuthStack.Navigator
-          screenOptions={{
-            headerShown: false,
-            gestureEnabled: false,
-          }}>
-          <AuthStack.Screen name='Onboarding' component={OnboardingScreen} />
-        </AuthStack.Navigator>
-      </NavigationContainer>
-    );
-  }
-
-  // Show auth flow if not authenticated
   return (
-    <NavigationContainer>
-      <AuthStack.Navigator
-        initialRouteName='Login'
-        screenOptions={{
-          headerShown: false,
-          gestureEnabled: true,
-          cardStyleInterpolator: ({ current, layouts }) => {
-            return {
-              cardStyle: {
-                transform: [
-                  {
-                    translateX: current.progress.interpolate({
-                      inputRange: [0, 1],
-                      outputRange: [layouts.screen.width, 0],
-                    }),
-                  },
-                ],
-              },
-            };
-          },
-        }}>
-        <AuthStack.Screen name='Login' component={LoginScreen} />
-        <AuthStack.Screen name='Register' component={RegisterScreen} />
-        <AuthStack.Screen name='ForgotPassword' component={ForgotPasswordScreen} />
-        <AuthStack.Screen name='EmailVerification' component={EmailVerificationScreen} />
-      </AuthStack.Navigator>
-    </NavigationContainer>
+    <AuthStack.Navigator
+      initialRouteName={getInitialRouteName()}
+      screenOptions={{
+        headerShown: false,
+        gestureEnabled: true,
+        cardStyleInterpolator: ({ current, layouts }) => {
+          return {
+            cardStyle: {
+              transform: [
+                {
+                  translateX: current.progress.interpolate({
+                    inputRange: [0, 1],
+                    outputRange: [layouts.screen.width, 0],
+                  }),
+                },
+              ],
+            },
+          };
+        },
+      }}>
+      <AuthStack.Screen name='Login'>{(props) => <LoginScreen {...props} authState={authState} />}</AuthStack.Screen>
+      <AuthStack.Screen name='Register' component={RegisterScreen} />
+      <AuthStack.Screen name='ForgotPassword' component={ForgotPasswordScreen} />
+      <AuthStack.Screen name='EmailVerification' component={EmailVerificationScreen} />
+      <AuthStack.Screen name='Onboarding' component={OnboardingScreen} />
+    </AuthStack.Navigator>
   );
 };
-
-const AuthNavigator = React.memo(AuthNavigatorComponent);
 
 export default AuthNavigator;

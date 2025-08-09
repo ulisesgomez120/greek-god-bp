@@ -451,18 +451,18 @@ export function useAuth(): UseAuthReturn {
 
   /**
    * Initialize authentication state on hook mount
+   * Only runs once when the hook is first mounted
    */
   useEffect(() => {
     let isMounted = true;
-    let hasInitialized = false;
 
     const initializeAuthentication = async () => {
       try {
-        // Prevent multiple initializations
-        if (hasInitialized) {
+        // Only initialize if not already initialized or in progress
+        if (loading.initialization) {
+          logger.info("useAuth: Initialization already in progress, skipping", undefined, "auth");
           return;
         }
-        hasInitialized = true;
 
         logger.info("useAuth: Initializing authentication", undefined, "auth");
 
@@ -483,17 +483,23 @@ export function useAuth(): UseAuthReturn {
         }
       } catch (error) {
         if (isMounted) {
-          logger.error("useAuth: Authentication initialization failed", error, "auth");
+          // Don't log "already in progress" as an error
+          if (error !== "Initialization already in progress") {
+            logger.error("useAuth: Authentication initialization failed", error, "auth");
+          }
         }
       }
     };
 
-    initializeAuthentication();
+    // Only initialize if not already initialized
+    if (!isAuthenticated && !loading.initialization && !error) {
+      initializeAuthentication();
+    }
 
     return () => {
       isMounted = false;
     };
-  }, [dispatch]); // Only depend on dispatch to prevent infinite loop
+  }, []); // Empty dependency array - only run once on mount
 
   // ============================================================================
   // AUTOMATIC TOKEN REFRESH

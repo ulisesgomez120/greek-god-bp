@@ -5,14 +5,20 @@
 // interactive questionnaire and detailed recommendations
 
 import React, { useState, useCallback, useEffect } from "react";
-import { View, ScrollView, StyleSheet, Alert, KeyboardAvoidingView, Platform } from "react-native";
+import { View, ScrollView, StyleSheet, Alert, KeyboardAvoidingView, Platform, TextInput } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useNavigation, useRoute } from "@react-navigation/native";
 import { Text } from "@/components/ui/Text";
 import { Button } from "@/components/ui/Button";
-import { Input } from "@/components/ui/Input";
-import { FormField } from "@/components/ui/FormField";
 import { LoadingButton } from "@/components/ui/LoadingButton";
+import {
+  getInputStyle,
+  getInputState,
+  getInputProps,
+  LABEL_STYLES,
+  ERROR_STYLES,
+  FIELD_STYLES,
+} from "@/styles/inputStyles";
 import { useProfile } from "@/hooks/useProfile";
 import { logger } from "@/utils/logger";
 import type { ExperienceLevelAssessment, ExperienceLevelRecommendation, ExperienceLevelInfo } from "@/types/profile";
@@ -84,6 +90,7 @@ interface StepProps {
 
 const TrainingHistoryStep: React.FC<StepProps> = ({ assessment, onUpdate, onNext, canGoNext }) => {
   const [errors, setErrors] = useState<Record<string, string>>({});
+  const [focusedField, setFocusedField] = useState<string | null>(null);
 
   const validateAndNext = () => {
     const newErrors: Record<string, string> = {};
@@ -111,37 +118,69 @@ const TrainingHistoryStep: React.FC<StepProps> = ({ assessment, onUpdate, onNext
       </Text>
 
       <View style={styles.formContainer}>
-        <FormField
-          name='monthsTraining'
-          label='How many months have you been training consistently? *'
-          value={assessment.monthsTraining?.toString() || ""}
-          onChangeText={(text) => onUpdate({ monthsTraining: text ? parseInt(text) : undefined })}
-          error={errors.monthsTraining}
-          touched={true}
-          placeholder='6'
-          keyboardType='numeric'
-          required
-        />
+        {/* Months Training Field */}
+        <View style={FIELD_STYLES.container}>
+          <Text style={LABEL_STYLES.base}>How many months have you been training consistently? *</Text>
+          <TextInput
+            style={getInputStyle(undefined, getInputState(focusedField === "monthsTraining", !!errors.monthsTraining))}
+            value={assessment.monthsTraining?.toString() || ""}
+            onChangeText={(text: string) => {
+              onUpdate({ monthsTraining: text ? parseInt(text) : undefined });
+              if (errors.monthsTraining) {
+                setErrors((prev) => {
+                  const newErrors = { ...prev };
+                  delete newErrors.monthsTraining;
+                  return newErrors;
+                });
+              }
+            }}
+            onFocus={() => setFocusedField("monthsTraining")}
+            onBlur={() => setFocusedField(null)}
+            {...getInputProps("number")}
+            placeholder='6'
+          />
+          {errors.monthsTraining && <Text style={ERROR_STYLES.text}>{errors.monthsTraining}</Text>}
+        </View>
 
-        <FormField
-          name='trainingFrequency'
-          label='How many days per week do you typically train? *'
-          value={assessment.trainingFrequency?.toString() || ""}
-          onChangeText={(text) => onUpdate({ trainingFrequency: text ? parseInt(text) : undefined })}
-          error={errors.trainingFrequency}
-          touched={true}
-          placeholder='3'
-          keyboardType='numeric'
-          required
-        />
+        {/* Training Frequency Field */}
+        <View style={FIELD_STYLES.container}>
+          <Text style={LABEL_STYLES.base}>How many days per week do you typically train? *</Text>
+          <TextInput
+            style={getInputStyle(
+              undefined,
+              getInputState(focusedField === "trainingFrequency", !!errors.trainingFrequency)
+            )}
+            value={assessment.trainingFrequency?.toString() || ""}
+            onChangeText={(text: string) => {
+              onUpdate({ trainingFrequency: text ? parseInt(text) : undefined });
+              if (errors.trainingFrequency) {
+                setErrors((prev) => {
+                  const newErrors = { ...prev };
+                  delete newErrors.trainingFrequency;
+                  return newErrors;
+                });
+              }
+            }}
+            onFocus={() => setFocusedField("trainingFrequency")}
+            onBlur={() => setFocusedField(null)}
+            {...getInputProps("number")}
+            placeholder='3'
+          />
+          {errors.trainingFrequency && <Text style={ERROR_STYLES.text}>{errors.trainingFrequency}</Text>}
+        </View>
 
-        <FormField
-          name='currentProgram'
-          label='What type of program are you currently following?'
-          value={assessment.currentProgram || ""}
-          onChangeText={(text) => onUpdate({ currentProgram: text })}
-          placeholder='e.g., Full body, Upper/Lower, PPL, etc.'
-        />
+        {/* Current Program Field */}
+        <View style={FIELD_STYLES.container}>
+          <Text style={LABEL_STYLES.base}>What type of program are you currently following?</Text>
+          <TextInput
+            style={getInputStyle(undefined, getInputState(focusedField === "currentProgram", false))}
+            value={assessment.currentProgram || ""}
+            onChangeText={(text: string) => onUpdate({ currentProgram: text })}
+            onFocus={() => setFocusedField("currentProgram")}
+            onBlur={() => setFocusedField(null)}
+            placeholder='e.g., Full body, Upper/Lower, PPL, etc.'
+          />
+        </View>
       </View>
 
       <Button onPress={validateAndNext} disabled={!canGoNext} style={styles.primaryButton}>
@@ -152,6 +191,8 @@ const TrainingHistoryStep: React.FC<StepProps> = ({ assessment, onUpdate, onNext
 };
 
 const StrengthStandardsStep: React.FC<StepProps> = ({ assessment, onUpdate, onNext, canGoNext }) => {
+  const [focusedField, setFocusedField] = useState<string | null>(null);
+
   return (
     <View style={styles.stepContainer}>
       <Text style={styles.stepTitle}>Strength Assessment</Text>
@@ -160,41 +201,61 @@ const StrengthStandardsStep: React.FC<StepProps> = ({ assessment, onUpdate, onNe
       </Text>
 
       <View style={styles.formContainer}>
-        <FormField
-          name='bodyWeight'
-          label='Current body weight (kg)'
-          value={assessment.bodyWeight?.toString() || ""}
-          onChangeText={(text) => onUpdate({ bodyWeight: text ? parseFloat(text) : undefined })}
-          placeholder='70'
-          keyboardType='numeric'
-        />
+        {/* Body Weight Field */}
+        <View style={FIELD_STYLES.container}>
+          <Text style={LABEL_STYLES.base}>Current body weight (kg)</Text>
+          <TextInput
+            style={getInputStyle(undefined, getInputState(focusedField === "bodyWeight", false))}
+            value={assessment.bodyWeight?.toString() || ""}
+            onChangeText={(text: string) => onUpdate({ bodyWeight: text ? parseFloat(text) : undefined })}
+            onFocus={() => setFocusedField("bodyWeight")}
+            onBlur={() => setFocusedField(null)}
+            {...getInputProps("number")}
+            placeholder='70'
+          />
+        </View>
 
-        <FormField
-          name='benchPressWeight'
-          label='Bench Press working weight (kg)'
-          value={assessment.benchPressWeight?.toString() || ""}
-          onChangeText={(text) => onUpdate({ benchPressWeight: text ? parseFloat(text) : undefined })}
-          placeholder='60'
-          keyboardType='numeric'
-        />
+        {/* Bench Press Weight Field */}
+        <View style={FIELD_STYLES.container}>
+          <Text style={LABEL_STYLES.base}>Bench Press working weight (kg)</Text>
+          <TextInput
+            style={getInputStyle(undefined, getInputState(focusedField === "benchPressWeight", false))}
+            value={assessment.benchPressWeight?.toString() || ""}
+            onChangeText={(text: string) => onUpdate({ benchPressWeight: text ? parseFloat(text) : undefined })}
+            onFocus={() => setFocusedField("benchPressWeight")}
+            onBlur={() => setFocusedField(null)}
+            {...getInputProps("number")}
+            placeholder='60'
+          />
+        </View>
 
-        <FormField
-          name='squatWeight'
-          label='Squat working weight (kg)'
-          value={assessment.squatWeight?.toString() || ""}
-          onChangeText={(text) => onUpdate({ squatWeight: text ? parseFloat(text) : undefined })}
-          placeholder='80'
-          keyboardType='numeric'
-        />
+        {/* Squat Weight Field */}
+        <View style={FIELD_STYLES.container}>
+          <Text style={LABEL_STYLES.base}>Squat working weight (kg)</Text>
+          <TextInput
+            style={getInputStyle(undefined, getInputState(focusedField === "squatWeight", false))}
+            value={assessment.squatWeight?.toString() || ""}
+            onChangeText={(text: string) => onUpdate({ squatWeight: text ? parseFloat(text) : undefined })}
+            onFocus={() => setFocusedField("squatWeight")}
+            onBlur={() => setFocusedField(null)}
+            {...getInputProps("number")}
+            placeholder='80'
+          />
+        </View>
 
-        <FormField
-          name='deadliftWeight'
-          label='Deadlift working weight (kg)'
-          value={assessment.deadliftWeight?.toString() || ""}
-          onChangeText={(text) => onUpdate({ deadliftWeight: text ? parseFloat(text) : undefined })}
-          placeholder='100'
-          keyboardType='numeric'
-        />
+        {/* Deadlift Weight Field */}
+        <View style={FIELD_STYLES.container}>
+          <Text style={LABEL_STYLES.base}>Deadlift working weight (kg)</Text>
+          <TextInput
+            style={getInputStyle(undefined, getInputState(focusedField === "deadliftWeight", false))}
+            value={assessment.deadliftWeight?.toString() || ""}
+            onChangeText={(text: string) => onUpdate({ deadliftWeight: text ? parseFloat(text) : undefined })}
+            onFocus={() => setFocusedField("deadliftWeight")}
+            onBlur={() => setFocusedField(null)}
+            {...getInputProps("number")}
+            placeholder='100'
+          />
+        </View>
 
         <Text style={styles.hintText}>
           💡 These are optional but help provide more accurate recommendations. Enter your typical working weight for
