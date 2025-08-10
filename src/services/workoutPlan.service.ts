@@ -80,16 +80,37 @@ export class WorkoutPlanService {
     try {
       const plans = await databaseService.getWorkoutPlans(experienceLevel);
 
-      return plans.map((plan) => ({
-        id: plan.id,
-        name: plan.name,
-        description: plan.description || "",
-        type: plan.type as "full_body" | "upper_lower" | "body_part_split",
-        frequencyPerWeek: plan.frequency_per_week || 0,
-        durationWeeks: plan.duration_weeks || 0,
-        difficulty: plan.difficulty || 1,
-        targetExperience: plan.target_experience || [],
-      }));
+      // Map DB / transformed plan to WorkoutPlanSummary with flexible property access
+      return plans.map((plan: any) => {
+        const id: string = plan.id;
+        const name: string = plan.name;
+        const description: string = plan.description || "";
+
+        // type might be present on DB row (plan.type) or on transformed object
+        const type: "full_body" | "upper_lower" | "body_part_split" =
+          (plan.type as any) || (plan.plan_type as any) || (plan.typeName as any) || ("full_body" as any);
+
+        // frequency/duration fields may be snake_case (DB) or camelCase (transformed)
+        const frequencyPerWeek: number = plan.frequency_per_week ?? plan.sessionsPerWeek ?? plan.frequencyPerWeek ?? 0;
+        const durationWeeks: number = plan.duration_weeks ?? plan.durationWeeks ?? 0;
+
+        const difficulty: number = plan.difficulty ?? (plan.level ? Number(plan.level) : 1);
+
+        // target experience could be array or single field
+        const targetExperience: string[] =
+          plan.target_experience ?? plan.targetExperience ?? (plan.experienceLevel ? [plan.experienceLevel] : []) ?? [];
+
+        return {
+          id,
+          name,
+          description,
+          type,
+          frequencyPerWeek,
+          durationWeeks,
+          difficulty,
+          targetExperience,
+        } as WorkoutPlanSummary;
+      });
     } catch (error) {
       logger.error("Failed to load workout plans", error, "workoutPlan");
       throw error;
@@ -106,14 +127,16 @@ export class WorkoutPlanService {
         return this.cachedPlans.get(planId)!;
       }
 
-      const plans = await databaseService.getWorkoutPlans();
-      const plan = plans.find((p) => p.id === planId);
+      // databaseService.getWorkoutPlans may be typed as returning plain WorkoutPlan[] but
+      // in practice it includes nested sessions. Cast to the richer type for further use.
+      const plans = (await databaseService.getWorkoutPlans()) as unknown as WorkoutPlanWithSessions[];
+      const plan = plans.find((p) => p.id === planId) || null;
 
       if (plan) {
         this.cachedPlans.set(planId, plan);
       }
 
-      return plan || null;
+      return plan;
     } catch (error) {
       logger.error("Failed to load workout plan", error, "workoutPlan");
       throw error;
@@ -130,44 +153,61 @@ export class WorkoutPlanService {
   async getWorkoutPhases(planId: string): Promise<WorkoutPhase[]> {
     try {
       const plan = await this.getWorkoutPlanWithSessions(planId);
-      if (!plan || !plan.workout_plan_sessions) {
+      if (!plan) {
         return [];
       }
 
-      // Group sessions by phase (weeks 1-4 = phase 1, weeks 5-8 = phase 2)
-      const phases: WorkoutPhase[] = [
-        {
-          id: "phase1",
-          name: "4 Week Strength Base",
-          description: "Build your foundation with progressive overload",
-          weekStart: 1,
-          weekEnd: 4,
-          sessions: [],
-        },
-        {
-          id: "phase2",
-          name: "4 Week Modified Strength Base",
-          description: "Advanced progression with increased intensity",
-          weekStart: 5,
-          weekEnd: 8,
-          sessions: [],
-        },
-      ];
+      const sessions = (plan as any).workout_plan_sessions ?? (plan as any).sessions ?? [];
 
-      // Group sessions by phase
-      plan.workout_plan_sessions.forEach((session) => {
-        const weekNumber = session.week_number || 1;
-        const phaseIndex = weekNumber <= 4 ? 0 : 1;
-        if (phases[phaseIndex]) {
-          phases[phaseIndex].sessions.push({
+      // Detect whether the DB is using phase_number (preferred) or legacy week_number
+      const hasPhaseNumber = sessions.some((s: any) => s.phase_number !== undefined && s.phase_number !== null);
+
+      let phases: WorkoutPhase[] = [];
+
+      if (hasPhaseNumber) {
+        // Build phases dynamically from distinct phase_number values
+        const distinctPhaseNumbers = Array.from(
+          new Set<number>(sessions.map((s: any) => Number(s.phase_number) || 1))
+        ).sort((a, b) => a - b);
+
+        phases = distinctPhaseNumbers.map((pn: number) => {
+          const id = `phase${pn}`;
+          const name = pn === 1 ? "4 Week Strength Base" : pn === 2 ? "4 Week Modified Strength Base" : `Phase ${pn}`;
+          const description =
+            pn === 1
+              ? "Build your foundation with progressive overload"
+              : pn === 2
+              ? "Advanced progression with increased intensity"
+              : "";
+
+          const weekStart = (pn - 1) * 4 + 1;
+          const weekEnd = pn * 4;
+
+          return {
+            id,
+            name,
+            description,
+            weekStart,
+            weekEnd,
+            sessions: [] as WorkoutSessionSummary[],
+          };
+        });
+
+        // Assign sessions to their phase
+        sessions.forEach((session: any) => {
+          const pn = Number(session.phase_number) || 1;
+          const phaseId = `phase${pn}`;
+          const phase = phases.find((p) => p.id === phaseId);
+          const weekNumber = session.week_number || weekFromPhase(pn);
+          const sessionSummary: WorkoutSessionSummary = {
             id: session.id,
             name: session.name,
             dayNumber: session.day_number,
-            weekNumber: weekNumber,
+            weekNumber,
             estimatedDurationMinutes: session.estimated_duration_minutes || 60,
             exerciseCount: session.planned_exercises?.length || 0,
             exercises:
-              session.planned_exercises?.map((ex) => ({
+              session.planned_exercises?.map((ex: any) => ({
                 id: ex.id,
                 name: ex.exercises?.name || "Unknown Exercise",
                 targetSets: ex.target_sets,
@@ -177,9 +217,61 @@ export class WorkoutPlanService {
                 restSeconds: ex.rest_seconds || undefined,
                 notes: ex.notes || undefined,
               })) || [],
-          });
-        }
-      });
+          };
+
+          if (phase) {
+            phase.sessions.push(sessionSummary);
+          }
+        });
+      } else {
+        // Legacy behavior: group by week_number into two default phases (1-4, 5-8)
+        phases = [
+          {
+            id: "phase1",
+            name: "4 Week Strength Base",
+            description: "Build your foundation with progressive overload",
+            weekStart: 1,
+            weekEnd: 4,
+            sessions: [],
+          },
+          {
+            id: "phase2",
+            name: "4 Week Modified Strength Base",
+            description: "Advanced progression with increased intensity",
+            weekStart: 5,
+            weekEnd: 8,
+            sessions: [],
+          },
+        ];
+
+        sessions.forEach((session: any) => {
+          const weekNumber = session.week_number || 1;
+          const phaseIndex = weekNumber <= 4 ? 0 : 1;
+          const sessionSummary: WorkoutSessionSummary = {
+            id: session.id,
+            name: session.name,
+            dayNumber: session.day_number,
+            weekNumber,
+            estimatedDurationMinutes: session.estimated_duration_minutes || 60,
+            exerciseCount: session.planned_exercises?.length || 0,
+            exercises:
+              session.planned_exercises?.map((ex: any) => ({
+                id: ex.id,
+                name: ex.exercises?.name || "Unknown Exercise",
+                targetSets: ex.target_sets,
+                targetRepsMin: ex.target_reps_min || 0,
+                targetRepsMax: ex.target_reps_max || 0,
+                targetRpe: ex.target_rpe || undefined,
+                restSeconds: ex.rest_seconds || undefined,
+                notes: ex.notes || undefined,
+              })) || [],
+          };
+
+          if (phases[phaseIndex]) {
+            phases[phaseIndex].sessions.push(sessionSummary);
+          }
+        });
+      }
 
       // Remove empty phases and deduplicate sessions by day number
       return phases
@@ -191,6 +283,11 @@ export class WorkoutPlanService {
     } catch (error) {
       logger.error("Failed to load workout phases", error, "workoutPlan");
       throw error;
+    }
+
+    // Helper: compute approximate week number from phase (if needed)
+    function weekFromPhase(phaseNumber: number): number {
+      return (phaseNumber - 1) * 4 + 1;
     }
   }
 

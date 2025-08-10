@@ -1,15 +1,18 @@
 // ============================================================================
-// PROGRAM SELECTION SCREEN
+// PROGRAM SELECTION SCREEN (DB-DRIVEN)
 // ============================================================================
-// Screen for selecting workout programs (Full Body, Upper/Lower, Body Part Split)
+// Fetches workout programs from workoutPlanService and displays selectable cards
 
-import React from "react";
-import { View, ScrollView, StyleSheet, TouchableOpacity } from "react-native";
+import React, { useEffect, useState } from "react";
+import { View, ScrollView, StyleSheet, TouchableOpacity, ActivityIndicator, AccessibilityRole } from "react-native";
 import { StackNavigationProp } from "@react-navigation/stack";
 import { RouteProp } from "@react-navigation/native";
 
 // Components
 import Text from "../../components/ui/Text";
+
+// Services
+import workoutPlanService, { WorkoutPlanSummary } from "../../services/workoutPlan.service";
 
 // Types
 import { WorkoutStackParamList } from "../../types/navigation";
@@ -26,65 +29,34 @@ interface ProgramSelectionScreenProps {
   route: ProgramSelectionScreenRouteProp;
 }
 
-interface Program {
-  id: string;
-  name: string;
-  description: string;
-  frequency: string;
-  difficulty: string;
-  duration: string;
-}
-
-// ============================================================================
-// PROGRAM DATA
-// ============================================================================
-
-const PROGRAMS: Program[] = [
-  {
-    id: "full_body",
-    name: "Full Body Program",
-    description: "Train your entire body in each session. Perfect for beginners and those with limited time.",
-    frequency: "3x per week",
-    difficulty: "Beginner",
-    duration: "8 weeks",
-  },
-  {
-    id: "upper_lower",
-    name: "Upper/Lower Program",
-    description: "Split your training between upper and lower body days for balanced development.",
-    frequency: "4x per week",
-    difficulty: "Intermediate",
-    duration: "8 weeks",
-  },
-  {
-    id: "body_part_split",
-    name: "Body Part Split Program",
-    description: "Focus on specific muscle groups each day for maximum muscle development.",
-    frequency: "5x per week",
-    difficulty: "Advanced",
-    duration: "8 weeks",
-  },
-];
-
 // ============================================================================
 // PROGRAM CARD COMPONENT
 // ============================================================================
 
 interface ProgramCardProps {
-  program: Program;
+  program: WorkoutPlanSummary;
   onPress: () => void;
 }
 
 const ProgramCard: React.FC<ProgramCardProps> = ({ program, onPress }) => {
+  const difficultyLabel = `Level ${program.difficulty}`;
+
   return (
-    <TouchableOpacity style={styles.programCard} onPress={onPress} activeOpacity={0.7}>
+    <TouchableOpacity
+      style={styles.programCard}
+      onPress={onPress}
+      activeOpacity={0.8}
+      accessible
+      accessibilityRole={"button" as AccessibilityRole}
+      accessibilityLabel={`${program.name}. ${program.description}. ${program.frequencyPerWeek} times per week. ${difficultyLabel}.`}
+      testID={`program-card-${program.id}`}>
       <View style={styles.cardHeader}>
         <Text variant='h3' color='primary' style={styles.programName}>
           {program.name}
         </Text>
         <View style={styles.difficultyBadge}>
           <Text variant='caption' color='secondary' style={styles.difficultyText}>
-            {program.difficulty}
+            {difficultyLabel}
           </Text>
         </View>
       </View>
@@ -99,7 +71,7 @@ const ProgramCard: React.FC<ProgramCardProps> = ({ program, onPress }) => {
             Frequency
           </Text>
           <Text variant='bodySmall' color='primary' style={styles.detailValue}>
-            {program.frequency}
+            {program.frequencyPerWeek}x per week
           </Text>
         </View>
         <View style={styles.detailItem}>
@@ -107,7 +79,7 @@ const ProgramCard: React.FC<ProgramCardProps> = ({ program, onPress }) => {
             Duration
           </Text>
           <Text variant='bodySmall' color='primary' style={styles.detailValue}>
-            {program.duration}
+            {program.durationWeeks} weeks
           </Text>
         </View>
       </View>
@@ -119,10 +91,61 @@ const ProgramCard: React.FC<ProgramCardProps> = ({ program, onPress }) => {
 // MAIN COMPONENT
 // ============================================================================
 
-export const ProgramSelectionScreen: React.FC<ProgramSelectionScreenProps> = ({ navigation }) => {
+const ProgramSelectionScreen: React.FC<ProgramSelectionScreenProps> = ({ navigation }) => {
+  const [plans, setPlans] = useState<WorkoutPlanSummary[]>([]);
+  const [loading, setLoading] = useState<boolean>(true);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let mounted = true;
+
+    async function loadPlans() {
+      try {
+        setLoading(true);
+        const data = await workoutPlanService.getWorkoutPlans();
+        if (!mounted) return;
+        setPlans(data || []);
+      } catch (err: any) {
+        console.error("ProgramSelection: failed to load plans", err);
+        if (!mounted) return;
+        setError(err?.message || "Failed to load programs");
+        console.warn("Unable to load programs. Showing cached data if available.");
+      } finally {
+        if (mounted) setLoading(false);
+      }
+    }
+
+    loadPlans();
+
+    return () => {
+      mounted = false;
+    };
+  }, []);
+
   const handleProgramSelect = (programId: string) => {
     navigation.navigate("PhaseSelection", { programId });
   };
+
+  if (loading) {
+    return (
+      <View style={styles.containerCentered}>
+        <ActivityIndicator size='large' color='#B5CFF8' />
+      </View>
+    );
+  }
+
+  if (error && plans.length === 0) {
+    return (
+      <View style={styles.containerCentered}>
+        <Text variant='h2' color='primary'>
+          Unable to load programs
+        </Text>
+        <Text variant='body' color='secondary' style={{ marginTop: 12 }}>
+          {error}
+        </Text>
+      </View>
+    );
+  }
 
   return (
     <View style={styles.container}>
@@ -137,9 +160,20 @@ export const ProgramSelectionScreen: React.FC<ProgramSelectionScreenProps> = ({ 
         </View>
 
         <View style={styles.programList}>
-          {PROGRAMS.map((program) => (
-            <ProgramCard key={program.id} program={program} onPress={() => handleProgramSelect(program.id)} />
-          ))}
+          {plans.length > 0 ? (
+            plans.map((program) => (
+              <ProgramCard key={program.id} program={program} onPress={() => handleProgramSelect(program.id)} />
+            ))
+          ) : (
+            <View style={styles.emptyState}>
+              <Text variant='h3' color='primary'>
+                No programs available
+              </Text>
+              <Text variant='body' color='secondary' style={{ marginTop: 8 }}>
+                Try again later or check your network connection.
+              </Text>
+            </View>
+          )}
         </View>
       </ScrollView>
     </View>
@@ -153,6 +187,12 @@ export const ProgramSelectionScreen: React.FC<ProgramSelectionScreenProps> = ({ 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
+    backgroundColor: "#FFFFFF",
+  },
+  containerCentered: {
+    flex: 1,
+    alignItems: "center",
+    justifyContent: "center",
     backgroundColor: "#FFFFFF",
   },
   scrollView: {
@@ -225,6 +265,10 @@ const styles = StyleSheet.create({
   },
   detailValue: {
     fontWeight: "600",
+  },
+  emptyState: {
+    padding: 24,
+    alignItems: "center",
   },
 });
 

@@ -1,18 +1,18 @@
 // ============================================================================
-// PHASE SELECTION SCREEN
+// PHASE SELECTION SCREEN (DB-DRIVEN)
 // ============================================================================
-// Screen for selecting workout phases within a program
+// Screen for selecting workout phases within a program (loads phases from DB)
 
-import React from "react";
-import { View, ScrollView, StyleSheet, TouchableOpacity } from "react-native";
+import React, { useEffect, useState } from "react";
+import { View, ScrollView, StyleSheet, TouchableOpacity, ActivityIndicator, AccessibilityRole } from "react-native";
 import { StackNavigationProp } from "@react-navigation/stack";
 import { RouteProp } from "@react-navigation/native";
 
 // Components
 import Text from "../../components/ui/Text";
 
-// Utils
-import { formatProgramName } from "../../utils/formatters";
+// Services
+import workoutPlanService, { WorkoutPhase } from "../../services/workoutPlan.service";
 
 // Types
 import { WorkoutStackParamList } from "../../types/navigation";
@@ -33,12 +33,108 @@ interface PhaseSelectionScreenProps {
 // MAIN COMPONENT
 // ============================================================================
 
-export const PhaseSelectionScreen: React.FC<PhaseSelectionScreenProps> = ({ navigation, route }) => {
+const PhaseSelectionScreen: React.FC<PhaseSelectionScreenProps> = ({ navigation, route }) => {
   const { programId } = route.params;
+
+  const [plan, setPlan] = useState<any | null>(null);
+  const [phases, setPhases] = useState<WorkoutPhase[]>([]);
+  const [loading, setLoading] = useState<boolean>(true);
+  const [error, setError] = useState<string | null>(null);
+
+  const loadData = async (mountedRef = { current: true }) => {
+    try {
+      setLoading(true);
+      setError(null);
+
+      // Load the plan (to get friendly name) and phases
+      const [planRes, phasesRes] = await Promise.all([
+        workoutPlanService.getWorkoutPlanWithSessions(programId),
+        workoutPlanService.getWorkoutPhases(programId),
+      ]);
+
+      if (!mountedRef.current) return;
+
+      setPlan(planRes);
+      setPhases(phasesRes || []);
+    } catch (err: any) {
+      console.error("PhaseSelection: failed to load plan/phases", err);
+      setError(err?.message || "Failed to load program phases");
+      setPhases([]);
+      setPlan(null);
+    } finally {
+      if (mountedRef.current) setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    const mountedRef = { current: true };
+    loadData(mountedRef);
+
+    return () => {
+      mountedRef.current = false;
+    };
+  }, [programId]);
 
   const handlePhaseSelect = (phaseId: string) => {
     navigation.navigate("DaySelection", { programId, phaseId });
   };
+
+  const handleRetry = () => {
+    loadData({ current: true });
+  };
+
+  if (loading) {
+    return (
+      <View style={styles.containerCentered}>
+        <ActivityIndicator size='large' color='#B5CFF8' />
+      </View>
+    );
+  }
+
+  // If plan loaded but there are no phases, show helpful message
+  if (!loading && plan && phases.length === 0) {
+    return (
+      <View style={styles.containerCentered}>
+        <Text variant='h2' color='primary'>
+          No workouts in this program
+        </Text>
+        <Text variant='body' color='secondary' style={{ marginTop: 12, textAlign: "center", maxWidth: 300 }}>
+          This program appears to have no scheduled workouts/phases on the server. Try reloading or pick a different
+          program.
+        </Text>
+
+        <TouchableOpacity
+          style={styles.retryButton}
+          onPress={handleRetry}
+          accessibilityRole={"button" as AccessibilityRole}>
+          <Text variant='body' color='primary'>
+            Retry
+          </Text>
+        </TouchableOpacity>
+      </View>
+    );
+  }
+
+  if (error && phases.length === 0) {
+    return (
+      <View style={styles.containerCentered}>
+        <Text variant='h2' color='primary'>
+          Unable to load phases
+        </Text>
+        <Text variant='body' color='secondary' style={{ marginTop: 12 }}>
+          {error}
+        </Text>
+        <TouchableOpacity
+          style={styles.retryButton}
+          onPress={handleRetry}
+          accessibilityRole={"button" as AccessibilityRole}>
+          <Text variant='body' color='primary'>
+            Retry
+          </Text>
+        </TouchableOpacity>
+      </View>
+    );
+  }
 
   return (
     <View style={styles.container}>
@@ -47,26 +143,48 @@ export const PhaseSelectionScreen: React.FC<PhaseSelectionScreenProps> = ({ navi
           Choose Phase
         </Text>
         <Text variant='body' color='secondary' style={styles.subtitle}>
-          Program: {formatProgramName(programId)}
+          Program: {plan?.name ?? workoutPlanService.formatProgramName(programId)}
         </Text>
 
-        <TouchableOpacity style={styles.phaseCard} onPress={() => handlePhaseSelect("phase1")} activeOpacity={0.7}>
-          <Text variant='h3' color='primary'>
-            4 Week Strength Base
-          </Text>
-          <Text variant='body' color='secondary'>
-            Build your foundation with progressive overload
-          </Text>
-        </TouchableOpacity>
-
-        <TouchableOpacity style={styles.phaseCard} onPress={() => handlePhaseSelect("phase2")} activeOpacity={0.7}>
-          <Text variant='h3' color='primary'>
-            4 Week Modified Strength Base
-          </Text>
-          <Text variant='body' color='secondary'>
-            Advanced progression with increased intensity
-          </Text>
-        </TouchableOpacity>
+        {phases.length > 0 ? (
+          phases.map((phase) => (
+            <TouchableOpacity
+              key={phase.id}
+              style={styles.phaseCard}
+              onPress={() => handlePhaseSelect(phase.id)}
+              activeOpacity={0.75}
+              accessible
+              accessibilityRole={"button" as AccessibilityRole}
+              accessibilityLabel={`${phase.name}. ${phase.description}. Weeks ${phase.weekStart} to ${phase.weekEnd}.`}
+              testID={`phase-card-${phase.id}`}>
+              <Text variant='h3' color='primary'>
+                {phase.name}
+              </Text>
+              {phase.description ? (
+                <Text variant='body' color='secondary' style={{ marginTop: 6 }}>
+                  {phase.description}
+                </Text>
+              ) : null}
+              <View style={{ marginTop: 10 }}>
+                <Text variant='bodySmall' color='tertiary'>
+                  Weeks {phase.weekStart} - {phase.weekEnd}
+                </Text>
+                <Text variant='bodySmall' color='tertiary'>
+                  {phase.sessions.length} workout{phase.sessions.length !== 1 ? "s" : ""}
+                </Text>
+              </View>
+            </TouchableOpacity>
+          ))
+        ) : (
+          <View style={styles.emptyState}>
+            <Text variant='h3' color='primary'>
+              No phases found
+            </Text>
+            <Text variant='body' color='secondary' style={{ marginTop: 8 }}>
+              This program doesn't contain any phases yet.
+            </Text>
+          </View>
+        )}
       </ScrollView>
     </View>
   );
@@ -79,6 +197,12 @@ export const PhaseSelectionScreen: React.FC<PhaseSelectionScreenProps> = ({ navi
 const styles = StyleSheet.create({
   container: {
     flex: 1,
+    backgroundColor: "#FFFFFF",
+  },
+  containerCentered: {
+    flex: 1,
+    alignItems: "center",
+    justifyContent: "center",
     backgroundColor: "#FFFFFF",
   },
   scrollView: {
@@ -105,6 +229,19 @@ const styles = StyleSheet.create({
     elevation: 2,
     borderWidth: 1,
     borderColor: "#F2F2F7",
+  },
+  emptyState: {
+    padding: 24,
+    alignItems: "center",
+  },
+  retryButton: {
+    marginTop: 16,
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: "#B5CFF8",
+    backgroundColor: "#FFFFFF",
   },
 });
 
