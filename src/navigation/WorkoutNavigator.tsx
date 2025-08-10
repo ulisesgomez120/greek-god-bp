@@ -6,9 +6,6 @@
 import React from "react";
 import { createStackNavigator } from "@react-navigation/stack";
 
-// Screens
-import { SimpleActiveWorkoutScreen } from "../screens/workout/SimpleActiveWorkoutScreen";
-
 // Workout screens
 import ProgramSelectionScreen from "../screens/workout/ProgramSelectionScreen";
 import PhaseSelectionScreen from "../screens/workout/PhaseSelectionScreen";
@@ -98,14 +95,6 @@ const WorkoutNavigator: React.FC = () => {
         options={{
           title: "Today's Workout",
         }}
-      />
-      <WorkoutStack.Screen
-        name='ActiveWorkout'
-        component={SimpleActiveWorkoutScreen}
-        options={({ route }) => ({
-          title: "Workout",
-          headerShown: false, // Hide header during active workout
-        })}
       />
       <WorkoutStack.Screen
         name='ExerciseDetail'

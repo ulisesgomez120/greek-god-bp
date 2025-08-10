@@ -12,7 +12,6 @@ import { RouteProp } from "@react-navigation/native";
 
 // Components
 import Text from "../../components/ui/Text";
-import { Button } from "../../components/ui/Button";
 
 // Services
 import workoutPlanService from "../../services/workoutPlan.service";
@@ -112,16 +111,6 @@ const ExerciseListScreen: React.FC<ExerciseListScreenProps> = ({ navigation, rou
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [programId, phaseId, dayId]);
 
-  const handleStartWorkout = () => {
-    navigation.navigate("ActiveWorkout", {
-      workoutId: `${programId}-${phaseId}-${dayId}`,
-      programId,
-      phaseId,
-      dayId,
-      workoutName: sessionName ?? workoutName ?? "Workout",
-    });
-  };
-
   if (loading) {
     return (
       <View style={styles.containerCentered}>
@@ -183,7 +172,26 @@ const ExerciseListScreen: React.FC<ExerciseListScreenProps> = ({ navigation, rou
             <TouchableOpacity
               key={exercise.id + "-" + index}
               style={styles.exerciseCard}
-              onPress={() => navigation.navigate("ExerciseDetail", { exerciseId: exercise.id })}
+              onPress={() =>
+                navigation.navigate("ExerciseDetail", {
+                  exerciseId: exercise.id,
+                  exerciseIndex: index,
+                  workoutContext: {
+                    programId,
+                    phaseId,
+                    dayId,
+                    workoutName: sessionName || workoutName || "Workout",
+                  },
+                  exerciseData: {
+                    name: exercise.name,
+                    targetSets: exercise.sets,
+                    targetReps: exercise.reps,
+                    targetRpe: exercise.rpe,
+                    restSeconds: parseInt(exercise.restTime.replace(/[^0-9]/g, "")) || 180,
+                    notes: exercise.notes || "",
+                  },
+                })
+              }
               activeOpacity={0.7}>
               <View style={styles.exerciseHeader}>
                 <View style={styles.exerciseNumber}>
@@ -239,14 +247,6 @@ const ExerciseListScreen: React.FC<ExerciseListScreenProps> = ({ navigation, rou
           ))}
         </View>
       </ScrollView>
-
-      <View style={styles.footer}>
-        <Button onPress={handleStartWorkout} style={styles.startButton}>
-          <Text variant='button' style={styles.startButtonText}>
-            Start Workout
-          </Text>
-        </Button>
-      </View>
     </View>
   );
 };
@@ -270,7 +270,7 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   scrollContent: {
-    paddingBottom: 100, // Space for footer button
+    paddingBottom: 20,
   },
   header: {
     padding: 20,
@@ -336,27 +336,6 @@ const styles = StyleSheet.create({
   detailItem: {
     alignItems: "center",
     flex: 1,
-  },
-  footer: {
-    position: "absolute",
-    bottom: 0,
-    left: 0,
-    right: 0,
-    padding: 20,
-    backgroundColor: "#FFFFFF",
-    borderTopWidth: 1,
-    borderTopColor: "#F2F2F7",
-  },
-  startButton: {
-    backgroundColor: "#B5CFF8",
-    borderRadius: 12,
-    height: 50,
-    justifyContent: "center",
-    alignItems: "center",
-  },
-  startButtonText: {
-    color: "#1C1C1E",
-    fontWeight: "600",
   },
 });
 

@@ -13,15 +13,24 @@ export type WorkoutStackParamList = {
   PhaseSelection: { programId: string };
   DaySelection: { programId: string; phaseId: string };
   ExerciseList: { programId: string; phaseId: string; dayId: string; workoutName: string };
-  ActiveWorkout: {
-    workoutId?: string;
-    resumeSession?: boolean;
-    programId?: string;
-    phaseId?: string;
-    dayId?: string;
-    workoutName?: string;
+  ExerciseDetail: {
+    exerciseId: string;
+    exerciseIndex: number;
+    workoutContext: {
+      programId: string;
+      phaseId: string;
+      dayId: string;
+      workoutName: string;
+    };
+    exerciseData: {
+      name: string;
+      targetSets: number;
+      targetReps: string;
+      targetRpe: string;
+      restSeconds: number;
+      notes: string;
+    };
   };
-  ExerciseDetail: { exerciseId: string };
   WorkoutSummary: { sessionId: string };
 };
 

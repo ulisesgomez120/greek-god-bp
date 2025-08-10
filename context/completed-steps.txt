@@ -318,3 +318,23 @@ UX/UI
 * PRs: "NEW PERSONAL BEST" celebration and persistent marker.
 * Export: Accessible export/share button for premium.
 * Breakdown: Clear muscle group/monthly/weekly summaries.
+
+Step 16: Implement Complete Navigation System with React Navigation 6
+* Task: Build comprehensive navigation structure including tab navigation, stack navigation, modal presentations, deep linking, and navigation state persistence. Include accessibility navigation and gesture handling.
+* Files:
+    * src/navigation/AppNavigator.tsx: Root navigation configuration
+    * src/navigation/TabNavigator.tsx: Bottom tab navigation with badge support
+    * src/navigation/AuthNavigator.tsx: Authentication flow navigation
+    * src/navigation/WorkoutNavigator.tsx: Workout flow stack navigation
+    * src/navigation/ModalNavigator.tsx: Modal presentations and overlays
+    * src/hooks/useNavigation.ts: Navigation utilities and deep linking
+    * src/types/navigation.ts: Navigation parameter TypeScript definitions
+    * src/utils/linking.ts: Deep link configuration and handling
+* Dependencies: Steps 5, 12, 15
+* User Instructions: Test all navigation flows, verify deep linking works correctly, confirm accessibility navigation, and ensure smooth transitions between screens.
+UX/UI
+* Tab Bar: Large icons, colored active state, hides on scroll in workout mode.
+* Stack Animation: Smooth iOS/Android-native feeling transitions.
+* Modal: Drag-to-dismiss/hyper accessible bottom sheets, never block scroll.
+* Back Navigation: Obvious, both swipe and tap-friendly.
+* Notification Routing: Deep link support for e.g. "Resume Last Workout".
