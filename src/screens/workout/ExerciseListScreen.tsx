@@ -2,9 +2,11 @@
 // EXERCISE LIST SCREEN
 // ============================================================================
 // Screen for previewing exercises before starting a workout
+// Now loads planned_exercises for the selected session via workoutPlanService.
+// Falls back to legacy hard-coded lists if no session/exercises are available.
 
-import React from "react";
-import { View, ScrollView, StyleSheet, TouchableOpacity } from "react-native";
+import React, { useEffect, useState } from "react";
+import { View, ScrollView, StyleSheet, TouchableOpacity, ActivityIndicator } from "react-native";
 import { StackNavigationProp } from "@react-navigation/stack";
 import { RouteProp } from "@react-navigation/native";
 
@@ -12,15 +14,14 @@ import { RouteProp } from "@react-navigation/native";
 import Text from "../../components/ui/Text";
 import { Button } from "../../components/ui/Button";
 
+// Services
+import workoutPlanService from "../../services/workoutPlan.service";
+
 // Utils
 import { formatProgramPhase } from "../../utils/formatters";
 
 // Types
 import { WorkoutStackParamList } from "../../types/navigation";
-
-// ============================================================================
-// TYPES
-// ============================================================================
 
 type ExerciseListScreenNavigationProp = StackNavigationProp<WorkoutStackParamList, "ExerciseList">;
 type ExerciseListScreenRouteProp = RouteProp<WorkoutStackParamList, "ExerciseList">;
@@ -38,14 +39,78 @@ interface ExerciseInfo {
   rpe: string;
   restTime: string;
   muscleGroups: string[];
+  notes?: string;
 }
 
-// ============================================================================
-// MAIN COMPONENT
-// ============================================================================
+// Helper to detect UUID-like strings
+const looksLikeUuid = (s?: string) => {
+  if (!s) return false;
+  return /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f4]-[0-9a-f]{3}-[0-9a-f]{12}$/i.test(s);
+};
 
-export const ExerciseListScreen: React.FC<ExerciseListScreenProps> = ({ navigation, route }) => {
+const ExerciseListScreen: React.FC<ExerciseListScreenProps> = ({ navigation, route }) => {
   const { programId, phaseId, dayId, workoutName } = route.params;
+
+  const [loading, setLoading] = useState<boolean>(true);
+  const [error, setError] = useState<string | null>(null);
+  const [exercises, setExercises] = useState<ExerciseInfo[]>([]);
+  const [sessionName, setSessionName] = useState<string | null>(workoutName ?? null);
+
+  useEffect(() => {
+    let mounted = true;
+
+    async function loadSessionExercises() {
+      try {
+        setLoading(true);
+        setError(null);
+
+        // Try to fetch the specific session (this leverages workoutPlanService cache when available)
+        const session = await workoutPlanService.getWorkoutSession(programId, phaseId, dayId);
+
+        if (!mounted) return;
+
+        if (session && session.exercises && session.exercises.length > 0) {
+          // Map ExerciseSummary -> ExerciseInfo for UI
+          const mapped: ExerciseInfo[] = session.exercises.map((ex) => {
+            const reps =
+              ex.targetRepsMin && ex.targetRepsMax
+                ? ex.targetRepsMin === ex.targetRepsMax
+                  ? `${ex.targetRepsMin}`
+                  : `${ex.targetRepsMin}-${ex.targetRepsMax}`
+                : `${ex.targetRepsMin ?? ex.targetRepsMax ?? ""}`.trim();
+
+            return {
+              id: ex.id,
+              name: ex.name || "Exercise",
+              sets: ex.targetSets ?? 0,
+              reps: reps || "—",
+              rpe: ex.targetRpe ? String(ex.targetRpe) : "—",
+              restTime: ex.restSeconds ? `${ex.restSeconds} sec` : "—",
+              muscleGroups: [], // not present in session mapping; empty fallback
+              notes: ex.notes,
+            } as ExerciseInfo;
+          });
+
+          setExercises(mapped);
+          setSessionName(session.name ?? workoutName ?? null);
+          return;
+        }
+      } catch (err: any) {
+        console.error("ExerciseList: failed to load session exercises", err);
+        // On error, fall back to legacy mapping but surface a non-blocking error message
+        setError(err?.message || "Failed to load exercises");
+      } finally {
+        if (mounted) setLoading(false);
+      }
+    }
+
+    loadSessionExercises();
+
+    return () => {
+      mounted = false;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [programId, phaseId, dayId]);
 
   const handleStartWorkout = () => {
     navigation.navigate("ActiveWorkout", {
@@ -53,224 +118,35 @@ export const ExerciseListScreen: React.FC<ExerciseListScreenProps> = ({ navigati
       programId,
       phaseId,
       dayId,
-      workoutName,
+      workoutName: sessionName ?? workoutName ?? "Workout",
     });
   };
 
-  // Get exercises based on program and day
-  const getExercises = (): ExerciseInfo[] => {
-    // This would normally come from the database, but for now using hardcoded data
-    const baseExercises: Record<string, ExerciseInfo[]> = {
-      full_body: [
-        {
-          id: "1",
-          name: "Back Squat",
-          sets: 3,
-          reps: "6-8",
-          rpe: "7-8",
-          restTime: "3 min",
-          muscleGroups: ["Quadriceps", "Glutes", "Core"],
-        },
-        {
-          id: "2",
-          name: "Barbell Bench Press",
-          sets: 3,
-          reps: "8-10",
-          rpe: "7-8",
-          restTime: "3 min",
-          muscleGroups: ["Chest", "Shoulders", "Triceps"],
-        },
-        {
-          id: "3",
-          name: "Lat Pulldown",
-          sets: 3,
-          reps: "10-12",
-          rpe: "8",
-          restTime: "2 min",
-          muscleGroups: ["Back", "Biceps"],
-        },
-        {
-          id: "4",
-          name: "Romanian Deadlift",
-          sets: 3,
-          reps: "10-12",
-          rpe: "7",
-          restTime: "2 min",
-          muscleGroups: ["Hamstrings", "Glutes"],
-        },
-        {
-          id: "5",
-          name: "Assisted Dip",
-          sets: 3,
-          reps: "8-10",
-          rpe: "7",
-          restTime: "90 sec",
-          muscleGroups: ["Triceps", "Chest"],
-        },
-        {
-          id: "6",
-          name: "Standing Calf Raise",
-          sets: 3,
-          reps: "12-15",
-          rpe: "8",
-          restTime: "60 sec",
-          muscleGroups: ["Calves"],
-        },
-        {
-          id: "7",
-          name: "Dumbbell Supinated Curl",
-          sets: 3,
-          reps: "10-12",
-          rpe: "8",
-          restTime: "60 sec",
-          muscleGroups: ["Biceps"],
-        },
-      ],
-      upper_lower:
-        dayId === "day1" || dayId === "day3"
-          ? [
-              // Upper body exercises
-              {
-                id: "1",
-                name: "Barbell Bench Press",
-                sets: 4,
-                reps: "6-8",
-                rpe: "7-8",
-                restTime: "3 min",
-                muscleGroups: ["Chest", "Shoulders", "Triceps"],
-              },
-              {
-                id: "2",
-                name: "Lat Pulldown",
-                sets: 4,
-                reps: "8-10",
-                rpe: "8",
-                restTime: "2-3 min",
-                muscleGroups: ["Back", "Biceps"],
-              },
-              {
-                id: "3",
-                name: "Overhead Press",
-                sets: 3,
-                reps: "8-10",
-                rpe: "7-8",
-                restTime: "2-3 min",
-                muscleGroups: ["Shoulders", "Triceps"],
-              },
-              {
-                id: "4",
-                name: "Chest-Supported T-Bar Row",
-                sets: 3,
-                reps: "10-12",
-                rpe: "8",
-                restTime: "2 min",
-                muscleGroups: ["Back", "Biceps"],
-              },
-            ]
-          : [
-              // Lower body exercises
-              {
-                id: "1",
-                name: "Back Squat",
-                sets: 4,
-                reps: "6-8",
-                rpe: "7-8",
-                restTime: "3-4 min",
-                muscleGroups: ["Quadriceps", "Glutes"],
-              },
-              {
-                id: "2",
-                name: "Romanian Deadlift",
-                sets: 3,
-                reps: "8-10",
-                rpe: "7-8",
-                restTime: "3 min",
-                muscleGroups: ["Hamstrings", "Glutes"],
-              },
-              {
-                id: "3",
-                name: "Leg Press",
-                sets: 3,
-                reps: "12-15",
-                rpe: "8",
-                restTime: "2 min",
-                muscleGroups: ["Quadriceps", "Glutes"],
-              },
-              {
-                id: "4",
-                name: "Lying Leg Curl",
-                sets: 3,
-                reps: "10-12",
-                rpe: "8",
-                restTime: "90 sec",
-                muscleGroups: ["Hamstrings"],
-              },
-            ],
-      body_part_split: (() => {
-        switch (dayId) {
-          case "day1": // Chest & Triceps
-            return [
-              {
-                id: "1",
-                name: "Barbell Bench Press",
-                sets: 4,
-                reps: "6-8",
-                rpe: "8",
-                restTime: "3 min",
-                muscleGroups: ["Chest", "Triceps"],
-              },
-              {
-                id: "2",
-                name: "Dumbbell Incline Press",
-                sets: 3,
-                reps: "8-10",
-                rpe: "7-8",
-                restTime: "2-3 min",
-                muscleGroups: ["Chest", "Shoulders"],
-              },
-            ];
-          case "day2": // Back & Biceps
-            return [
-              {
-                id: "1",
-                name: "Lat Pulldown",
-                sets: 4,
-                reps: "8-10",
-                rpe: "8",
-                restTime: "2-3 min",
-                muscleGroups: ["Back", "Biceps"],
-              },
-              {
-                id: "2",
-                name: "Chest-Supported T-Bar Row",
-                sets: 3,
-                reps: "10-12",
-                rpe: "8",
-                restTime: "2 min",
-                muscleGroups: ["Back", "Biceps"],
-              },
-            ];
-          default:
-            return [];
-        }
-      })(),
-    };
+  if (loading) {
+    return (
+      <View style={styles.containerCentered}>
+        <ActivityIndicator size='large' color='#B5CFF8' />
+      </View>
+    );
+  }
 
-    return baseExercises[programId] || baseExercises.full_body;
-  };
-
-  const exercises = getExercises();
-  const totalDuration = exercises.length * 6; // Rough estimate
+  // Compose subtitle safely — avoid showing raw UUIDs
+  const safeSubtitle =
+    sessionName && sessionName.length > 0
+      ? sessionName
+      : looksLikeUuid(phaseId)
+      ? `${workoutPlanService.formatProgramName(programId)} • Workout`
+      : formatProgramPhase(programId, phaseId);
 
   return (
     <View style={styles.container}>
       <ScrollView style={styles.scrollView} contentContainerStyle={styles.scrollContent}>
         <View style={styles.header}>
           <Text variant='h1' color='primary' style={styles.title}>
-            {workoutName || "Today's Workout"}
+            {sessionName || workoutName || "Today's Workout"}
           </Text>
           <Text variant='body' color='secondary' style={styles.subtitle}>
-            {formatProgramPhase(programId, phaseId)}
+            {safeSubtitle}
           </Text>
 
           <View style={styles.workoutInfo}>
@@ -287,10 +163,15 @@ export const ExerciseListScreen: React.FC<ExerciseListScreenProps> = ({ navigati
                 EST. TIME
               </Text>
               <Text variant='h3' color='primary'>
-                {totalDuration}min
+                {Math.max(5, exercises.length * 6)}min
               </Text>
             </View>
           </View>
+          {error ? (
+            <Text variant='bodySmall' color='tertiary' style={{ marginTop: 8 }}>
+              {`Note: ${error}`}
+            </Text>
+          ) : null}
         </View>
 
         <View style={styles.exerciseList}>
@@ -300,7 +181,7 @@ export const ExerciseListScreen: React.FC<ExerciseListScreenProps> = ({ navigati
 
           {exercises.map((exercise, index) => (
             <TouchableOpacity
-              key={exercise.id}
+              key={exercise.id + "-" + index}
               style={styles.exerciseCard}
               onPress={() => navigation.navigate("ExerciseDetail", { exerciseId: exercise.id })}
               activeOpacity={0.7}>
@@ -315,7 +196,7 @@ export const ExerciseListScreen: React.FC<ExerciseListScreenProps> = ({ navigati
                     {exercise.name}
                   </Text>
                   <Text variant='bodySmall' color='secondary'>
-                    {exercise.muscleGroups.join(", ")}
+                    {exercise.muscleGroups.length > 0 ? exercise.muscleGroups.join(", ") : exercise.notes || ""}
                   </Text>
                 </View>
               </View>
@@ -377,6 +258,12 @@ export const ExerciseListScreen: React.FC<ExerciseListScreenProps> = ({ navigati
 const styles = StyleSheet.create({
   container: {
     flex: 1,
+    backgroundColor: "#FFFFFF",
+  },
+  containerCentered: {
+    flex: 1,
+    alignItems: "center",
+    justifyContent: "center",
     backgroundColor: "#FFFFFF",
   },
   scrollView: {
