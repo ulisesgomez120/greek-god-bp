@@ -622,6 +622,86 @@ export class WorkoutService {
     }
   }
 
+  /**
+   * Fetch recent exercise history (grouped by workout session) for the current user.
+   * Returns an array of objects: { date: string, sets: [{ weight?, reps, rpe?, isWarmup }] }
+   * This method never throws — it logs errors and returns an empty array on failure.
+   */
+  async getExerciseHistory(
+    exerciseId: string,
+    limit: number = 6
+  ): Promise<
+    {
+      date: string;
+      sets: { weight?: number; reps: number; rpe?: number; isWarmup: boolean }[];
+    }[]
+  > {
+    try {
+      const user = await authService.getCurrentUser();
+      if (!user) return [];
+
+      // Query exercise_sets with related workout_sessions data.
+      // We'll fetch a larger set of rows and reduce/group into distinct sessions,
+      // since Supabase relational filtering can be constrained depending on schema/constraints.
+      const { data, error } = await this.supabase
+        .from("exercise_sets")
+        .select(
+          "id, weight_kg, reps, rpe, is_warmup, created_at, session_id, workout_sessions(id, started_at, user_id)"
+        )
+        .eq("exercise_id", exerciseId)
+        .order("created_at", { ascending: false })
+        .limit(Math.max(50, limit * 10)); // fetch a reasonable window to group sessions
+
+      if (error) {
+        logger.error("getExerciseHistory supabase error", error, "workout");
+        return [];
+      }
+
+      const rows = (data || []) as any[];
+
+      // Group rows by workout session id (preferred) or started_at
+      const sessionsMap = new Map<string, { date: string; sets: any[] }>();
+
+      for (const row of rows) {
+        const ws = row.workout_sessions || null;
+        // Ensure the session belongs to current user (if relation provided)
+        if (ws && ws.user_id && ws.user_id !== user.id) {
+          // skip rows that are not the user's sessions (defensive)
+          continue;
+        }
+
+        const sessionKey = (ws && ws.id) || String(row.session_id) || String(row.created_at);
+        const sessionDate = (ws && ws.started_at) || row.created_at;
+
+        if (!sessionsMap.has(sessionKey)) {
+          sessionsMap.set(sessionKey, { date: sessionDate, sets: [] });
+        }
+
+        const sess = sessionsMap.get(sessionKey)!;
+        sess.sets.push({
+          weight: row.weight_kg,
+          reps: row.reps,
+          rpe: row.rpe,
+          isWarmup: !!row.is_warmup,
+        });
+      }
+
+      // Convert to array sorted by date desc and limit results
+      const sessions = Array.from(sessionsMap.values())
+        .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
+        .slice(0, limit)
+        .map((s) => ({
+          date: typeof s.date === "string" ? s.date : new Date(s.date).toISOString(),
+          sets: s.sets,
+        }));
+
+      return sessions;
+    } catch (err) {
+      logger.error("getExerciseHistory failed", err, "workout");
+      return [];
+    }
+  }
+
   // ============================================================================
   // GETTERS AND STATE
   // ============================================================================

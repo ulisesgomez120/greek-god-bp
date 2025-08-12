@@ -108,14 +108,12 @@ export const ExerciseDetailScreen: React.FC<ExerciseDetailScreenProps> = ({ navi
   // ============================================================================
   // DATA LOADING
   // ============================================================================
-
+  // Fetch recent exercise history (last `limit` sessions)
   const loadExerciseData = useCallback(async () => {
     try {
       setState((prev) => ({ ...prev, isLoading: true }));
 
-      // Load exercise history (last 6 sessions)
-      // This would typically come from workoutService or a dedicated history service
-      const history = await loadExerciseHistory(exerciseId);
+      const history = await workoutService.getExerciseHistory(exerciseId, 6);
 
       setState((prev) => ({
         ...prev,
@@ -128,36 +126,46 @@ export const ExerciseDetailScreen: React.FC<ExerciseDetailScreenProps> = ({ navi
     }
   }, [exerciseId]);
 
-  const loadExerciseHistory = async (exerciseId: string): Promise<ExerciseHistorySession[]> => {
-    // Mock implementation - in real app, this would query the database
-    // for the last 6 workout sessions containing this exercise
-    return [
-      {
-        date: "2024-01-08",
-        sets: [
-          { weight: 100, reps: 8, rpe: 7, isWarmup: false },
-          { weight: 100, reps: 8, rpe: 8, isWarmup: false },
-          { weight: 100, reps: 7, rpe: 9, isWarmup: false },
-        ],
-      },
-      {
-        date: "2024-01-05",
-        sets: [
-          { weight: 95, reps: 8, rpe: 7, isWarmup: false },
-          { weight: 95, reps: 8, rpe: 8, isWarmup: false },
-          { weight: 95, reps: 8, rpe: 8, isWarmup: false },
-        ],
-      },
-      {
-        date: "2024-01-03",
-        sets: [
-          { weight: 90, reps: 8, rpe: 7, isWarmup: false },
-          { weight: 90, reps: 8, rpe: 7, isWarmup: false },
-          { weight: 90, reps: 8, rpe: 8, isWarmup: false },
-        ],
-      },
-    ];
-  };
+  // Hide bottom tab bar while this screen is focused, restore on blur
+  useEffect(() => {
+    const parent = (navigation as any).getParent?.();
+    if (!parent || !parent.setOptions) {
+      return;
+    }
+
+    const hideTabBar = () => {
+      try {
+        parent.setOptions({ tabBarStyle: { display: "none" } });
+      } catch (err) {
+        // ignore
+      }
+    };
+
+    const showTabBar = () => {
+      try {
+        parent.setOptions({ tabBarStyle: undefined });
+      } catch (err) {
+        // ignore
+      }
+    };
+
+    const unsubFocus = navigation.addListener("focus", hideTabBar);
+    const unsubBlur = navigation.addListener("blur", showTabBar);
+
+    // If already focused, hide immediately
+    if ((navigation as any).isFocused && (navigation as any).isFocused()) {
+      hideTabBar();
+    }
+
+    return () => {
+      unsubFocus();
+      unsubBlur();
+      // restore on cleanup
+      showTabBar();
+    };
+  }, [navigation]);
+
+  // end DATA LOADING
 
   const calculateNextExercise = useCallback(async () => {
     try {
@@ -345,7 +353,18 @@ export const ExerciseDetailScreen: React.FC<ExerciseDetailScreenProps> = ({ navi
   };
 
   const renderExerciseHistory = () => {
-    if (state.exerciseHistory.length === 0) return null;
+    if (state.exerciseHistory.length === 0) {
+      return (
+        <View style={styles.historySection}>
+          <Text variant='h3' color='primary' style={styles.sectionTitle}>
+            Exercise History
+          </Text>
+          <Text variant='body' color='secondary'>
+            No history found
+          </Text>
+        </View>
+      );
+    }
 
     return (
       <View style={styles.historySection}>
