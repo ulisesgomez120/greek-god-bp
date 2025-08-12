@@ -1,8 +1,7 @@
 // ============================================================================
 // SET LOGGER COMPONENT
 // ============================================================================
-// Set logging with weight/reps/RPE input, thumb-friendly controls,
-// and haptic feedback
+// Improved set logging with direct inputs, auto-population, and compact design
 
 import React, { useState, useCallback, useRef, useEffect } from "react";
 import { View, Text, TextInput, StyleSheet, TouchableOpacity, Alert, ViewStyle } from "react-native";
@@ -28,6 +27,7 @@ interface SetLoggerProps {
   exerciseId: string;
   setNumber: number;
   suggestedWeight?: number;
+  suggestedReps?: number;
   onSetComplete: (setData: ExerciseSetFormData) => void;
   isFirstSet: boolean;
   style?: ViewStyle;
@@ -36,7 +36,7 @@ interface SetLoggerProps {
 interface SetLoggerState {
   weight: string;
   reps: string;
-  rpe: number | null;
+  rpe: string;
   isWarmup: boolean;
   restSeconds: number;
   notes: string;
@@ -71,6 +71,7 @@ export const SetLogger: React.FC<SetLoggerProps> = ({
   exerciseId,
   setNumber,
   suggestedWeight,
+  suggestedReps,
   onSetComplete,
   isFirstSet,
   style,
@@ -83,8 +84,8 @@ export const SetLogger: React.FC<SetLoggerProps> = ({
 
   const [state, setState] = useState<SetLoggerState>({
     weight: suggestedWeight ? suggestedWeight.toString() : "",
-    reps: "",
-    rpe: null,
+    reps: suggestedReps ? suggestedReps.toString() : "",
+    rpe: "",
     isWarmup: false,
     restSeconds: DEFAULT_REST_TIMES.working,
     notes: "",
@@ -98,17 +99,22 @@ export const SetLogger: React.FC<SetLoggerProps> = ({
   // Refs for input focus management
   const weightInputRef = useRef<TextInput>(null);
   const repsInputRef = useRef<TextInput>(null);
+  const rpeInputRef = useRef<TextInput>(null);
+  const notesInputRef = useRef<TextInput>(null);
 
   // ============================================================================
   // EFFECTS
   // ============================================================================
 
-  // Update suggested weight when it changes
+  // Update suggested values when they change
   useEffect(() => {
     if (suggestedWeight && !state.weight) {
       setState((prev) => ({ ...prev, weight: suggestedWeight.toString() }));
     }
-  }, [suggestedWeight, state.weight]);
+    if (suggestedReps && !state.reps) {
+      setState((prev) => ({ ...prev, reps: suggestedReps.toString() }));
+    }
+  }, [suggestedWeight, suggestedReps, state.weight, state.reps]);
 
   // Auto-focus weight input on first set
   useEffect(() => {
@@ -151,70 +157,38 @@ export const SetLogger: React.FC<SetLoggerProps> = ({
     [errors.reps]
   );
 
-  const handleWeightAdjust = useCallback(
-    async (increment: number) => {
-      await triggerHaptic("light");
+  const handleRPEChange = useCallback(
+    (value: string) => {
+      // Allow only numbers 1-10
+      const numericValue = value.replace(/[^0-9]/g, "");
+      const rpeNumber = parseInt(numericValue);
 
-      const currentWeight = parseFloat(state.weight) || 0;
-      const newWeight = Math.max(0, currentWeight + increment);
-      setState((prev) => ({ ...prev, weight: newWeight.toString() }));
+      if (numericValue === "" || (rpeNumber >= 1 && rpeNumber <= 10)) {
+        setState((prev) => ({ ...prev, rpe: numericValue }));
 
-      logger.debug(
-        "Weight adjusted",
-        {
-          exerciseId,
-          from: currentWeight,
-          to: newWeight,
-          increment,
-        },
-        "workout"
-      );
-    },
-    [state.weight, exerciseId, triggerHaptic]
-  );
-
-  const handleRepsAdjust = useCallback(
-    async (increment: number) => {
-      await triggerHaptic("light");
-
-      const currentReps = parseInt(state.reps) || 0;
-      const newReps = Math.max(0, currentReps + increment);
-      setState((prev) => ({ ...prev, reps: newReps.toString() }));
-
-      logger.debug(
-        "Reps adjusted",
-        {
-          exerciseId,
-          from: currentReps,
-          to: newReps,
-          increment,
-        },
-        "workout"
-      );
-    },
-    [state.reps, exerciseId, triggerHaptic]
-  );
-
-  const handleRPESelect = useCallback(
-    async (rpe: number) => {
-      await triggerHaptic("medium");
-      setState((prev) => ({ ...prev, rpe }));
-      setShowRPESelector(false);
-
-      // Auto-adjust rest time based on RPE
-      let restTime: number = DEFAULT_REST_TIMES.working;
-      if (rpe >= 9) {
-        restTime = DEFAULT_REST_TIMES.heavy; // Longer rest for high RPE
-      } else if (rpe <= 6) {
-        restTime = DEFAULT_REST_TIMES.warmup; // Shorter rest for low RPE
+        // Auto-adjust rest time based on RPE
+        if (rpeNumber) {
+          let restTime: number = DEFAULT_REST_TIMES.working;
+          if (rpeNumber >= 9) {
+            restTime = DEFAULT_REST_TIMES.heavy; // Longer rest for high RPE
+          } else if (rpeNumber <= 6) {
+            restTime = DEFAULT_REST_TIMES.warmup; // Shorter rest for low RPE
+          }
+          setState((prev) => ({ ...prev, restSeconds: restTime }));
+        }
       }
 
-      setState((prev) => ({ ...prev, restSeconds: restTime }));
-
-      logger.debug("RPE selected", { exerciseId, rpe, restTime }, "workout");
+      // Clear RPE error if exists
+      if (errors.rpe) {
+        setErrors((prev) => ({ ...prev, rpe: "" }));
+      }
     },
-    [exerciseId, triggerHaptic]
+    [errors.rpe]
   );
+
+  const handleNotesChange = useCallback((value: string) => {
+    setState((prev) => ({ ...prev, notes: value }));
+  }, []);
 
   const handleWarmupToggle = useCallback(async () => {
     await triggerHaptic("light");
@@ -227,6 +201,31 @@ export const SetLogger: React.FC<SetLoggerProps> = ({
 
     logger.debug("Warmup toggled", { exerciseId, isWarmup: !state.isWarmup }, "workout");
   }, [exerciseId, state.isWarmup, triggerHaptic]);
+
+  const handleRPEInfoPress = useCallback(async () => {
+    await triggerHaptic("light");
+    setShowRPESelector(true);
+  }, [triggerHaptic]);
+
+  const handleRPESelect = useCallback(
+    async (rpe: number) => {
+      await triggerHaptic("medium");
+      setState((prev) => ({ ...prev, rpe: rpe.toString() }));
+      setShowRPESelector(false);
+
+      // Auto-adjust rest time based on RPE
+      let restTime: number = DEFAULT_REST_TIMES.working;
+      if (rpe >= 9) {
+        restTime = DEFAULT_REST_TIMES.heavy;
+      } else if (rpe <= 6) {
+        restTime = DEFAULT_REST_TIMES.warmup;
+      }
+
+      setState((prev) => ({ ...prev, restSeconds: restTime }));
+      logger.debug("RPE selected", { exerciseId, rpe, restTime }, "workout");
+    },
+    [exerciseId, triggerHaptic]
+  );
 
   const validateForm = useCallback((): boolean => {
     const newErrors: { [key: string]: string } = {};
@@ -244,8 +243,8 @@ export const SetLogger: React.FC<SetLoggerProps> = ({
     }
 
     // Validate RPE for working sets
-    if (!state.isWarmup && !state.rpe) {
-      newErrors.rpe = "RPE is required for working sets";
+    if (!state.isWarmup && (!state.rpe || parseInt(state.rpe) < 1 || parseInt(state.rpe) > 10)) {
+      newErrors.rpe = "RPE (1-10) is required for working sets";
     }
 
     setErrors(newErrors);
@@ -268,7 +267,7 @@ export const SetLogger: React.FC<SetLoggerProps> = ({
         exerciseId,
         weightKg: state.weight ? parseFloat(state.weight) : undefined,
         reps: parseInt(state.reps),
-        rpe: state.rpe || undefined,
+        rpe: state.rpe ? parseInt(state.rpe) : undefined,
         isWarmup: state.isWarmup,
         restSeconds: state.restSeconds,
         notes: state.notes.trim() || undefined,
@@ -276,14 +275,14 @@ export const SetLogger: React.FC<SetLoggerProps> = ({
 
       onSetComplete(setData);
 
-      // Reset form for next set
+      // Reset form for next set, keeping weight and reps for auto-population
       setState((prev) => ({
         weight: prev.weight, // Keep weight for next set
-        reps: "",
-        rpe: null,
-        isWarmup: false,
+        reps: prev.reps, // Keep reps for next set
+        rpe: "", // Reset RPE (user should consciously choose)
+        isWarmup: false, // Reset warmup
         restSeconds: DEFAULT_REST_TIMES.working,
-        notes: "",
+        notes: "", // Reset notes
       }));
 
       setShowRPESelector(false);
@@ -323,105 +322,97 @@ export const SetLogger: React.FC<SetLoggerProps> = ({
   // RENDER HELPERS
   // ============================================================================
 
-  const renderWeightInput = () => (
-    <View style={FIELD_STYLES.container}>
-      <Text style={LABEL_STYLES.base}>Weight (kg)</Text>
-      <View style={styles.inputWithControls}>
-        <TouchableOpacity
-          style={styles.adjustButton}
-          onPress={() => handleWeightAdjust(-2.5)}
-          accessibilityLabel='Decrease weight by 2.5kg'>
-          <Text style={styles.adjustButtonText}>-2.5</Text>
-        </TouchableOpacity>
-
-        <TextInput
-          ref={weightInputRef}
-          style={getInputStyle("rpe", getInputState(focusedField === "weight", !!errors.weight))}
-          value={state.weight}
-          onChangeText={handleWeightChange}
-          onFocus={() => setFocusedField("weight")}
-          onBlur={() => setFocusedField(null)}
-          placeholder='0'
-          {...getInputProps("number")}
-          accessibilityLabel='Exercise weight in kilograms'
-        />
-
-        <TouchableOpacity
-          style={styles.adjustButton}
-          onPress={() => handleWeightAdjust(2.5)}
-          accessibilityLabel='Increase weight by 2.5kg'>
-          <Text style={styles.adjustButtonText}>+2.5</Text>
-        </TouchableOpacity>
-      </View>
-      {errors.weight && <Text style={ERROR_STYLES.text}>{errors.weight}</Text>}
-    </View>
-  );
-
-  const renderRepsInput = () => (
-    <View style={FIELD_STYLES.container}>
-      <Text style={LABEL_STYLES.base}>Reps *</Text>
-      <View style={styles.inputWithControls}>
-        <TouchableOpacity
-          style={styles.adjustButton}
-          onPress={() => handleRepsAdjust(-1)}
-          accessibilityLabel='Decrease reps by 1'>
-          <Text style={styles.adjustButtonText}>-1</Text>
-        </TouchableOpacity>
-
-        <TextInput
-          ref={repsInputRef}
-          style={getInputStyle("rpe", getInputState(focusedField === "reps", !!errors.reps))}
-          value={state.reps}
-          onChangeText={handleRepsChange}
-          onFocus={() => setFocusedField("reps")}
-          onBlur={() => setFocusedField(null)}
-          placeholder='0'
-          {...getInputProps("number")}
-          accessibilityLabel='Number of repetitions'
-        />
-
-        <TouchableOpacity
-          style={styles.adjustButton}
-          onPress={() => handleRepsAdjust(1)}
-          accessibilityLabel='Increase reps by 1'>
-          <Text style={styles.adjustButtonText}>+1</Text>
-        </TouchableOpacity>
-      </View>
-      {errors.reps && <Text style={ERROR_STYLES.text}>{errors.reps}</Text>}
-    </View>
-  );
-
-  const renderRPEInput = () => (
-    <View style={FIELD_STYLES.container}>
-      <Text style={LABEL_STYLES.base}>RPE {!state.isWarmup && <Text style={LABEL_STYLES.required}>*</Text>}</Text>
-
+  const renderHeader = () => (
+    <View style={styles.header}>
+      <Text style={styles.setTitle}>Set {setNumber}</Text>
       <TouchableOpacity
-        style={[
-          styles.rpeButton,
-          state.rpe ? styles.rpeButtonSelected : null,
-          errors.rpe ? styles.rpeButtonError : null,
-        ]}
-        onPress={() => setShowRPESelector(true)}
-        accessibilityLabel={state.rpe ? `RPE ${state.rpe} selected` : "Select RPE"}>
-        <Text style={[styles.rpeButtonText, state.rpe ? styles.rpeButtonTextSelected : null]}>
-          {state.rpe ? `RPE ${state.rpe}` : "Select RPE"}
-        </Text>
-        <Text style={styles.rpeButtonArrow}>▼</Text>
+        style={[styles.warmupBadge, state.isWarmup && styles.warmupBadgeActive]}
+        onPress={handleWarmupToggle}
+        accessibilityLabel={`${state.isWarmup ? "Disable" : "Enable"} warmup set`}
+        accessibilityRole='switch'
+        accessibilityState={{ checked: state.isWarmup }}>
+        <Text style={[styles.warmupBadgeText, state.isWarmup && styles.warmupBadgeTextActive]}>WARMUP</Text>
       </TouchableOpacity>
-
-      {errors.rpe && <Text style={ERROR_STYLES.text}>{errors.rpe}</Text>}
     </View>
   );
 
-  const renderWarmupToggle = () => (
-    <TouchableOpacity
-      style={[styles.warmupToggle, state.isWarmup && styles.warmupToggleActive]}
-      onPress={handleWarmupToggle}
-      accessibilityLabel={`${state.isWarmup ? "Disable" : "Enable"} warmup set`}
-      accessibilityRole='switch'
-      accessibilityState={{ checked: state.isWarmup }}>
-      <Text style={[styles.warmupToggleText, state.isWarmup && styles.warmupToggleTextActive]}>🔥 Warmup Set</Text>
-    </TouchableOpacity>
+  const renderInputs = () => (
+    <View style={styles.inputsContainer}>
+      {/* Weight and Reps Row */}
+      <View style={styles.inputRow}>
+        <View style={[FIELD_STYLES.container, styles.inputColumn]}>
+          <Text style={LABEL_STYLES.base}>Weight (kg)</Text>
+          <TextInput
+            ref={weightInputRef}
+            style={getInputStyle(undefined, getInputState(focusedField === "weight", !!errors.weight))}
+            value={state.weight}
+            onChangeText={handleWeightChange}
+            onFocus={() => setFocusedField("weight")}
+            onBlur={() => setFocusedField(null)}
+            placeholder='0'
+            {...getInputProps("number")}
+            accessibilityLabel='Exercise weight in kilograms'
+          />
+          {errors.weight && <Text style={ERROR_STYLES.text}>{errors.weight}</Text>}
+        </View>
+
+        <View style={[FIELD_STYLES.container, styles.inputColumn]}>
+          <Text style={LABEL_STYLES.base}>Reps *</Text>
+          <TextInput
+            ref={repsInputRef}
+            style={getInputStyle(undefined, getInputState(focusedField === "reps", !!errors.reps))}
+            value={state.reps}
+            onChangeText={handleRepsChange}
+            onFocus={() => setFocusedField("reps")}
+            onBlur={() => setFocusedField(null)}
+            placeholder='0'
+            {...getInputProps("number")}
+            accessibilityLabel='Number of repetitions'
+          />
+          {errors.reps && <Text style={ERROR_STYLES.text}>{errors.reps}</Text>}
+        </View>
+      </View>
+
+      {/* RPE Row */}
+      <View style={FIELD_STYLES.container}>
+        <View style={styles.rpeHeader}>
+          <Text style={LABEL_STYLES.base}>RPE {!state.isWarmup && <Text style={LABEL_STYLES.required}>*</Text>}</Text>
+          <TouchableOpacity style={styles.infoButton} onPress={handleRPEInfoPress} accessibilityLabel='RPE information'>
+            <Text style={styles.infoButtonText}>ℹ️</Text>
+          </TouchableOpacity>
+        </View>
+        <TextInput
+          ref={rpeInputRef}
+          style={getInputStyle(undefined, getInputState(focusedField === "rpe", !!errors.rpe))}
+          value={state.rpe}
+          onChangeText={handleRPEChange}
+          onFocus={() => setFocusedField("rpe")}
+          onBlur={() => setFocusedField(null)}
+          placeholder='1-10'
+          {...getInputProps("number")}
+          accessibilityLabel='Rate of perceived exertion from 1 to 10'
+        />
+        {errors.rpe && <Text style={ERROR_STYLES.text}>{errors.rpe}</Text>}
+      </View>
+
+      {/* Notes Row */}
+      <View style={FIELD_STYLES.container}>
+        <Text style={LABEL_STYLES.base}>Notes</Text>
+        <TextInput
+          ref={notesInputRef}
+          style={getInputStyle("textarea", getInputState(focusedField === "notes", false))}
+          value={state.notes}
+          onChangeText={handleNotesChange}
+          onFocus={() => setFocusedField("notes")}
+          onBlur={() => setFocusedField(null)}
+          placeholder='Optional notes about this set...'
+          multiline
+          numberOfLines={2}
+          textAlignVertical='top'
+          accessibilityLabel='Optional notes for this set'
+        />
+      </View>
+    </View>
   );
 
   // ============================================================================
@@ -430,19 +421,8 @@ export const SetLogger: React.FC<SetLoggerProps> = ({
 
   return (
     <View style={[styles.container, style]}>
-      <View style={styles.header}>
-        <Text style={styles.setTitle}>Set {setNumber}</Text>
-        {suggestedWeight && <Text style={styles.suggestion}>Suggested: {suggestedWeight}kg</Text>}
-      </View>
-
-      {renderWarmupToggle()}
-
-      <View style={styles.inputRow}>
-        <View style={styles.inputColumn}>{renderWeightInput()}</View>
-        <View style={styles.inputColumn}>{renderRepsInput()}</View>
-      </View>
-
-      {renderRPEInput()}
+      {renderHeader()}
+      {renderInputs()}
 
       <Button
         variant='primary'
@@ -454,7 +434,11 @@ export const SetLogger: React.FC<SetLoggerProps> = ({
       </Button>
 
       {showRPESelector && (
-        <RPESelector onSelect={handleRPESelect} onClose={() => setShowRPESelector(false)} selectedRPE={state.rpe} />
+        <RPESelector
+          onSelect={handleRPESelect}
+          onClose={() => setShowRPESelector(false)}
+          selectedRPE={state.rpe ? parseInt(state.rpe) : null}
+        />
       )}
     </View>
   );
@@ -480,7 +464,7 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
-    marginBottom: 16,
+    marginBottom: 20,
   },
 
   setTitle: {
@@ -489,112 +473,64 @@ const styles = StyleSheet.create({
     color: COLORS.text,
   },
 
-  suggestion: {
-    fontSize: 14,
-    color: COLORS.primary,
-    fontWeight: "500",
-  },
-
-  warmupToggle: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "center",
-    paddingVertical: 12,
-    paddingHorizontal: 16,
-    borderRadius: 12,
-    borderWidth: 2,
+  warmupBadge: {
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 6,
+    borderWidth: 1,
     borderColor: COLORS.textSecondary,
-    marginBottom: 20,
+    backgroundColor: "transparent",
   },
 
-  warmupToggleActive: {
+  warmupBadgeActive: {
     borderColor: COLORS.warning,
     backgroundColor: "rgba(255, 149, 0, 0.1)",
   },
 
-  warmupToggleText: {
-    fontSize: 16,
-    fontWeight: "500",
+  warmupBadgeText: {
+    fontSize: 10,
+    fontWeight: "600",
     color: COLORS.textSecondary,
+    letterSpacing: 0.5,
   },
 
-  warmupToggleTextActive: {
+  warmupBadgeTextActive: {
     color: COLORS.warning,
+  },
+
+  inputsContainer: {
+    marginBottom: 20,
   },
 
   inputRow: {
     flexDirection: "row",
     gap: 16,
-    marginBottom: 20,
   },
 
   inputColumn: {
     flex: 1,
   },
 
-  inputWithControls: {
+  rpeHeader: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 8,
+    marginBottom: 8,
   },
 
-  adjustButton: {
-    width: 60,
-    height: 52,
-    borderRadius: 12,
-    backgroundColor: COLORS.backgroundLight,
+  infoButton: {
+    marginLeft: 8,
+    width: 20,
+    height: 20,
     justifyContent: "center",
     alignItems: "center",
-    borderWidth: 1.5,
-    borderColor: COLORS.textSecondary,
   },
 
-  adjustButtonText: {
-    fontSize: 16,
-    fontWeight: "600",
-    color: COLORS.text,
-  },
-
-  rpeButton: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    height: 52,
-    paddingHorizontal: 16,
-    borderRadius: 12,
-    borderWidth: 1.5,
-    borderColor: COLORS.textSecondary,
-    backgroundColor: COLORS.background,
-  },
-
-  rpeButtonSelected: {
-    borderColor: COLORS.primary,
-    backgroundColor: "rgba(181, 207, 248, 0.1)",
-  },
-
-  rpeButtonError: {
-    borderColor: COLORS.error,
-    backgroundColor: "rgba(255, 59, 48, 0.05)",
-  },
-
-  rpeButtonText: {
-    fontSize: 17,
-    color: COLORS.textSecondary,
-  },
-
-  rpeButtonTextSelected: {
-    color: COLORS.primary,
-    fontWeight: "600",
-  },
-
-  rpeButtonArrow: {
-    fontSize: 12,
-    color: COLORS.textSecondary,
+  infoButtonText: {
+    fontSize: 14,
   },
 
   logButton: {
     height: 56,
-    marginTop: 20,
   },
 
   logButtonText: {

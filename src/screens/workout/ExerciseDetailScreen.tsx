@@ -358,14 +358,14 @@ export const ExerciseDetailScreen: React.FC<ExerciseDetailScreenProps> = ({ navi
             <Text variant='bodySmall' color='secondary' style={styles.historyDate}>
               {new Date(session.date).toLocaleDateString()}
             </Text>
-            <Text variant='body' color='primary'>
-              {session.sets
-                .map(
-                  (set, setIndex) =>
-                    `${set.weight ? `${set.weight}kg` : "BW"} × ${set.reps}${set.rpe ? ` @ ${set.rpe}` : ""}`
-                )
-                .join(", ")}
-            </Text>
+            <View style={styles.historySets}>
+              {session.sets.map((set, setIndex) => (
+                <Text key={setIndex} variant='body' color='primary' style={styles.historySetItem}>
+                  • Set {setIndex + 1}: {set.weight ? `${set.weight}kg` : "BW"} × {set.reps}
+                  {set.rpe ? ` @ RPE ${set.rpe}` : ""}
+                </Text>
+              ))}
+            </View>
           </View>
         ))}
       </View>
@@ -428,6 +428,12 @@ export const ExerciseDetailScreen: React.FC<ExerciseDetailScreenProps> = ({ navi
           <SetLogger
             exerciseId={exerciseId}
             setNumber={state.currentSetNumber}
+            suggestedWeight={
+              state.completedSets.length > 0 ? state.completedSets[state.completedSets.length - 1].weightKg : undefined
+            }
+            suggestedReps={
+              state.completedSets.length > 0 ? state.completedSets[state.completedSets.length - 1].reps : undefined
+            }
             onSetComplete={handleSetComplete}
             isFirstSet={state.completedSets.length === 0}
           />
@@ -531,6 +537,13 @@ const styles = StyleSheet.create({
   historyDate: {
     marginBottom: 4,
     fontWeight: "500",
+  },
+  historySets: {
+    marginTop: 4,
+  },
+  historySetItem: {
+    marginBottom: 2,
+    lineHeight: 18,
   },
   navigationFooter: {
     position: "absolute",
