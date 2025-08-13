@@ -7,8 +7,10 @@
 import { logger } from "../utils/logger";
 import { offlineService } from "./offline.service";
 import { authService } from "./auth.service";
-import { createClient } from "@supabase/supabase-js";
+import supabase from "@/lib/supabase";
+import { events } from "@/utils/events";
 import { ENV_CONFIG, WORKOUT_CONSTANTS, ERROR_MESSAGES, SUCCESS_MESSAGES } from "../config/constants";
+import { getTokens } from "@/utils/tokenManager";
 import type {
   WorkoutSession,
   ExerciseSet,
@@ -70,11 +72,16 @@ export interface SessionRecoveryData {
 
 export class WorkoutService {
   private static instance: WorkoutService;
-  private supabase = createClient<Database>(ENV_CONFIG.supabaseUrl, ENV_CONFIG.supabaseAnonKey);
+  private supabase = supabase;
   private config: WorkoutServiceConfig;
   private currentSession: WorkoutSession | null = null;
   private autoSaveTimer?: ReturnType<typeof setInterval>;
   private syncTimer?: ReturnType<typeof setInterval>;
+
+  // Event-driven sync fields
+  private isSyncing: boolean = false;
+  private debounceTimeout?: ReturnType<typeof setTimeout>;
+  private unsubscribers: Array<() => void> = [];
 
   private constructor(config?: Partial<WorkoutServiceConfig>) {
     this.config = {
@@ -87,9 +94,8 @@ export class WorkoutService {
       ...config,
     };
 
-    if (this.config.autoSync) {
-      this.startAutoSync();
-    }
+    // Initialize event-driven subscriptions (replaces periodic polling by default)
+    this.setupSubscriptions();
   }
 
   public static getInstance(config?: Partial<WorkoutServiceConfig>): WorkoutService {
@@ -499,6 +505,114 @@ export class WorkoutService {
   }
 
   // ============================================================================
+  // EVENT SUBSCRIPTIONS & DEBOUNCED SYNC
+  // ============================================================================
+
+  /**
+   * Setup event subscriptions for auth/network/offline changes
+   */
+  private setupSubscriptions(): void {
+    try {
+      // Auth events
+      this.unsubscribers.push(
+        events.on("auth:signed_in", () => {
+          this.scheduleDebouncedSync();
+        })
+      );
+      this.unsubscribers.push(
+        events.on("auth:token_refreshed", () => {
+          this.scheduleDebouncedSync();
+        })
+      );
+
+      // Network events
+      this.unsubscribers.push(
+        events.on("network:online", () => {
+          this.scheduleDebouncedSync();
+        })
+      );
+
+      // Offline pending changes (only trigger if there are pending items)
+      this.unsubscribers.push(
+        events.on("offline:pending_changed", (payload) => {
+          try {
+            if (payload && (payload as any).pendingCount > 0) {
+              this.scheduleDebouncedSync();
+            }
+          } catch (err) {
+            // ignore malformed payloads
+          }
+        })
+      );
+
+      // App lifecycle (optional)
+      this.unsubscribers.push(
+        events.on("app:foreground", () => {
+          this.scheduleDebouncedSync();
+        })
+      );
+    } catch (err) {
+      logger.warn("workoutService: failed to setup subscriptions", err, "workout");
+    }
+  }
+
+  /**
+   * Schedule a debounced sync. If bypass is true, run immediately.
+   */
+  private scheduleDebouncedSync(bypass: boolean = false): void {
+    if (bypass) {
+      void this.runSyncRunner();
+      return;
+    }
+
+    if (this.debounceTimeout) {
+      clearTimeout(this.debounceTimeout);
+    }
+
+    this.debounceTimeout = setTimeout(() => {
+      void this.runSyncRunner();
+    }, 2000); // 2s debounce window
+  }
+
+  /**
+   * Run the sync runner with concurrency guard and token check.
+   */
+  private async runSyncRunner(): Promise<void> {
+    if (this.isSyncing) {
+      logger.debug("Sync already in progress, skipping", undefined, "workout");
+      return;
+    }
+
+    // Quick guard: ensure we have tokens before attempting sync
+    try {
+      const tokens = await getTokens();
+      if (!tokens || !tokens.accessToken) {
+        logger.debug("Skipping sync: no tokens available", undefined, "workout");
+        return;
+      }
+    } catch (err) {
+      logger.debug("Skipping sync: failed to read tokens", err, "workout");
+      return;
+    }
+
+    this.isSyncing = true;
+    try {
+      await this.syncPendingWorkouts();
+    } catch (err) {
+      logger.error("runSyncRunner encountered an error", err, "workout");
+    } finally {
+      this.isSyncing = false;
+    }
+  }
+
+  /**
+   * Public method to trigger immediate sync (bypasses debounce).
+   */
+  public triggerSyncNow(): void {
+    void this.runSyncRunner();
+  }
+
+  // ============================================================================
   // AUTO-SAVE FUNCTIONALITY
   // ============================================================================
 
@@ -544,8 +658,20 @@ export class WorkoutService {
       clearInterval(this.syncTimer);
     }
 
+    // Periodically attempt to sync pending workouts, but only when tokens/session exist.
     this.syncTimer = setInterval(async () => {
-      await this.syncPendingWorkouts();
+      try {
+        // Quick guard: avoid calling authService.getCurrentUser repeatedly when unauthenticated.
+        const tokens = await getTokens();
+        if (!tokens || !tokens.accessToken) {
+          // No tokens -> skip sync silently.
+          return;
+        }
+
+        await this.syncPendingWorkouts();
+      } catch (err) {
+        logger.error("Auto-sync encountered an error", err, "workout");
+      }
     }, this.config.syncInterval);
   }
 
@@ -759,6 +885,29 @@ export class WorkoutService {
       this.stopAutoSave();
       this.stopAutoSync();
       this.currentSession = null;
+
+      // Unsubscribe event handlers
+      try {
+        for (const unsub of this.unsubscribers) {
+          try {
+            unsub();
+          } catch (err) {
+            // swallow individual unsubscribe errors
+          }
+        }
+      } catch (err) {
+        // ignore
+      } finally {
+        this.unsubscribers = [];
+      }
+
+      // Clear debounce timer if present
+      if (this.debounceTimeout) {
+        clearTimeout(this.debounceTimeout);
+        this.debounceTimeout = undefined;
+      }
+
+      this.isSyncing = false;
 
       logger.info("Workout service cleaned up", undefined, "workout");
     } catch (error) {

@@ -8,6 +8,7 @@ import { createAsyncThunk } from "@reduxjs/toolkit";
 import { authService } from "@/services/auth.service";
 import { tokenManager } from "@/utils/tokenManager";
 import { logger } from "@/utils/logger";
+import supabase from "@/lib/supabase";
 import type { User as SupabaseUser } from "@supabase/supabase-js";
 import type { LoginCredentials, SignupData, Session, AuthError, TokenData, AuthResponse } from "@/types/auth";
 
@@ -76,6 +77,14 @@ export const loginUser = createAsyncThunk<LoginResult, LoginCredentials, { rejec
       await tokenManager.storeTokens(tokenData);
 
       logger.info("authThunks: Login successful", { userId: result.user.id }, "auth", result.user.id);
+
+      // Emit event for signed in so other services (e.g., workoutService) can react
+      try {
+        const { events } = await import("@/utils/events");
+        events.emit("auth:signed_in", { userId: result.user.id });
+      } catch (err) {
+        logger.warn("authThunks: failed to emit auth:signed_in", err, "auth");
+      }
 
       return {
         user: result.user,
@@ -212,6 +221,16 @@ export const refreshTokens = createAsyncThunk<RefreshResult, void, { rejectValue
         });
       }
 
+      // Rehydrate Supabase auth client with tokens so GoTrue has a session
+      try {
+        await supabase.auth.setSession({
+          access_token: tokens.accessToken,
+          refresh_token: tokens.refreshToken,
+        });
+      } catch (setSessionError) {
+        logger.warn("authThunks: supabase.auth.setSession failed", setSessionError, "auth");
+      }
+
       // Get user info with new tokens
       const user = await authService.getCurrentUser();
 
@@ -232,6 +251,14 @@ export const refreshTokens = createAsyncThunk<RefreshResult, void, { rejectValue
       };
 
       logger.info("authThunks: Token refresh successful", { userId: user.id }, "auth", user.id);
+
+      // Emit token refreshed event for other services to react (dynamic import to avoid cycles)
+      try {
+        const { events } = await import("@/utils/events");
+        events.emit("auth:token_refreshed", { userId: user?.id });
+      } catch (err) {
+        logger.warn("authThunks: failed to emit auth:token_refreshed", err, "auth");
+      }
 
       return {
         user: user,
@@ -311,6 +338,14 @@ export const initializeAuth = createAsyncThunk<InitializeResult, void, { rejectV
       };
 
       logger.info("authThunks: Authentication initialized successfully", { userId: user.id }, "auth", user.id);
+
+      // Emit signed_in event so services depending on auth can react after init
+      try {
+        const { events } = await import("@/utils/events");
+        events.emit("auth:signed_in", { userId: user.id });
+      } catch (err) {
+        logger.warn("authThunks: failed to emit auth:signed_in during initializeAuth", err, "auth");
+      }
 
       return {
         user: user,

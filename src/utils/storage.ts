@@ -96,9 +96,21 @@ export const getAsyncItem = async <T = any>(key: string): Promise<T | null> => {
     if (serializedValue === null) {
       return null;
     }
-    const value = JSON.parse(serializedValue);
-    logger.debug(`Async item retrieved: ${key}`);
-    return value;
+
+    // Try parsing as JSON first. If parsing fails, fall back to returning the raw string.
+    try {
+      const value = JSON.parse(serializedValue);
+      logger.debug(`Async item retrieved (parsed JSON): ${key}`);
+      return value;
+    } catch (parseError) {
+      // Non-JSON value stored (legacy/malformed). Return raw string as a safe fallback.
+      logger.warn(`Async item for key ${key} is not valid JSON — returning raw string fallback`, {
+        parseError,
+        key,
+        rawValuePreview: String(serializedValue).slice(0, 200),
+      });
+      return serializedValue as unknown as T;
+    }
   } catch (error) {
     logger.error(`Failed to retrieve async item ${key}:`, error);
     return null;

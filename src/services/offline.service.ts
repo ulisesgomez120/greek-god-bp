@@ -6,6 +6,7 @@
 
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { logger } from "../utils/logger";
+import { events } from "@/utils/events";
 import {
   getAsyncItem,
   setAsyncItem,
@@ -427,6 +428,13 @@ export class OfflineService {
       };
 
       await setAsyncItem(`${this.STORAGE_PREFIX}stats`, stats);
+
+      // Emit pending count changed for other services (e.g., workoutService)
+      try {
+        events.emit("offline:pending_changed", { pendingCount: stats.pendingSync });
+      } catch (err) {
+        logger.warn("offline.service: failed to emit offline:pending_changed", err, "offline");
+      }
     } catch (error) {
       logger.error("Failed to update storage stats", error, "offline");
     }

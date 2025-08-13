@@ -8,6 +8,7 @@ import * as SecureStore from "expo-secure-store";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { createClient } from "@supabase/supabase-js";
 import { ENV_CONFIG, STORAGE_KEYS } from "@/config/constants";
+import supabase from "@/lib/supabase";
 import { logger } from "@/utils/logger";
 import type { TokenData, TokenValidationResult } from "@/types/auth";
 
@@ -27,7 +28,7 @@ const TOKEN_ENCRYPTION_KEY = "trainsmart_token_key";
 export class TokenManager {
   private static instance: TokenManager;
   private supabaseClient: any;
-  private refreshTimer?: NodeJS.Timeout;
+  private refreshTimer?: ReturnType<typeof setTimeout>;
   private isRefreshing = false;
   private refreshPromise?: Promise<TokenData | null>;
 
@@ -54,7 +55,7 @@ export class TokenManager {
     try {
       logger.info("TokenManager: Storing tokens securely", undefined, "auth");
 
-      // Store access and refresh tokens in SecureStore
+      // Store access and refresh tokens in SecureStore and async metadata via helpers
       await Promise.all([
         SecureStore.setItemAsync(STORAGE_KEYS.secure.accessToken, tokens.accessToken, {
           keychainService: "trainsmart-keychain",
@@ -64,12 +65,24 @@ export class TokenManager {
           keychainService: "trainsmart-keychain",
           requireAuthentication: false,
         }),
-        AsyncStorage.setItem("token_expires_at", tokens.expiresAt),
-        AsyncStorage.setItem("token_stored_at", new Date().toISOString()),
+        // Use helper to ensure proper JSON serialization
+        await import("@/utils/storage").then((m) => m.setAsyncItem("token_expires_at", tokens.expiresAt)),
+        await import("@/utils/storage").then((m) => m.setAsyncItem("token_stored_at", new Date().toISOString())),
       ]);
 
       // Schedule automatic refresh
       this.scheduleTokenRefresh(tokens.expiresAt);
+
+      // Immediately attempt to rehydrate the Supabase client session so getSession() works right away.
+      try {
+        await supabase.auth.setSession({
+          access_token: tokens.accessToken,
+          refresh_token: tokens.refreshToken,
+        });
+        logger.info("TokenManager: Supabase session rehydrated from stored tokens", undefined, "auth");
+      } catch (rehydErr) {
+        logger.warn("TokenManager: Failed to rehydrate Supabase session after storing tokens", rehydErr, "auth");
+      }
 
       logger.info("TokenManager: Tokens stored successfully", undefined, "auth");
     } catch (error) {
@@ -90,7 +103,8 @@ export class TokenManager {
         SecureStore.getItemAsync(STORAGE_KEYS.secure.refreshToken, {
           keychainService: "trainsmart-keychain",
         }),
-        AsyncStorage.getItem("token_expires_at"),
+        // Use helper to read async value (handles legacy non-JSON values)
+        await import("@/utils/storage").then((m) => m.getAsyncItem<string>("token_expires_at")),
       ]);
 
       if (!accessToken || !refreshToken) {
@@ -133,8 +147,9 @@ export class TokenManager {
         SecureStore.deleteItemAsync(STORAGE_KEYS.secure.refreshToken, {
           keychainService: "trainsmart-keychain",
         }).catch(() => {}),
-        AsyncStorage.removeItem("token_expires_at").catch(() => {}),
-        AsyncStorage.removeItem("token_stored_at").catch(() => {}),
+        // Use helper removal to keep behavior consistent
+        await import("@/utils/storage").then((m) => m.removeAsyncItem("token_expires_at").catch(() => {})),
+        await import("@/utils/storage").then((m) => m.removeAsyncItem("token_stored_at").catch(() => {})),
       ]);
 
       logger.info("TokenManager: Tokens cleared successfully", undefined, "auth");

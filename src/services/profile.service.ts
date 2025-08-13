@@ -4,7 +4,8 @@
 // Complete profile management service with Supabase integration,
 // experience level assessment, and offline support
 
-import { createClient, SupabaseClient } from "@supabase/supabase-js";
+import type { SupabaseClient } from "@supabase/supabase-js";
+import supabase from "@/lib/supabase";
 import { ENV_CONFIG } from "@/config/constants";
 import { logger } from "@/utils/logger";
 import type { Database } from "@/types/database";
@@ -31,11 +32,8 @@ import {
 } from "@/types/profile";
 import type { ExperienceLevel } from "@/types/database";
 
-// ============================================================================
 // SUPABASE CLIENT
-// ============================================================================
-
-const supabase = createClient<Database>(ENV_CONFIG.supabaseUrl, ENV_CONFIG.supabaseAnonKey);
+// (using shared client from src/lib/supabase)
 
 // ============================================================================
 // PROFILE SERVICE CLASS
@@ -73,7 +71,7 @@ export class ProfileService {
 
       logger.info("Fetching user profile", { userId }, "profile");
 
-      const { data, error } = await supabase.from("user_profiles").select("*").eq("id", userId).single();
+      const { data, error } = await supabase.from("user_profiles").select("*").eq("id", userId).maybeSingle();
 
       if (error) {
         logger.error("Failed to fetch profile", error, "profile", userId);

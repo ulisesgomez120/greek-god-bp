@@ -188,12 +188,25 @@ class Logger {
   error(message: string, error?: Error | any, category?: string, userId?: string): void {
     if (!this.shouldLog("error")) return;
 
+    // Sanitize stack to avoid Metro attempting to symbolicate internal Hermes frames
+    const sanitizeStack = (stack?: string) => {
+      if (!stack) return stack;
+      try {
+        return stack
+          .split("\n")
+          .filter((line) => !line.includes("InternalBytecode.js") && !line.includes("InternalBytecode"))
+          .join("\n");
+      } catch {
+        return stack;
+      }
+    };
+
     const errorData =
       error instanceof Error
         ? {
             name: error.name,
             message: error.message,
-            stack: error.stack,
+            stack: sanitizeStack(error.stack),
           }
         : error;
 
@@ -201,6 +214,7 @@ class Logger {
     this.addLogEntry(entry);
 
     if (this.config.enableConsole) {
+      // Print message without sending problematic stack lines to Metro
       console.error(this.formatConsoleMessage(entry), errorData || "");
     }
   }

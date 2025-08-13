@@ -3,8 +3,6 @@
 // ============================================================================
 // Simplified Supabase Auth integration with essential functionality only
 
-import { createClient } from "@supabase/supabase-js";
-import * as SecureStore from "expo-secure-store";
 import { ENV_CONFIG } from "@/config/constants";
 import { ERROR_MESSAGES, SUCCESS_MESSAGES } from "@/constants/auth";
 import { logger } from "@/utils/logger";
@@ -19,42 +17,8 @@ import type {
   AuthError,
 } from "../types/auth";
 
-// ============================================================================
-// SUPABASE CLIENT CONFIGURATION
-// ============================================================================
-
-// Custom storage adapter for Supabase Auth
-const ExpoSecureStoreAdapter = {
-  getItem: (key: string) => {
-    return SecureStore.getItemAsync(key);
-  },
-  setItem: (key: string, value: string) => {
-    SecureStore.setItemAsync(key, value);
-  },
-  removeItem: (key: string) => {
-    SecureStore.deleteItemAsync(key);
-  },
-};
-
-// Create Supabase client with secure configuration
-const supabase = createClient<Database>(ENV_CONFIG.supabaseUrl, ENV_CONFIG.supabaseAnonKey, {
-  auth: {
-    storage: ExpoSecureStoreAdapter,
-    autoRefreshToken: true, // Let Supabase handle token refresh automatically
-    persistSession: true,
-    detectSessionInUrl: false,
-  },
-  realtime: {
-    params: {
-      eventsPerSecond: 10,
-    },
-  },
-  global: {
-    headers: {
-      "X-Client-Info": "trainsmart-mobile",
-    },
-  },
-});
+import supabase from "@/lib/supabase";
+import { events } from "@/utils/events";
 
 // ============================================================================
 // AUTHENTICATION FUNCTIONS
@@ -255,6 +219,12 @@ export async function signOut(): Promise<AuthResponse> {
 
     logger.info("User logged out successfully", undefined, "auth");
 
+    try {
+      events.emit("auth:signed_out", null);
+    } catch (err) {
+      logger.warn("auth.service: failed to emit auth:signed_out", err, "auth");
+    }
+
     return {
       success: true,
       user: null,
@@ -444,13 +414,54 @@ export async function getCurrentSession() {
  */
 export async function getCurrentUser() {
   try {
+    // First check if a session exists so we avoid triggering AuthSessionMissingError
+    const {
+      data: { session },
+      error: sessionError,
+    } = await supabase.auth.getSession();
+
+    if (sessionError) {
+      // Non-fatal: log and return null (no session available)
+      logger.warn("Session retrieval error while getting user", sessionError, "auth");
+      return null;
+    }
+
+    if (!session || !session.access_token) {
+      // No active session — attempt to rehydrate user from stored tokens as a fallback.
+      try {
+        const tokens = await getTokens();
+        if (tokens && tokens.accessToken) {
+          try {
+            const {
+              data: { user: tokenUser },
+              error: tokenUserError,
+            } = await supabase.auth.getUser(tokens.accessToken);
+
+            if (!tokenUserError && tokenUser) {
+              logger.info("Rehydrated user from stored access token", { userId: tokenUser.id }, "auth", tokenUser.id);
+              return tokenUser;
+            }
+          } catch (rehydErr) {
+            logger.warn("Failed to get user using stored access token", rehydErr, "auth");
+          }
+        }
+      } catch (err) {
+        logger.warn("Error reading stored tokens during user rehydrate", err, "auth");
+      }
+
+      // Final fallback: no session available
+      logger.debug("No active session found when attempting to get current user", undefined, "auth");
+      return null;
+    }
+
+    // Use the access token to fetch the user (prevents internal session-missing throws)
     const {
       data: { user },
       error,
-    } = await supabase.auth.getUser();
+    } = await supabase.auth.getUser(session.access_token);
 
     if (error) {
-      logger.error("User retrieval error", error, "auth");
+      logger.warn("User retrieval error", error, "auth");
       return null;
     }
 
@@ -467,6 +478,25 @@ export async function getCurrentUser() {
 export async function initializeAuth(): Promise<AuthResponse> {
   try {
     logger.info("Initializing authentication state", undefined, "auth");
+
+    // Attempt to rehydrate Supabase session from locally stored tokens (tokenManager / storage)
+    try {
+      const tokens = await getTokens();
+      if (tokens && tokens.accessToken && tokens.refreshToken) {
+        try {
+          await supabase.auth.setSession({
+            access_token: tokens.accessToken,
+            refresh_token: tokens.refreshToken,
+          });
+          logger.info("Rehydrated Supabase session from local tokens", undefined, "auth");
+        } catch (setErr) {
+          logger.warn("Failed to rehydrate Supabase session from local tokens", setErr, "auth");
+          // Proceed — later getSession() will return null and we will clear tokens
+        }
+      }
+    } catch (tokenReadErr) {
+      logger.warn("Error reading local tokens during initialization", tokenReadErr, "auth");
+    }
 
     // Get current session - Supabase handles token validation automatically
     const {
@@ -486,6 +516,8 @@ export async function initializeAuth(): Promise<AuthResponse> {
 
     if (!session) {
       logger.info("No valid session found", undefined, "auth");
+      // Ensure local tokens are cleared to avoid inconsistent state
+      await clearTokens();
       return {
         success: true,
         user: null,
@@ -493,7 +525,7 @@ export async function initializeAuth(): Promise<AuthResponse> {
       };
     }
 
-    // Store tokens
+    // Store tokens (keep tokenManager/storage in sync)
     await handleSuccessfulAuth(session);
 
     logger.info("Authentication initialized successfully", undefined, "auth", session.user?.id);
@@ -536,6 +568,17 @@ async function handleSuccessfulAuth(session: any): Promise<void> {
     refreshToken: session.refresh_token,
     expiresAt: new Date(session.expires_at! * 1000).toISOString(),
   });
+
+  // Ensure Supabase client is rehydrated with the new session so getSession/getUser succeed immediately.
+  try {
+    await supabase.auth.setSession({
+      access_token: session.access_token,
+      refresh_token: session.refresh_token,
+    });
+    logger.info("auth.service: Supabase session rehydrated after successful auth", undefined, "auth", session.user?.id);
+  } catch (rehydErr) {
+    logger.warn("auth.service: Failed to rehydrate Supabase session after storing tokens", rehydErr, "auth");
+  }
 }
 
 /**

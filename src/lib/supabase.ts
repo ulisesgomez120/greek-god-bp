@@ -9,23 +9,28 @@ import * as SecureStore from "expo-secure-store";
 import { ENV_CONFIG } from "@/config/constants";
 import type { Database } from "@/types/database";
 
-// Custom storage adapter for Supabase Auth
-const ExpoSecureStoreAdapter = {
+// Use AsyncStorage as the default storage adapter for Supabase Auth in React Native.
+// AsyncStorage is widely supported and works well with @supabase/auth-js in RN/Expo.
+// You can switch back to SecureStore if you prefer stronger platform-backed security,
+// but then you must ensure tokenManager and Supabase use the same storage adapter
+// and rehydrate the Supabase session on startup.
+const AsyncStorageAdapter = {
   getItem: (key: string) => {
-    return SecureStore.getItemAsync(key);
+    return AsyncStorage.getItem(key);
   },
   setItem: (key: string, value: string) => {
-    SecureStore.setItemAsync(key, value);
+    return AsyncStorage.setItem(key, value);
   },
   removeItem: (key: string) => {
-    SecureStore.deleteItemAsync(key);
+    return AsyncStorage.removeItem(key);
   },
 };
 
 // Create Supabase client with proper configuration
 export const supabase = createClient<Database>(ENV_CONFIG.supabaseUrl, ENV_CONFIG.supabaseAnonKey, {
   auth: {
-    storage: ExpoSecureStoreAdapter,
+    // Use AsyncStorage on React Native for reliable session persistence
+    storage: AsyncStorageAdapter,
     autoRefreshToken: true,
     persistSession: true,
     detectSessionInUrl: false,

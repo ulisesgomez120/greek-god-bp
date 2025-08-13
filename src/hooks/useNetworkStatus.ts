@@ -7,6 +7,7 @@ import { useState, useEffect } from "react";
 import { useAppDispatch, useAppSelector } from "./redux";
 import { setNetworkStatus } from "../store/ui/uiSlice";
 import { logger } from "../utils/logger";
+import { events } from "@/utils/events";
 
 // Mock NetInfo for now - in a real app you'd install @react-native-community/netinfo
 const NetInfo = {
@@ -156,6 +157,12 @@ export function useNetworkStatus(): UseNetworkStatusReturn {
       // Dispatch simple online/offline status to Redux
       dispatch(setNetworkStatus(status.isConnected ? "online" : "offline"));
 
+      try {
+        events.emit(status.isConnected ? "network:online" : "network:offline", null);
+      } catch (err) {
+        logger.warn("useNetworkStatus: failed to emit network event", err);
+      }
+
       logger.info("Network status refreshed:", {
         isConnected: status.isConnected,
         connectionType: status.connectionType,
@@ -192,6 +199,12 @@ export function useNetworkStatus(): UseNetworkStatusReturn {
 
       // Dispatch simple online/offline status to Redux
       dispatch(setNetworkStatus(status.isConnected ? "online" : "offline"));
+
+      try {
+        events.emit(status.isConnected ? "network:online" : "network:offline", null);
+      } catch (err) {
+        logger.warn("useNetworkStatus: failed to emit network event", err);
+      }
     });
 
     return () => {
