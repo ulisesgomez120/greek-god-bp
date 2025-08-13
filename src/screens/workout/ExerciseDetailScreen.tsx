@@ -17,6 +17,7 @@ import RestTimer from "../../components/workout/RestTimer";
 // Services
 import workoutService from "../../services/workout.service";
 import workoutPlanService from "../../services/workoutPlan.service";
+import useNetworkState from "../../hooks/useNetworkState";
 
 // Types
 import { WorkoutStackParamList } from "../../types/navigation";
@@ -95,6 +96,9 @@ export const ExerciseDetailScreen: React.FC<ExerciseDetailScreenProps> = ({ navi
     currentSetNumber: 1,
     nextExercise: null,
   });
+
+  // Network status (used to attempt immediate sync when online)
+  const { isConnected } = useNetworkState();
 
   // ============================================================================
   // EFFECTS
@@ -202,45 +206,57 @@ export const ExerciseDetailScreen: React.FC<ExerciseDetailScreenProps> = ({ navi
   const handleSetComplete = useCallback(
     async (setData: ExerciseSetFormData) => {
       try {
-        // Create the exercise set
-        const newSet: ExerciseSet = {
-          id: `set_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
-          sessionId: "current_session", // Would come from active workout session
-          exerciseId: setData.exerciseId,
-          setNumber: state.currentSetNumber,
-          weightKg: setData.weightKg,
-          reps: setData.reps,
-          rpe: setData.rpe,
-          isWarmup: setData.isWarmup || false,
-          isFailure: false,
-          restSeconds: setData.restSeconds,
-          notes: setData.notes,
-          createdAt: new Date().toISOString(),
-        };
+        // Ensure there's an active workout session; if not, start one using workoutContext
+        if (!workoutService.hasActiveWorkout()) {
+          const sessionName = workoutContext?.workoutName || "Workout";
+          const startResult = await workoutService.startWorkout(sessionName, [setData.exerciseId], {
+            planId: workoutContext?.programId,
+            sessionId: workoutContext?.dayId,
+          });
 
-        // Add to workout service
+          if (!startResult.success) {
+            Alert.alert("Failed to start workout", startResult.error || "Unable to start workout");
+            return startResult;
+          }
+        }
+
+        // Persist the set via workoutService (offline-first). Service returns the created set.
         const result = await workoutService.addExerciseSet(setData);
 
-        if (result.success) {
-          // Update local state
-          setState((prev) => ({
-            ...prev,
-            completedSets: [...prev.completedSets, newSet],
-            currentSetNumber: prev.currentSetNumber + 1,
-            showRestTimer: !setData.isWarmup, // Show rest timer for working sets
-            restDuration: setData.restSeconds || exerciseData.restSeconds,
-          }));
-
-          console.log("Set logged successfully:", newSet);
-        } else {
+        if (!result.success) {
           Alert.alert("Error", result.error || "Failed to log set");
+          return result;
         }
+
+        const createdSet = result.data as ExerciseSet;
+
+        // Update local state using returned set (do not fabricate ids here)
+        setState((prev) => ({
+          ...prev,
+          completedSets: [...prev.completedSets, createdSet],
+          currentSetNumber: prev.currentSetNumber + 1,
+          showRestTimer: !setData.isWarmup,
+          restDuration: setData.restSeconds || exerciseData.restSeconds,
+        }));
+
+        // If online, attempt an immediate sync to push data to Supabase
+        if (isConnected) {
+          try {
+            await workoutService.syncPendingWorkouts();
+          } catch (syncErr) {
+            console.warn("Immediate sync failed (will retry via auto-sync):", syncErr);
+          }
+        }
+
+        console.log("Set logged successfully:", createdSet);
+        return result;
       } catch (error) {
         console.error("Failed to log set:", error);
         Alert.alert("Error", "Failed to log set. Please try again.");
+        return { success: false, error: error instanceof Error ? error.message : "Failed to log set" };
       }
     },
-    [state.currentSetNumber, exerciseData.restSeconds]
+    [exerciseData.restSeconds, workoutContext, isConnected]
   );
 
   // ============================================================================
@@ -287,9 +303,24 @@ export const ExerciseDetailScreen: React.FC<ExerciseDetailScreenProps> = ({ navi
       { text: "Continue", style: "cancel" },
       {
         text: "Complete",
-        onPress: () => {
-          // Navigate to workout summary or completion flow
-          navigation.navigate("WorkoutSummary", { sessionId: "current_session" });
+        onPress: async () => {
+          try {
+            // Finalize the workout via the service so stats are computed and stored
+            const result = await workoutService.completeWorkout();
+
+            if (!result.success) {
+              Alert.alert("Error", result.error || "Failed to complete workout");
+              return;
+            }
+
+            const completed = result.data;
+            const sessionId = completed?.id ?? "current_session";
+
+            navigation.navigate("WorkoutSummary", { sessionId });
+          } catch (error) {
+            console.error("Failed to complete workout", error);
+            Alert.alert("Error", "Failed to complete workout");
+          }
         },
       },
     ]);

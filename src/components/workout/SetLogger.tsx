@@ -28,7 +28,8 @@ interface SetLoggerProps {
   setNumber: number;
   suggestedWeight?: number;
   suggestedReps?: number;
-  onSetComplete: (setData: ExerciseSetFormData) => void;
+  // onSetComplete now returns a Promise with the workout service result so callers can await persistence
+  onSetComplete: (setData: ExerciseSetFormData) => Promise<any>;
   isFirstSet: boolean;
   style?: ViewStyle;
 }
@@ -273,9 +274,17 @@ export const SetLogger: React.FC<SetLoggerProps> = ({
         notes: state.notes.trim() || undefined,
       };
 
-      onSetComplete(setData);
+      // Await the persistence result from the parent handler (ExerciseDetailScreen)
+      const result = await onSetComplete(setData);
 
-      // Reset form for next set, keeping weight and reps for auto-population
+      if (!result || !result.success) {
+        // Persistence failed — inform user and keep inputs intact
+        await triggerHaptic("error");
+        Alert.alert("Error", result?.error || "Failed to save set. Please try again.");
+        return;
+      }
+
+      // Success: reset only the fields we want to clear while keeping weight/reps for convenience
       setState((prev) => ({
         weight: prev.weight, // Keep weight for next set
         reps: prev.reps, // Keep reps for next set
