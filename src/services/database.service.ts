@@ -6,6 +6,7 @@
 import { supabase } from "@/lib/supabase";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { STORAGE_KEYS, ERROR_MESSAGES } from "@/config/constants";
+import { getAsyncItem, setAsyncItem } from "@/utils/storage";
 import type { WorkoutSession, ExerciseSet, UserProfile, Exercise, WorkoutPlan, ProgressMetrics } from "@/types";
 import type {
   UserProfile as DbUserProfile,
@@ -254,14 +255,17 @@ export class DatabaseService {
       const dbError = this.handleDatabaseError(error);
 
       if (dbError.isNetworkError) {
-        // Fallback: write a simple legacy queue entry for OfflineService to pick up
+        // Fallback: enqueue the profile update in a generic operation queue handled by storage/offline processors
         try {
-          const raw = await AsyncStorage.getItem(STORAGE_KEYS.async.offlineWorkouts);
-          const queue = raw ? JSON.parse(raw) : [];
-          queue.push({ operation: "update_user_profile", data: { id: userId, ...updates }, timestamp: Date.now() });
-          await AsyncStorage.setItem(STORAGE_KEYS.async.offlineWorkouts, JSON.stringify(queue));
+          const opQueue = (await getAsyncItem<any[]>("operation_queue")) || [];
+          opQueue.push({
+            operation: "update_user_profile",
+            data: { id: userId, ...updates },
+            timestamp: Date.now(),
+          });
+          await setAsyncItem("operation_queue", opQueue);
         } catch (err) {
-          console.warn("DatabaseService: failed to push legacy offline queue entry", err);
+          console.warn("DatabaseService: failed to enqueue profile update for offline processing", err);
         }
       }
 
@@ -370,12 +374,14 @@ export class DatabaseService {
             offlineCreated: true,
           } as any);
         } catch (e) {
-          // Fallback to basic async queue if OfflineService unavailable
-          await AsyncStorage.getItem(STORAGE_KEYS.async.offlineWorkouts).then(async (raw) => {
-            const queue = raw ? JSON.parse(raw) : [];
-            queue.push({ operation: "insert_workout_session", data: session, timestamp: Date.now() });
-            await AsyncStorage.setItem(STORAGE_KEYS.async.offlineWorkouts, JSON.stringify(queue));
-          });
+          // Fallback: enqueue the insert_workout_session operation for offline processing
+          try {
+            const opQueue = (await getAsyncItem<any[]>("operation_queue")) || [];
+            opQueue.push({ operation: "insert_workout_session", data: session, timestamp: Date.now() });
+            await setAsyncItem("operation_queue", opQueue);
+          } catch (err) {
+            console.warn("DatabaseService: failed to enqueue insert_workout_session for offline processing", err);
+          }
         }
 
         // Return a temporary session with pending status
@@ -432,16 +438,18 @@ export class DatabaseService {
             ...updates,
           } as any);
         } catch (e) {
-          // Fallback to legacy queue
-          await AsyncStorage.getItem(STORAGE_KEYS.async.offlineWorkouts).then(async (raw) => {
-            const queue = raw ? JSON.parse(raw) : [];
-            queue.push({
+          // Fallback: enqueue the update_workout_session operation for offline processing
+          try {
+            const opQueue = (await getAsyncItem<any[]>("operation_queue")) || [];
+            opQueue.push({
               operation: "update_workout_session",
               data: { id: sessionId, ...updates },
               timestamp: Date.now(),
             });
-            await AsyncStorage.setItem(STORAGE_KEYS.async.offlineWorkouts, JSON.stringify(queue));
-          });
+            await setAsyncItem("operation_queue", opQueue);
+          } catch (err) {
+            console.warn("DatabaseService: failed to enqueue update_workout_session for offline processing", err);
+          }
         }
       }
 
@@ -482,12 +490,14 @@ export class DatabaseService {
       const dbError = this.handleDatabaseError(error);
 
       if (dbError.isNetworkError) {
-        // Fallback: add sets to legacy async queue for processing by OfflineService/worker
-        await AsyncStorage.getItem(STORAGE_KEYS.async.offlineWorkouts).then(async (raw) => {
-          const queue = raw ? JSON.parse(raw) : [];
-          queue.push({ operation: "insert_exercise_sets", data: sets, timestamp: Date.now() });
-          await AsyncStorage.setItem(STORAGE_KEYS.async.offlineWorkouts, JSON.stringify(queue));
-        });
+        // Fallback: enqueue the insert_exercise_sets operation for offline processing
+        try {
+          const opQueue = (await getAsyncItem<any[]>("operation_queue")) || [];
+          opQueue.push({ operation: "insert_exercise_sets", data: sets, timestamp: Date.now() });
+          await setAsyncItem("operation_queue", opQueue);
+        } catch (err) {
+          console.warn("DatabaseService: failed to enqueue insert_exercise_sets for offline processing", err);
+        }
 
         // Return temporary sets with pending status
         return sets.map((set, index) => ({

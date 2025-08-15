@@ -4,20 +4,17 @@
 // Comprehensive offline storage and synchronization manager that extends
 // the existing storage utilities with workout-specific functionality
 
-import AsyncStorage from "@react-native-async-storage/async-storage";
 import { logger } from "../utils/logger";
 import { events } from "@/utils/events";
 import {
   getAsyncItem,
   setAsyncItem,
   removeAsyncItem,
-  getOfflineQueue,
-  addToOfflineQueue as baseAddToOfflineQueue,
   removeFromOfflineQueue,
   updateSyncAttempt,
   type OfflineWorkout,
 } from "../utils/storage";
-import { STORAGE_KEYS, WORKOUT_CONSTANTS, VALIDATION } from "../config/constants";
+import { STORAGE_KEYS, WORKOUT_CONSTANTS, VALIDATION, APP_INFO } from "../config/constants";
 import type { WorkoutSession, ExerciseSet } from "../types";
 
 // ============================================================================
@@ -131,7 +128,7 @@ export class OfflineService {
         },
         metadata: {
           deviceId: await this.getDeviceId(),
-          appVersion: require("../../package.json").version,
+          appVersion: APP_INFO.version,
           createdOffline: workout.offlineCreated || false,
           lastModified: Date.now(),
         },
@@ -403,12 +400,6 @@ export class OfflineService {
       filteredQueue.push(workout);
 
       await setAsyncItem(`${this.STORAGE_PREFIX}enhanced_queue`, filteredQueue);
-
-      // Also add to base queue for backward compatibility
-      await baseAddToOfflineQueue({
-        id: workout.id,
-        data: workout.data,
-      });
     } catch (error) {
       logger.error("Failed to add workout to enhanced offline queue", error, "offline");
       throw error;
@@ -593,9 +584,6 @@ export class OfflineService {
       await removeAsyncItem(`${this.STORAGE_PREFIX}enhanced_queue`);
       await removeAsyncItem(`${this.STORAGE_PREFIX}stats`);
       await removeAsyncItem(`${this.STORAGE_PREFIX}corrupted`);
-
-      // Clear base offline queue for backward compatibility
-      await setAsyncItem(STORAGE_KEYS.async.offlineWorkouts, []);
 
       logger.info("All offline data cleared", undefined, "offline");
     } catch (error) {

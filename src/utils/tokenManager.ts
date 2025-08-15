@@ -4,7 +4,7 @@
 // Secure token storage and automatic refresh logic with comprehensive
 // error handling and network-aware refresh strategies
 
-import * as SecureStore from "expo-secure-store";
+import StorageAdapter from "@/lib/storageAdapter";
 import { getAsyncItem, setAsyncItem, removeAsyncItem } from "@/utils/storage";
 import { ENV_CONFIG, STORAGE_KEYS } from "@/config/constants";
 import supabase from "@/lib/supabase";
@@ -55,19 +55,13 @@ export class TokenManager {
     try {
       logger.info("TokenManager: Storing tokens securely", undefined, "auth");
 
-      // Store access and refresh tokens in SecureStore and async metadata via helpers
+      // Store access and refresh tokens using the platform-aware adapter and async metadata helpers
       await Promise.all([
-        SecureStore.setItemAsync(STORAGE_KEYS.secure.accessToken, tokens.accessToken, {
-          keychainService: "trainsmart-keychain",
-          requireAuthentication: false,
-        }),
-        SecureStore.setItemAsync(STORAGE_KEYS.secure.refreshToken, tokens.refreshToken, {
-          keychainService: "trainsmart-keychain",
-          requireAuthentication: false,
-        }),
-        // Use helper to ensure proper JSON serialization
-        await import("@/utils/storage").then((m) => m.setAsyncItem("token_expires_at", tokens.expiresAt)),
-        await import("@/utils/storage").then((m) => m.setAsyncItem("token_stored_at", new Date().toISOString())),
+        StorageAdapter.secure.setItem(STORAGE_KEYS.secure.accessToken, tokens.accessToken),
+        StorageAdapter.secure.setItem(STORAGE_KEYS.secure.refreshToken, tokens.refreshToken),
+        // Store expiry metadata via async storage helper
+        setAsyncItem("token_expires_at", tokens.expiresAt),
+        setAsyncItem("token_stored_at", new Date().toISOString()),
       ]);
 
       // Schedule automatic refresh
@@ -97,14 +91,10 @@ export class TokenManager {
   async getTokens(): Promise<TokenData | null> {
     try {
       const [accessToken, refreshToken, expiresAt] = await Promise.all([
-        SecureStore.getItemAsync(STORAGE_KEYS.secure.accessToken, {
-          keychainService: "trainsmart-keychain",
-        }),
-        SecureStore.getItemAsync(STORAGE_KEYS.secure.refreshToken, {
-          keychainService: "trainsmart-keychain",
-        }),
-        // Use helper to read async value (handles legacy non-JSON values)
-        await import("@/utils/storage").then((m) => m.getAsyncItem<string>("token_expires_at")),
+        StorageAdapter.secure.getItem(STORAGE_KEYS.secure.accessToken),
+        StorageAdapter.secure.getItem(STORAGE_KEYS.secure.refreshToken),
+        // Read expiry metadata via async storage helper
+        getAsyncItem<string>("token_expires_at"),
       ]);
 
       if (!accessToken || !refreshToken) {
@@ -141,15 +131,11 @@ export class TokenManager {
 
       // Clear stored tokens
       await Promise.all([
-        SecureStore.deleteItemAsync(STORAGE_KEYS.secure.accessToken, {
-          keychainService: "trainsmart-keychain",
-        }).catch(() => {}), // Ignore errors if key doesn't exist
-        SecureStore.deleteItemAsync(STORAGE_KEYS.secure.refreshToken, {
-          keychainService: "trainsmart-keychain",
-        }).catch(() => {}),
-        // Use helper removal to keep behavior consistent
-        await import("@/utils/storage").then((m) => m.removeAsyncItem("token_expires_at").catch(() => {})),
-        await import("@/utils/storage").then((m) => m.removeAsyncItem("token_stored_at").catch(() => {})),
+        StorageAdapter.secure.removeItem(STORAGE_KEYS.secure.accessToken).catch(() => {}),
+        StorageAdapter.secure.removeItem(STORAGE_KEYS.secure.refreshToken).catch(() => {}),
+        // Use async storage helper removal to keep behavior consistent
+        removeAsyncItem("token_expires_at").catch(() => {}),
+        removeAsyncItem("token_stored_at").catch(() => {}),
       ]);
 
       logger.info("TokenManager: Tokens cleared successfully", undefined, "auth");
@@ -314,62 +300,14 @@ export class TokenManager {
    */
   private async initializeAutoRefresh(): Promise<void> {
     try {
-      // One-time migration: migrate legacy Supabase AsyncStorage session to SecureStore
-      try {
-        const legacyKey = "supabase.auth.token";
-        const legacyValue = await getAsyncItem<string | null>(legacyKey);
-        if (legacyValue) {
-          try {
-            const parsed = JSON.parse(legacyValue as string);
-            // Attempt to handle a few possible shapes that the legacy token blob may have
-            const currentSession = parsed?.currentSession || parsed?.current_session || parsed?.session || parsed;
-            const accessToken = currentSession?.access_token || currentSession?.accessToken || parsed?.access_token;
-            const refreshToken = currentSession?.refresh_token || currentSession?.refreshToken || parsed?.refresh_token;
-            const expiresAtRaw = currentSession?.expires_at || currentSession?.expiresAt || parsed?.expires_at;
-
-            if (accessToken && refreshToken) {
-              try {
-                await SecureStore.setItemAsync(STORAGE_KEYS.secure.accessToken, accessToken, {
-                  keychainService: "trainsmart-keychain",
-                });
-                await SecureStore.setItemAsync(STORAGE_KEYS.secure.refreshToken, refreshToken, {
-                  keychainService: "trainsmart-keychain",
-                });
-
-                const expiresAtIso =
-                  typeof expiresAtRaw === "number"
-                    ? new Date(expiresAtRaw * 1000).toISOString()
-                    : expiresAtRaw || new Date(Date.now() + 60 * 60 * 1000).toISOString();
-
-                // store expiry metadata in async storage helper for compatibility
-                await import("@/utils/storage").then((m) => m.setAsyncItem("token_expires_at", expiresAtIso));
-
-                logger.info("TokenManager: Migrated legacy Supabase tokens from AsyncStorage to SecureStore", {
-                  migrated: true,
-                });
-
-                // Remove legacy key after successful migration
-                await removeAsyncItem(legacyKey);
-              } catch (storeErr) {
-                logger.warn("TokenManager: Failed to persist migrated tokens to SecureStore", storeErr, "auth");
-              }
-            }
-          } catch (parseErr) {
-            logger.warn("TokenManager: Failed to parse legacy Supabase token blob", parseErr, "auth");
-          }
-        }
-      } catch (migrationErr) {
-        logger.debug("TokenManager: Legacy token migration check failed (non-fatal)", migrationErr, "auth");
-      }
-
-      // Initialize refresh scheduling from whatever tokens we now have (post-migration)
+      // Initialize refresh scheduling from whatever tokens we now have
       const tokens = await this.getTokens();
       if (tokens) {
         this.scheduleTokenRefresh(tokens.expiresAt);
 
         // Attempt to rehydrate the shared Supabase client session using stored tokens.
-        // This centralizes session rehydration in TokenManager so other modules (auth.service)
-        // don't need to perform ad-hoc setSession calls and risk races.
+        // TokenManager centralizes session rehydration so other modules (auth.service)
+        // should not call supabase.auth.setSession directly.
         try {
           await supabase.auth.setSession({
             access_token: tokens.accessToken,

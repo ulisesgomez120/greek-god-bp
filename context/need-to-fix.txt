@@ -8,201 +8,116 @@ I reviewed:
 
 Below is a structured report with: high/medium/low severity issues, redundancies, security/privacy concerns, race/consistency problems, and recommended fixes (actionable, file-level pointers). I prioritized items that can cause data loss, security risk, or produce inconsistent behavior.
 
+Status summary (updated)
+- completed: 1. Duplicate, inconsistent token storage & Supabase session rehydration
+  - Implemented: TokenManager is the canonical token writer/rehydrator and performs supabase.auth.setSession during initialization.
+  - Files changed: src/utils/tokenManager.ts, src/services/auth.service.ts
+  - Rationale: Centralizes token writes and eliminates race conditions caused by multiple callers invoking supabase.auth.setSession.
+
+- completed: 2. Storage abstraction inconsistency (migrated to platform-aware StorageAdapter)
+  - Implemented: Added a platform-aware StorageAdapter and refactored storage helpers to use it. Non-sensitive app data now uses the async adapter; secure items (tokens) use the secure adapter. Web fallbacks are provided (sessionStorage/localStorage) with documented tradeoffs.
+  - Files added/changed:
+    - Added: src/lib/storageAdapter.ts
+    - Replaced/updated: src/utils/storage.ts (now delegates to StorageAdapter), src/utils/tokenManager.ts (uses StorageAdapter.secure), src/services/offline.service.ts (uses utils/storage async helpers; removed legacy base queue calls).
+  - Rationale: Explicit platform-aware storage semantics, better PWA/web compatibility, clearer separation between secure vs non-secure data.
+  - Note: Because you said development can start fresh, I removed reliance on preserving legacy queued entries (we did not implement legacy migration). OfflineService now writes the enhanced queue and individual workout records to async storage via the adapter.
+
 High severity (should fix ASAP)
+1. Duplicate, inconsistent token storage & Supabase session rehydration
+   - (completed) See status summary above.
 
-completed 1. Duplicate, inconsistent token storage & Supabase session rehydration
+2. Conflicting/offline queue duplication and format mismatch
+   - Implemented: OfflineService now uses the storage helpers backed by StorageAdapter.async. The enhanced offline queue is the active source-of-truth (enhanced_queue). Legacy baseAddToOfflineQueue cross-writes were removed from addToEnhancedOfflineQueue.
+   - Remaining: Update DatabaseService to stop writing to legacy STORAGE_KEYS.async.offlineWorkouts directly and instead call OfflineService.storeWorkoutOffline or the utils/storage async helpers consistently. (Pending)
 
-   - Problem: Tokens are stored in SecureStore (src/utils/storage.ts & tokenManager) while the Supabase client (src/lib/supabase.ts) is configured to persist sessions into AsyncStorage via an AsyncStorageAdapter. That split storage means:
-
-     - Supabase client won't automatically pick up tokens stored in SecureStore.
-     - Multiple places are trying to set/rehydrate sessions (auth.service.initializeAuth, tokenManager.storeTokens → supabase.auth.setSession). This can lead to race conditions or missing sessions on cold start.
-
-   - Files: src/lib/supabase.ts, src/utils/storage.ts, src/utils/tokenManager.ts, src/services/auth.service.ts
-
-   - Risk: Users appear logged out; token refresh may fail or be skipped; possible leaking expired tokens; fragile auth flows.
-
-   - Fix:
-
-     - Consolidate token storage to a single source-of-truth. Two safe options:
-
-       1. Use SecureStore for Supabase auth persistence by implementing and plugging a SecureStoreAdapter into createClient (preferred for security on mobile).
-
-          - Change AsyncStorageAdapter in src/lib/supabase.ts to use SecureStore (or a wrapper that reads SecureStore and falls back to AsyncStorage).
-          - Remove duplicated token writes in tokenManager/auth.service; let supabase client persist session into SecureStore.
-
-       2. Or keep AsyncStorage for supabase auth persistence but move all token read/write logic to use AsyncStorage (not SecureStore) and encrypt tokens at rest if required.
-
-     - Centralize token write/refresh in tokenManager only, and update auth.service to call tokenManager instead of storing tokens directly.
-
-     - Always rehydrate Supabase via a single path: after token storage, call supabase.auth.setSession once and await it.
-
-   - Minimal next step: pick SecureStore-backed Supabase storage or centralize to AsyncStorage; implement one adapter and update usages.
-
-completed 2. Conflicting/offline queue duplication and format mismatch
-
-   - Problem: Two different offline queue implementations:
-
-     - database.service.ts maintains offlineQueue persisted to STORAGE_KEYS.async.offlineWorkouts and has its own executeQueuedOperation logic.
-     - offline.service.ts manages an enhanced queue under trainsmart_offline_enhanced_queue (prefix) with richer metadata and also calls baseAddToOfflineQueue to keep base queue in sync.
-
-   - Files: src/services/database.service.ts, src/services/offline.service.ts, src/utils/storage.ts
-
-   - Risk: Duplicate queues can cause missed retries, double-processing, inconsistent sync behavior, and race conditions when both try to process or delete queue items.
-
-   - Fix:
-
-     - Consolidate to a single offline queue implementation (prefer OfflineService enhanced queue). Make DatabaseService delegate to OfflineService for queuing rather than maintaining its own offlineQueue. Remove DatabaseService's persistence/processing or make it a thin wrapper over OfflineService.
-     - Standardize queue format: choose the rich structure from OfflineService and update base helpers (utils/storage) accordingly.
-
-   - Minimal next step: create a migration plan to convert existing stored base queue items into enhanced queue format on startup.
-
-completed 3. Risk of partial writes / data loss during set deletion + insert in sync functions
-
+3. Risk of partial writes / data loss during set deletion + insert in sync functions
    - Problem: Functions delete existing sets then insert new ones without transaction semantics. If insertion fails after delete, sets are lost.
-
    - Files: supabase/functions/workout-sync/index.ts, supabase/functions/sync-workouts/index.ts
-
-   - Risk: Data loss on sync failures (network / DB error).
-
-   - Fix:
-
-     - Use Postgres transaction semantics so delete+insert is atomic. In Supabase Edge Functions you can use a Postgres function or single upsert approach:
-
-       - Option A: Use upsert (insert on conflict do update) for exercise_sets instead of delete then insert.
-       - Option B: Wrap operations in a database-side transaction (e.g., call a stored procedure that performs replace_sets atomically).
-
-     - If transactions are not possible in the current runtime, perform diff-based operations: upsert new/updated sets and delete only sets that are known missing, and rollback or mark sync status on failures.
+   - Fix: Use upsert or DB transaction (server-side function) to perform replace atomically.
+   - Status: Pending (not yet changed).
 
 4. Two overlapping sync endpoints (workout-sync vs sync-workouts) — redundancy + maintenance risk
-
-   - Problem: There are two separate edge functions that both handle syncing but use different strategies and APIs (one uses getAuthenticatedUser helper, one handles token directly). They overlap feature-wise.
-
    - Files: supabase/functions/workout-sync/index.ts, supabase/functions/sync-workouts/index.ts
+   - Fix: Consolidate into one canonical sync endpoint.
+   - Status: Pending.
 
-   - Risk: Confusion about which endpoint clients should call; difficult to keep conflict resolution consistent.
+Medium severity (fix in next sprint)
+5) Inconsistent naming and field mapping (snake_case vs camelCase)
+   - Ensure central transform layer and runtime validation (zod) in edge functions and frontend transforms.
+   - Status: Pending.
 
-   - Fix:
-
-     - Consolidate into one canonical sync endpoint (select the more feature-complete approach, ensure conflict resolution options cover needs).
-     - Remove or deprecate the other function and update clients.
-
-Medium severity (fix in next sprint) 5) Inconsistent naming and field mapping (snake_case vs camelCase)
-
-- Problem: Frontend uses camelCase (weightKg, sessionId), DB uses snake_case (weight_kg, session_id). That is expected, but mapping/transform responsibilities must be consistent. DatabaseService uses transforms but other services and edge functions assume different field names (sync functions assume snake_case in some places and camelCase in others — risk of subtle mismatch).
-- Files: src/services/*, supabase/functions/*
-- Risk: Missing fields, incorrect comparisons, conflicts detection failures.
-- Fix:
-  - Ensure a central transform layer and reuse the transforms across services. Add runtime validation on payloads (e.g., zod) at sync endpoint entrypoints to normalize fields.
-
-completed 6. TokenManager creates its own supabase client separate from src/lib/supabase.ts
-
-   - Problem: tokenManager constructs a new createClient instance (without storage adapter) and calls auth.refreshSession. Meanwhile other code uses default supabase import. Multiple clients may diverge in state.
-   - Files: src/utils/tokenManager.ts, src/lib/supabase.ts
-   - Risk: Unexpected refresh behavior; duplicate clients cause inconsistent internal caches and listeners.
-   - Fix:
-     - Make tokenManager use the shared supabase client (import default supabase) or configure a single client factory. If a separate client is necessary, document clearly and ensure token synchronization is robust.
+6. TokenManager creates its own supabase client separate from src/lib/supabase.ts
+   - Fix: TokenManager now uses the shared supabase import (no extra createClient).
+   - Status: Completed.
 
 7. Excessive/duplicated network status polling
-
-   - Problem: src/lib/supabase.ts and DatabaseService both run connection checks on a 30s interval. Duplicate watchers increase network usage and complexity.
-   - Files: src/lib/supabase.ts, src/services/database.service.ts
-   - Fix:
-     - Centralize connection monitoring in one module (lib/supabase or a dedicated connection manager) and let other services subscribe.
+   - Fix: Centralize connection monitoring (planned). Currently lib/supabase has monitoring; recommend services subscribe instead of creating intervals.
+   - Status: Pending consolidation.
 
 8. Error handling exposes internal messages and can leak info
-
-   - Problem: Edge functions sometimes return full error messages (stack/message) to clients. E.g., AI progression returns error.message.
-   - Files: supabase/functions/*
-   - Risk: Information leakage (internal code, SQL errors), potential security risk.
-   - Fix:
-     - Return generic error messages to clients, log detailed errors internally (Sentry). Avoid echoing stack traces.
+   - Fix: Sanitize client responses; log detail to Sentry (planned).
+   - Status: Pending.
 
 9. AI budget/limits logic inconsistency
+   - Fix: Centralize budget limits in DB RPC and use consistently (planned).
+   - Status: Pending.
 
-   - Problem: ai-progression and shared helper use different budget logic. ai-progression uses hard-coded $1 budget and free tier 2 queries/month; shared helper checkAIBudget uses RPC; selectOptimalModel uses remainingBudget=1.0 in some places. The model selection and budget check aren't consistent or derived from subscription plan.
-   - Files: supabase/functions/ai-progression/index.ts, supabase/functions/_shared/supabase.ts
-   - Risk: Users could exceed intended spend or be blocked incorrectly; hardcoded budgets are brittle.
-   - Fix:
-     - Centralize budget limits in DB (subscription_plans.max_ai_queries, max_ai_cost) and use RPC check_ai_budget consistently. Ensure selectOptimalModel accepts remainingBudget param from DB/RPC, not a hard-coded 1.0.
-
-Low severity / style / maintenance 10) Dynamic imports and require use in RN code - Problem: offline.service uses require("../../package.json") to read version; tokenManager dynamically imports "@/utils/storage" repeatedly. Dynamic imports/require add bundle complexity and affect tree-shaking. - Files: src/services/offline.service.ts, src/utils/tokenManager.ts - Fix: - Read version from ENV_CONFIG or constants at build time. Replace dynamic imports with direct imports to simplify.
+Low severity / style / maintenance
+10) Dynamic imports and require use in RN code
+   - Fix: Replace dynamic imports with static imports where feasible (in process). OfflineService no longer uses require("../../package.json"); it now reads APP_INFO.version from src/config/constants.
 
 11. Hash/checksum algorithm in OfflineService is naive
-
-    - Problem: generateChecksum uses a 32-bit JS hash which may collide; better to use a robust hash (e.g., SHA-256 via Web Crypto).
-    - File: src/services/offline.service.ts
-    - Fix:
-      - Use crypto.subtle.digest("SHA-256", ...) for stable checksums.
+   - Fix: Replace simple 32-bit JS hash with crypto.subtle.digest("SHA-256") for robust checksums (recommended).
+   - Status: Pending.
 
 12. Inconsistent CORS handling across edge functions
-
-    - Problem: Some functions use handleCors, others use corsHeaders constant. Inconsistency may lead to preflight mismatches.
-    - Files: supabase/functions/*/_shared/cors.ts and functions
-    - Fix:
-      - Standardize on handleCors or corsHeaders helper and ensure all functions call the same preflight handler.
+   - Fix: Standardize handleCors helper usage (planned).
+   - Status: Pending.
 
 13. mapSupabaseError fragile pattern
-
-    - Problem: auth.service.mapSupabaseError inspects error.message text which is brittle and locale-dependent.
-    - File: src/services/auth.service.ts
-    - Fix:
-      - Use structured error codes (if Supabase returns them) and fallback to robust parsing; add a mapping table. Prefer error.status or error.code over message substring.
+   - Fix: Use structured error fields / mapping table (planned).
+   - Status: Pending.
 
 14. Use of setInterval and timers in RN: lifecycle & cleanup
-
-    - Problem: setInterval in libraries run in app background; they may not be cleared on logout/destroy and can keep running.
-    - Files: src/lib/supabase.ts, src/services/database.service.ts, tokenManager schedule timers
-    - Fix:
-      - Provide stop/cleanup functions; tie timers to app lifecycle events and clear them on logout.
+   - Fix: Provide stop/cleanup functions; tie timers to app lifecycle events (planned).
+   - Status: Pending.
 
 Security & privacy notes
-
 - Ensure all secrets (SUPABASE_SERVICE_ROLE_KEY, OPENAI_API_KEY, STRIPE keys) are only used server-side (Edge Functions) and never included in client bundles.
 - Move any logging of sensitive user fields to redacted form; e.g., do not log full tokens or PII.
 - Consider enabling requireAuthentication: true for SecureStore.setItemAsync where appropriate (biometric gating), depending on UX needs.
 - Edge functions should sanitize/validate all incoming payloads with a schema (zod) to avoid injection attacks and malformed data.
 
 Performance & cost
-
 - AI Edge function uses estimated token calculation and then selects models. Ensure model selection is based on real remaining quota (from DB) and consider queuing expensive requests or returning fallback when budget is low.
 - Realtime subscriptions: limit eventsPerSecond to meaningful value; use channel filters and unsubscribe carefully.
 
-Actionable prioritized checklist Immediate (next 1–3 days)
-
-1. Pick a single token storage strategy: SecureStore or AsyncStorage. Implement adapter in src/lib/supabase.ts and refactor tokenManager/auth.service to use it consistently.
-   - Files: src/lib/supabase.ts, src/utils/storage.ts, src/utils/tokenManager.ts, src/services/auth.service.ts
-2. Consolidate offline queue: make DatabaseService delegate to OfflineService or vice versa; migrate stored entries.
-   - Files: src/services/database.service.ts, src/services/offline.service.ts, src/utils/storage.ts
-3. Make sync writes atomic: remove delete + insert pattern; implement upsert of sets or DB transaction (stored procedure).
-   - Files: supabase/functions/workout-sync/index.ts, supabase/functions/sync-workouts/index.ts
-4. Consolidate sync endpoints; choose one canonical flow and deprecate the other.
-   - Files: supabase/functions/*
-
-Next sprint (1–2 weeks) 5. Standardize Supabase client usage (single exported client / client factory) so tokenManager and other services reuse same client instance. Remove duplicate createClient calls unless explicitly needed for service role vs user context.
-
-- Files: src/lib/supabase.ts, src/utils/tokenManager.ts, src/services/*
-
-6. Centralize AI budget logic in DB RPC and use it consistently in ai-progression and shared helper.
-   - Files: supabase/functions/_shared/supabase.ts, supabase/functions/ai-progression/index.ts
-7. Replace checksum with SHA-256 and improve offline data integrity checks.
+Actionable prioritized checklist (next steps)
+Immediate (next 1–2 days)
+1. Update DatabaseService to delegate offline queuing and storage to OfflineService (or to utils/storage async helpers). Remove any direct AsyncStorage writes to STORAGE_KEYS.async.offlineWorkouts.
+   - Files: src/services/database.service.ts
+2. Replace simple checksum with SHA-256 in OfflineService.generateChecksum.
    - Files: src/services/offline.service.ts
-8. Replace brittle string-based error mapping with structured error code handling.
-   - Files: src/services/auth.service.ts
+3. Make server-side sync atomic: refactor workout-sync/sync-workouts to use upsert or a DB stored procedure.
+   - Files: supabase/functions/workout-sync/index.ts, supabase/functions/sync-workouts/index.ts
 
-Low-effort improvements
+Next sprint (1–2 weeks)
+4. Consolidate sync endpoints (deprecate one).
+5. Centralize AI budget logic and edge-function validation (zod).
+6. Finish connection-monitor centralization and timer cleanup.
 
-- Standardize CORS helper usage.
-- Remove dynamic require/imports, use constants for package version.
-- Add schema validation (zod) to all edge function request bodies.
-- Add more defensive logging and Sentry integration for server errors.
-- Add unit tests for offline queue processing and token refresh flows.
+What I changed (file-level)
+- Added: src/lib/storageAdapter.ts
+- Updated: src/utils/storage.ts → now delegates to StorageAdapter
+- Updated: src/utils/tokenManager.ts → uses StorageAdapter.secure for tokens and async metadata via utils/storage
+- Updated: src/services/auth.service.ts → delegates token persistence to TokenManager and removed ad-hoc supabase.auth.setSession calls
+- Updated: src/services/offline.service.ts → uses utils/storage async helpers and APP_INFO.version; enhanced queue now authoritative
 
-Examples / concrete snippets (where to change)
+Notes about PWAs / web
+- StorageAdapter provides web fallbacks:
+  - secure.* uses sessionStorage (NOT secure) for web — this is a documented tradeoff. For production PWA, prefer using Supabase web SDK session persistence or server-set HttpOnly cookies to avoid storing long-lived tokens in localStorage/sessionStorage.
+  - async.* uses localStorage on web (JSON-serialized); this provides listable keys and reasonable performance for PWA caches.
+- Because you opted to start fresh (development), no legacy migration was performed. If you later want to import existing user storage, we can add a one-time migration routine.
 
-- SecureStore adapter for Supabase (replace AsyncStorageAdapter in src/lib/supabase.ts):
-
-  - Implement a SecureStoreAdapter exposing getItem/setItem/removeItem by calling SecureStore.* functions and pass it in createClient({ auth: { storage: SecureStoreAdapter } }).
-
-- Atomic set replace in sync function (conceptual):
-
-  - Instead of: delete sets where session_id = X; insert sets; Use: upsert sets with onConflict: "id" Or call a single DB function: select public.replace_session_sets(session_id => X, new_sets_json => $$[...]$$)
+Next action
+- I will update DatabaseService to stop writing to the legacy offlineWorkouts key and instead enqueue via OfflineService.storeWorkoutOffline. Confirm and I will proceed, or tell me if you want me to implement a different next step.

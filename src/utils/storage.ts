@@ -4,7 +4,7 @@
 // Secure storage utilities using Expo SecureStore for sensitive data
 // and AsyncStorage for non-sensitive data
 
-import * as SecureStore from "expo-secure-store";
+import StorageAdapter from "@/lib/storageAdapter";
 import { STORAGE_KEYS } from "../config/constants";
 import { logger } from "./logger";
 
@@ -25,10 +25,7 @@ const storageLogger = {
  */
 export const setSecureItem = async (key: string, value: string): Promise<void> => {
   try {
-    await SecureStore.setItemAsync(key, value, {
-      keychainService: "trainsmart-keychain",
-      requireAuthentication: false, // Set to true for biometric protection
-    });
+    await StorageAdapter.secure.setItem(key, value);
     logger.debug(`Secure item stored: ${key}`);
   } catch (error) {
     logger.error(`Failed to store secure item ${key}:`, error);
@@ -41,10 +38,7 @@ export const setSecureItem = async (key: string, value: string): Promise<void> =
  */
 export const getSecureItem = async (key: string): Promise<string | null> => {
   try {
-    const value = await SecureStore.getItemAsync(key, {
-      keychainService: "trainsmart-keychain",
-      requireAuthentication: false,
-    });
+    const value = await StorageAdapter.secure.getItem(key);
     logger.debug(`Secure item retrieved: ${key}`);
     return value;
   } catch (error) {
@@ -58,9 +52,7 @@ export const getSecureItem = async (key: string): Promise<string | null> => {
  */
 export const removeSecureItem = async (key: string): Promise<void> => {
   try {
-    await SecureStore.deleteItemAsync(key, {
-      keychainService: "trainsmart-keychain",
-    });
+    await StorageAdapter.secure.removeItem(key);
     logger.debug(`Secure item removed: ${key}`);
   } catch (error) {
     logger.error(`Failed to remove secure item ${key}:`, error);
@@ -75,11 +67,8 @@ export const removeSecureItem = async (key: string): Promise<void> => {
  */
 export const setAsyncItem = async (key: string, value: any): Promise<void> => {
   try {
-    const serializedValue = JSON.stringify(value);
-    await SecureStore.setItemAsync(`async:${key}`, serializedValue, {
-      keychainService: "trainsmart-keychain",
-    });
-    logger.debug(`Async item stored (secure): ${key}`);
+    await StorageAdapter.async.setItem(key, value);
+    logger.debug(`Async item stored: ${key}`);
   } catch (error) {
     logger.error(`Failed to store async item ${key}:`, error);
     throw new Error(`Failed to store data: ${error}`);
@@ -91,25 +80,10 @@ export const setAsyncItem = async (key: string, value: any): Promise<void> => {
  */
 export const getAsyncItem = async <T = any>(key: string): Promise<T | null> => {
   try {
-    const serializedValue = await SecureStore.getItemAsync(`async:${key}`, {
-      keychainService: "trainsmart-keychain",
-    });
-    if (!serializedValue) {
-      return null;
-    }
-
-    try {
-      const value = JSON.parse(serializedValue);
-      logger.debug(`Async item retrieved (parsed JSON): ${key}`);
-      return value;
-    } catch (parseError) {
-      logger.warn(`Async item for key ${key} is not valid JSON — returning raw string fallback`, {
-        parseError,
-        key,
-        rawValuePreview: String(serializedValue).slice(0, 200),
-      });
-      return serializedValue as unknown as T;
-    }
+    const value = await StorageAdapter.async.getItem<T>(key);
+    if (value === null || value === undefined) return null;
+    logger.debug(`Async item retrieved: ${key}`);
+    return value;
   } catch (error) {
     logger.error(`Failed to retrieve async item ${key}:`, error);
     return null;
@@ -121,10 +95,8 @@ export const getAsyncItem = async <T = any>(key: string): Promise<T | null> => {
  */
 export const removeAsyncItem = async (key: string): Promise<void> => {
   try {
-    await SecureStore.deleteItemAsync(`async:${key}`, {
-      keychainService: "trainsmart-keychain",
-    });
-    logger.debug(`Async item removed (secure): ${key}`);
+    await StorageAdapter.async.removeItem(key);
+    logger.debug(`Async item removed: ${key}`);
   } catch (error) {
     logger.error(`Failed to remove async item ${key}:`, error);
     throw new Error(`Failed to remove data: ${error}`);
@@ -138,15 +110,29 @@ export const removeAsyncItem = async (key: string): Promise<void> => {
  */
 export const clearAsyncStorage = async (): Promise<void> => {
   try {
+    // Remove known keys from STORAGE_KEYS.async
     const keys = Object.values(STORAGE_KEYS.async) as string[];
-    const promises = keys.map((k) =>
-      SecureStore.deleteItemAsync(`async:${k}`, { keychainService: "trainsmart-keychain" }).catch(() => {})
-    );
+    const removePromises = keys.map((k) => StorageAdapter.async.removeItem(k).catch(() => {}));
+
     // Also remove common runtime keys
-    promises.push(SecureStore.deleteItemAsync("async:token_expires_at").catch(() => {}));
-    promises.push(SecureStore.deleteItemAsync("async:workout_cache").catch(() => {}));
-    await Promise.all(promises);
-    logger.info("Async (secure) storage cleared");
+    removePromises.push(StorageAdapter.async.removeItem("token_expires_at").catch(() => {}));
+    removePromises.push(StorageAdapter.async.removeItem("workout_cache").catch(() => {}));
+
+    // Additionally, attempt to list any remaining async: keys and remove them for thoroughness
+    try {
+      const listedKeys = await StorageAdapter.async.listKeys();
+      for (const listedKey of listedKeys) {
+        if (!keys.includes(listedKey)) {
+          removePromises.push(StorageAdapter.async.removeItem(listedKey).catch(() => {}));
+        }
+      }
+    } catch (listErr) {
+      // Non-fatal - continue
+      logger.warn("clearAsyncStorage: failed to list async keys for cleanup", listErr);
+    }
+
+    await Promise.all(removePromises);
+    logger.info("Async storage cleared");
   } catch (error) {
     logger.error("Failed to clear async storage:", error);
     throw new Error(`Failed to clear storage: ${error}`);
