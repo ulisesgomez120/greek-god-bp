@@ -168,17 +168,8 @@ async function syncWorkout(
       throw new Error(`Failed to sync workout: ${workoutError.message}`);
     }
 
-    // Delete existing sets for this workout (if updating)
-    if (existingWorkout) {
-      const { error: deleteError } = await supabase.from("exercise_sets").delete().eq("session_id", workout.id);
-
-      if (deleteError) {
-        console.warn("Failed to delete existing sets:", deleteError);
-        // Continue anyway - upsert might handle duplicates
-      }
-    }
-
-    // Insert exercise sets
+    // Upsert exercise sets (safer than delete-then-insert).
+    // We'll upsert incoming sets, then remove any server sets not present in the incoming payload.
     if (workout.sets && workout.sets.length > 0) {
       const setsData = workout.sets.map((set) => ({
         id: set.id,
@@ -193,10 +184,41 @@ async function syncWorkout(
         notes: set.notes,
       }));
 
-      const { error: setsError } = await supabase.from("exercise_sets").insert(setsData);
+      // Upsert incoming sets (onConflict by id)
+      const { error: upsertError } = await supabase.from("exercise_sets").upsert(setsData, { onConflict: "id" });
+      if (upsertError) {
+        throw new Error(`Failed to upsert exercise sets: ${upsertError.message}`);
+      }
 
-      if (setsError) {
-        throw new Error(`Failed to sync exercise sets: ${setsError.message}`);
+      // Build list of incoming IDs for cleanup
+      const incomingIds = setsData.map((s) => s.id).filter(Boolean);
+
+      // Delete server-side sets that are not present in incoming payload (cleanup)
+      try {
+        if (incomingIds.length > 0) {
+          const { error: deleteError } = await supabase
+            .from("exercise_sets")
+            .delete()
+            .eq("session_id", workout.id)
+            .not("id", "in", `(${incomingIds.map((id) => `'${id}'`).join(",")})`);
+
+          if (deleteError) {
+            // Non-fatal: log and continue
+            console.warn("Failed to delete stale sets:", deleteError);
+          }
+        }
+      } catch (cleanupErr) {
+        console.warn("Error during cleanup of stale sets:", cleanupErr);
+      }
+    } else {
+      // No sets provided: ensure server has none (optional)
+      try {
+        const { error: deleteAllError } = await supabase.from("exercise_sets").delete().eq("session_id", workout.id);
+        if (deleteAllError) {
+          console.warn("Failed to delete all sets when none provided:", deleteAllError);
+        }
+      } catch (e) {
+        console.warn("Error deleting sets when none provided:", e);
       }
     }
 

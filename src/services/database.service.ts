@@ -56,7 +56,6 @@ export class DatabaseService {
   private static instance: DatabaseService;
   private connectionPool: Map<string, any> = new Map();
   private queryCache: Map<string, { data: any; timestamp: number; ttl: number }> = new Map();
-  private offlineQueue: Array<{ operation: string; data: any; timestamp: number }> = [];
   private isOnline: boolean = true;
 
   private constructor() {
@@ -75,21 +74,14 @@ export class DatabaseService {
   // ============================================================================
 
   private async initializeService(): Promise<void> {
-    // Load offline queue from storage
+    // Initialization: no local offline queue maintained here anymore.
+    // Offline persistence and processing is handled by OfflineService.
     try {
-      const storedQueue = await AsyncStorage.getItem(STORAGE_KEYS.async.offlineWorkouts);
-      if (storedQueue) {
-        this.offlineQueue = JSON.parse(storedQueue);
-      }
+      // Subscribe to centralized connection monitoring if needed (lib/supabase handles polling)
+      // Additional initialization steps can be added here in the future.
     } catch (error) {
-      console.warn("Failed to load offline queue:", error);
+      console.warn("DatabaseService: initialization warning", error);
     }
-
-    // Monitor connection status
-    this.monitorConnectionStatus();
-
-    // Process offline queue when coming online
-    this.processOfflineQueue();
   }
 
   private monitorConnectionStatus(): void {
@@ -100,9 +92,15 @@ export class DatabaseService {
         const wasOffline = !this.isOnline;
         this.isOnline = !error;
 
-        // If we just came back online, process offline queue
+        // If we just came back online, notify OfflineService (do not manage queue here)
         if (wasOffline && this.isOnline) {
-          await this.processOfflineQueue();
+          try {
+            const { offlineService } = await import("@/services/offline.service");
+            const pending = await offlineService.getPendingWorkouts();
+            console.log(`DatabaseService: detected ${pending.length} pending offline items after reconnect`);
+          } catch (err) {
+            console.warn("DatabaseService: failed to query OfflineService on reconnect", err);
+          }
         }
       } catch (error) {
         this.isOnline = false;
@@ -157,73 +155,7 @@ export class DatabaseService {
   // OFFLINE QUEUE MANAGEMENT
   // ============================================================================
 
-  private async addToOfflineQueue(operation: string, data: any): Promise<void> {
-    this.offlineQueue.push({
-      operation,
-      data,
-      timestamp: Date.now(),
-    });
-
-    // Persist to storage
-    try {
-      await AsyncStorage.setItem(STORAGE_KEYS.async.offlineWorkouts, JSON.stringify(this.offlineQueue));
-    } catch (error) {
-      console.error("Failed to persist offline queue:", error);
-    }
-  }
-
-  private async processOfflineQueue(): Promise<void> {
-    if (!this.isOnline || this.offlineQueue.length === 0) {
-      return;
-    }
-
-    console.log(`Processing ${this.offlineQueue.length} offline operations`);
-
-    const processedOperations: string[] = [];
-
-    for (const queueItem of this.offlineQueue) {
-      try {
-        await this.executeQueuedOperation(queueItem);
-        processedOperations.push(`${queueItem.operation}:${queueItem.timestamp}`);
-      } catch (error) {
-        console.error("Failed to process queued operation:", error);
-        // Keep failed operations in queue for retry
-      }
-    }
-
-    // Remove successfully processed operations
-    this.offlineQueue = this.offlineQueue.filter(
-      (item) => !processedOperations.includes(`${item.operation}:${item.timestamp}`)
-    );
-
-    // Update storage
-    try {
-      await AsyncStorage.setItem(STORAGE_KEYS.async.offlineWorkouts, JSON.stringify(this.offlineQueue));
-    } catch (error) {
-      console.error("Failed to update offline queue:", error);
-    }
-  }
-
-  private async executeQueuedOperation(queueItem: any): Promise<void> {
-    const { operation, data } = queueItem;
-
-    switch (operation) {
-      case "insert_workout_session":
-        await this.insertWorkoutSession(data, { useCache: false });
-        break;
-      case "update_workout_session":
-        await this.updateWorkoutSession(data.id, data, { useCache: false });
-        break;
-      case "insert_exercise_sets":
-        await this.insertExerciseSets(data, { useCache: false });
-        break;
-      case "update_user_profile":
-        await this.updateUserProfile(data.id, data, { useCache: false });
-        break;
-      default:
-        console.warn("Unknown queued operation:", operation);
-    }
-  }
+  // Offline queue is handled by OfflineService. DatabaseService no longer persists its own queue.
 
   // ============================================================================
   // ERROR HANDLING
@@ -322,8 +254,15 @@ export class DatabaseService {
       const dbError = this.handleDatabaseError(error);
 
       if (dbError.isNetworkError) {
-        // Queue for offline processing
-        await this.addToOfflineQueue("update_user_profile", { id: userId, ...updates });
+        // Fallback: write a simple legacy queue entry for OfflineService to pick up
+        try {
+          const raw = await AsyncStorage.getItem(STORAGE_KEYS.async.offlineWorkouts);
+          const queue = raw ? JSON.parse(raw) : [];
+          queue.push({ operation: "update_user_profile", data: { id: userId, ...updates }, timestamp: Date.now() });
+          await AsyncStorage.setItem(STORAGE_KEYS.async.offlineWorkouts, JSON.stringify(queue));
+        } catch (err) {
+          console.warn("DatabaseService: failed to push legacy offline queue entry", err);
+        }
       }
 
       throw dbError;
@@ -422,8 +361,22 @@ export class DatabaseService {
       const dbError = this.handleDatabaseError(error);
 
       if (dbError.isNetworkError) {
-        // Queue for offline processing
-        await this.addToOfflineQueue("insert_workout_session", session);
+        // Delegate to OfflineService to store workout offline
+        try {
+          const { offlineService } = await import("@/services/offline.service");
+          await offlineService.storeWorkoutOffline({
+            ...(session as any),
+            id: (session as any).id || `temp_${Date.now()}`,
+            offlineCreated: true,
+          } as any);
+        } catch (e) {
+          // Fallback to basic async queue if OfflineService unavailable
+          await AsyncStorage.getItem(STORAGE_KEYS.async.offlineWorkouts).then(async (raw) => {
+            const queue = raw ? JSON.parse(raw) : [];
+            queue.push({ operation: "insert_workout_session", data: session, timestamp: Date.now() });
+            await AsyncStorage.setItem(STORAGE_KEYS.async.offlineWorkouts, JSON.stringify(queue));
+          });
+        }
 
         // Return a temporary session with pending status
         return {
@@ -470,8 +423,26 @@ export class DatabaseService {
       const dbError = this.handleDatabaseError(error);
 
       if (dbError.isNetworkError) {
-        // Queue for offline processing
-        await this.addToOfflineQueue("update_workout_session", { id: sessionId, ...updates });
+        // Delegate update to OfflineService: fetch existing offline workout and merge updates, or queue if not found
+        try {
+          const { offlineService } = await import("@/services/offline.service");
+          // Attempt to store a merged offline version (best-effort)
+          await offlineService.storeWorkoutOffline({
+            id: sessionId,
+            ...updates,
+          } as any);
+        } catch (e) {
+          // Fallback to legacy queue
+          await AsyncStorage.getItem(STORAGE_KEYS.async.offlineWorkouts).then(async (raw) => {
+            const queue = raw ? JSON.parse(raw) : [];
+            queue.push({
+              operation: "update_workout_session",
+              data: { id: sessionId, ...updates },
+              timestamp: Date.now(),
+            });
+            await AsyncStorage.setItem(STORAGE_KEYS.async.offlineWorkouts, JSON.stringify(queue));
+          });
+        }
       }
 
       throw dbError;
@@ -511,8 +482,12 @@ export class DatabaseService {
       const dbError = this.handleDatabaseError(error);
 
       if (dbError.isNetworkError) {
-        // Queue for offline processing
-        await this.addToOfflineQueue("insert_exercise_sets", sets);
+        // Fallback: add sets to legacy async queue for processing by OfflineService/worker
+        await AsyncStorage.getItem(STORAGE_KEYS.async.offlineWorkouts).then(async (raw) => {
+          const queue = raw ? JSON.parse(raw) : [];
+          queue.push({ operation: "insert_exercise_sets", data: sets, timestamp: Date.now() });
+          await AsyncStorage.setItem(STORAGE_KEYS.async.offlineWorkouts, JSON.stringify(queue));
+        });
 
         // Return temporary sets with pending status
         return sets.map((set, index) => ({
@@ -777,8 +752,14 @@ export class DatabaseService {
     };
 
     try {
-      // Process offline queue
-      await this.processOfflineQueue();
+      // Let OfflineService handle pending offline items (legacy queue migration/processing)
+      try {
+        const { offlineService } = await import("@/services/offline.service");
+        const pending = await offlineService.getPendingWorkouts();
+        console.log(`DatabaseService.syncAllData: ${pending.length} pending offline items`);
+      } catch (err) {
+        console.warn("DatabaseService.syncAllData: failed to query OfflineService", err);
+      }
 
       // Clear cache to ensure fresh data
       this.clearCache();
@@ -803,8 +784,21 @@ export class DatabaseService {
     return this.isOnline;
   }
 
-  getOfflineQueueSize(): number {
-    return this.offlineQueue.length;
+  async getOfflineQueueSize(): Promise<number> {
+    try {
+      const { offlineService } = await import("@/services/offline.service");
+      const pending = await offlineService.getPendingWorkouts();
+      return pending.length;
+    } catch (err) {
+      // Fallback to legacy AsyncStorage queue if OfflineService unavailable
+      try {
+        const raw = await AsyncStorage.getItem(STORAGE_KEYS.async.offlineWorkouts);
+        const queue = raw ? JSON.parse(raw) : [];
+        return queue.length;
+      } catch {
+        return 0;
+      }
+    }
   }
 
   async clearAllCache(): Promise<void> {
@@ -816,11 +810,32 @@ export class DatabaseService {
     offlineQueueSize: number;
     isOnline: boolean;
   }> {
-    return {
-      cacheSize: this.queryCache.size,
-      offlineQueueSize: this.offlineQueue.length,
-      isOnline: this.isOnline,
-    };
+    try {
+      const { offlineService } = await import("@/services/offline.service");
+      const pending = await offlineService.getPendingWorkouts();
+      return {
+        cacheSize: this.queryCache.size,
+        offlineQueueSize: pending.length,
+        isOnline: this.isOnline,
+      };
+    } catch (err) {
+      // Fallback to legacy AsyncStorage queue if OfflineService unavailable
+      try {
+        const raw = await AsyncStorage.getItem(STORAGE_KEYS.async.offlineWorkouts);
+        const queue = raw ? JSON.parse(raw) : [];
+        return {
+          cacheSize: this.queryCache.size,
+          offlineQueueSize: queue.length,
+          isOnline: this.isOnline,
+        };
+      } catch {
+        return {
+          cacheSize: this.queryCache.size,
+          offlineQueueSize: 0,
+          isOnline: this.isOnline,
+        };
+      }
+    }
   }
 }
 

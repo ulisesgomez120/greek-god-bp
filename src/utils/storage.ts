@@ -5,7 +5,6 @@
 // and AsyncStorage for non-sensitive data
 
 import * as SecureStore from "expo-secure-store";
-import AsyncStorage from "@react-native-async-storage/async-storage";
 import { STORAGE_KEYS } from "../config/constants";
 import { logger } from "./logger";
 
@@ -69,18 +68,18 @@ export const removeSecureItem = async (key: string): Promise<void> => {
   }
 };
 
-// ============================================================================
-// ASYNC STORAGE (UNENCRYPTED)
-// ============================================================================
-
 /**
- * Store non-sensitive data
+ * Store non-sensitive data (now persisted in SecureStore under an "async:" prefix).
+ * Note: AsyncStorage has been removed from the project; this keeps the same helpers
+ * but uses SecureStore for development convenience.
  */
 export const setAsyncItem = async (key: string, value: any): Promise<void> => {
   try {
     const serializedValue = JSON.stringify(value);
-    await AsyncStorage.setItem(key, serializedValue);
-    logger.debug(`Async item stored: ${key}`);
+    await SecureStore.setItemAsync(`async:${key}`, serializedValue, {
+      keychainService: "trainsmart-keychain",
+    });
+    logger.debug(`Async item stored (secure): ${key}`);
   } catch (error) {
     logger.error(`Failed to store async item ${key}:`, error);
     throw new Error(`Failed to store data: ${error}`);
@@ -88,22 +87,22 @@ export const setAsyncItem = async (key: string, value: any): Promise<void> => {
 };
 
 /**
- * Retrieve non-sensitive data
+ * Retrieve non-sensitive data (stored under SecureStore with "async:" prefix)
  */
 export const getAsyncItem = async <T = any>(key: string): Promise<T | null> => {
   try {
-    const serializedValue = await AsyncStorage.getItem(key);
-    if (serializedValue === null) {
+    const serializedValue = await SecureStore.getItemAsync(`async:${key}`, {
+      keychainService: "trainsmart-keychain",
+    });
+    if (!serializedValue) {
       return null;
     }
 
-    // Try parsing as JSON first. If parsing fails, fall back to returning the raw string.
     try {
       const value = JSON.parse(serializedValue);
       logger.debug(`Async item retrieved (parsed JSON): ${key}`);
       return value;
     } catch (parseError) {
-      // Non-JSON value stored (legacy/malformed). Return raw string as a safe fallback.
       logger.warn(`Async item for key ${key} is not valid JSON — returning raw string fallback`, {
         parseError,
         key,
@@ -122,8 +121,10 @@ export const getAsyncItem = async <T = any>(key: string): Promise<T | null> => {
  */
 export const removeAsyncItem = async (key: string): Promise<void> => {
   try {
-    await AsyncStorage.removeItem(key);
-    logger.debug(`Async item removed: ${key}`);
+    await SecureStore.deleteItemAsync(`async:${key}`, {
+      keychainService: "trainsmart-keychain",
+    });
+    logger.debug(`Async item removed (secure): ${key}`);
   } catch (error) {
     logger.error(`Failed to remove async item ${key}:`, error);
     throw new Error(`Failed to remove data: ${error}`);
@@ -131,12 +132,21 @@ export const removeAsyncItem = async (key: string): Promise<void> => {
 };
 
 /**
- * Clear all non-sensitive data
+ * Clear all non-sensitive data (SecureStore keys with "async:" prefix).
+ * Note: SecureStore doesn't provide a listing API; this function clears known keys
+ * defined in STORAGE_KEYS.async and related keys used by the app.
  */
 export const clearAsyncStorage = async (): Promise<void> => {
   try {
-    await AsyncStorage.clear();
-    logger.info("Async storage cleared");
+    const keys = Object.values(STORAGE_KEYS.async) as string[];
+    const promises = keys.map((k) =>
+      SecureStore.deleteItemAsync(`async:${k}`, { keychainService: "trainsmart-keychain" }).catch(() => {})
+    );
+    // Also remove common runtime keys
+    promises.push(SecureStore.deleteItemAsync("async:token_expires_at").catch(() => {}));
+    promises.push(SecureStore.deleteItemAsync("async:workout_cache").catch(() => {}));
+    await Promise.all(promises);
+    logger.info("Async (secure) storage cleared");
   } catch (error) {
     logger.error("Failed to clear async storage:", error);
     throw new Error(`Failed to clear storage: ${error}`);
@@ -485,7 +495,7 @@ export const performStorageHealthCheck = async (): Promise<{
   }
 
   try {
-    // Test async storage
+    // Test async (now stored in SecureStore) storage
     const testKey = "health_check_async";
     const testValue = { test: "value" };
     await setAsyncItem(testKey, testValue);
@@ -494,11 +504,11 @@ export const performStorageHealthCheck = async (): Promise<{
 
     if (JSON.stringify(retrievedValue) !== JSON.stringify(testValue)) {
       asyncStorageHealthy = false;
-      errors.push("Async storage read/write test failed");
+      errors.push("Async storage (secure) read/write test failed");
     }
   } catch (error) {
     asyncStorageHealthy = false;
-    errors.push(`Async storage error: ${error}`);
+    errors.push(`Async storage (secure) error: ${error}`);
   }
 
   return {

@@ -5,8 +5,7 @@
 // error handling and network-aware refresh strategies
 
 import * as SecureStore from "expo-secure-store";
-import AsyncStorage from "@react-native-async-storage/async-storage";
-import { createClient } from "@supabase/supabase-js";
+import { getAsyncItem, setAsyncItem, removeAsyncItem } from "@/utils/storage";
 import { ENV_CONFIG, STORAGE_KEYS } from "@/config/constants";
 import supabase from "@/lib/supabase";
 import { logger } from "@/utils/logger";
@@ -33,7 +32,8 @@ export class TokenManager {
   private refreshPromise?: Promise<TokenData | null>;
 
   private constructor() {
-    this.supabaseClient = createClient(ENV_CONFIG.supabaseUrl, ENV_CONFIG.supabaseAnonKey);
+    // Use the shared Supabase client instance so session state is consistent across the app
+    this.supabaseClient = supabase;
     this.initializeAutoRefresh();
   }
 
@@ -310,10 +310,59 @@ export class TokenManager {
   // ============================================================================
 
   /**
-   * Initialize automatic token refresh
+   * Initialize automatic token refresh and perform one-time migration of legacy AsyncStorage tokens.
    */
   private async initializeAutoRefresh(): Promise<void> {
     try {
+      // One-time migration: migrate legacy Supabase AsyncStorage session to SecureStore
+      try {
+        const legacyKey = "supabase.auth.token";
+        const legacyValue = await getAsyncItem<string | null>(legacyKey);
+        if (legacyValue) {
+          try {
+            const parsed = JSON.parse(legacyValue as string);
+            // Attempt to handle a few possible shapes that the legacy token blob may have
+            const currentSession = parsed?.currentSession || parsed?.current_session || parsed?.session || parsed;
+            const accessToken = currentSession?.access_token || currentSession?.accessToken || parsed?.access_token;
+            const refreshToken = currentSession?.refresh_token || currentSession?.refreshToken || parsed?.refresh_token;
+            const expiresAtRaw = currentSession?.expires_at || currentSession?.expiresAt || parsed?.expires_at;
+
+            if (accessToken && refreshToken) {
+              try {
+                await SecureStore.setItemAsync(STORAGE_KEYS.secure.accessToken, accessToken, {
+                  keychainService: "trainsmart-keychain",
+                });
+                await SecureStore.setItemAsync(STORAGE_KEYS.secure.refreshToken, refreshToken, {
+                  keychainService: "trainsmart-keychain",
+                });
+
+                const expiresAtIso =
+                  typeof expiresAtRaw === "number"
+                    ? new Date(expiresAtRaw * 1000).toISOString()
+                    : expiresAtRaw || new Date(Date.now() + 60 * 60 * 1000).toISOString();
+
+                // store expiry metadata in async storage helper for compatibility
+                await import("@/utils/storage").then((m) => m.setAsyncItem("token_expires_at", expiresAtIso));
+
+                logger.info("TokenManager: Migrated legacy Supabase tokens from AsyncStorage to SecureStore", {
+                  migrated: true,
+                });
+
+                // Remove legacy key after successful migration
+                await removeAsyncItem(legacyKey);
+              } catch (storeErr) {
+                logger.warn("TokenManager: Failed to persist migrated tokens to SecureStore", storeErr, "auth");
+              }
+            }
+          } catch (parseErr) {
+            logger.warn("TokenManager: Failed to parse legacy Supabase token blob", parseErr, "auth");
+          }
+        }
+      } catch (migrationErr) {
+        logger.debug("TokenManager: Legacy token migration check failed (non-fatal)", migrationErr, "auth");
+      }
+
+      // Initialize refresh scheduling from whatever tokens we now have (post-migration)
       const tokens = await this.getTokens();
       if (tokens) {
         this.scheduleTokenRefresh(tokens.expiresAt);

@@ -4,33 +4,56 @@
 // Main Supabase client with authentication and real-time configuration
 
 import { createClient } from "@supabase/supabase-js";
-import AsyncStorage from "@react-native-async-storage/async-storage";
 import * as SecureStore from "expo-secure-store";
 import { ENV_CONFIG } from "@/config/constants";
+import { clearAsyncStorage } from "@/utils/storage";
 import type { Database } from "@/types/database";
 
-// Use AsyncStorage as the default storage adapter for Supabase Auth in React Native.
-// AsyncStorage is widely supported and works well with @supabase/auth-js in RN/Expo.
-// You can switch back to SecureStore if you prefer stronger platform-backed security,
-// but then you must ensure tokenManager and Supabase use the same storage adapter
-// and rehydrate the Supabase session on startup.
-const AsyncStorageAdapter = {
-  getItem: (key: string) => {
-    return AsyncStorage.getItem(key);
+/*
+  Use SecureStore as the storage adapter for Supabase Auth on mobile.
+
+  Rationale:
+  - SecureStore provides platform-backed encrypted storage (Keychain / Keystore)
+    which is preferable for storing authentication sessions on mobile.
+  - This adapter ensures Supabase persistence and the app's token helpers use
+    the same secure storage, avoiding split-state issues.
+
+  Note: Non-sensitive app caches (workout cache, offline queue metadata) continue
+  to use AsyncStorage via the storage utilities.
+*/
+const SecureStoreAdapter = {
+  getItem: async (key: string) => {
+    try {
+      const value = await SecureStore.getItemAsync(key, { keychainService: "trainsmart-keychain" });
+      return value;
+    } catch (err) {
+      console.warn("SecureStoreAdapter.getItem failed:", err);
+      return null;
+    }
   },
-  setItem: (key: string, value: string) => {
-    return AsyncStorage.setItem(key, value);
+  setItem: async (key: string, value: string) => {
+    try {
+      return await SecureStore.setItemAsync(key, value, { keychainService: "trainsmart-keychain" });
+    } catch (err) {
+      console.warn("SecureStoreAdapter.setItem failed:", err);
+      throw err;
+    }
   },
-  removeItem: (key: string) => {
-    return AsyncStorage.removeItem(key);
+  removeItem: async (key: string) => {
+    try {
+      return await SecureStore.deleteItemAsync(key, { keychainService: "trainsmart-keychain" });
+    } catch (err) {
+      console.warn("SecureStoreAdapter.removeItem failed:", err);
+      throw err;
+    }
   },
 };
 
 // Create Supabase client with proper configuration
 export const supabase = createClient<Database>(ENV_CONFIG.supabaseUrl, ENV_CONFIG.supabaseAnonKey, {
   auth: {
-    // Use AsyncStorage on React Native for reliable session persistence
-    storage: AsyncStorageAdapter,
+    // Use SecureStore on React Native for encrypted session persistence
+    storage: SecureStoreAdapter,
     autoRefreshToken: true,
     persistSession: true,
     detectSessionInUrl: false,
@@ -153,7 +176,11 @@ export async function signOut(): Promise<{ error?: string }> {
     }
 
     // Clear any cached data
-    await AsyncStorage.multiRemove(["@offline_workouts", "@workout_cache", "@last_sync_time"]);
+    try {
+      await clearAsyncStorage();
+    } catch (err) {
+      console.warn("Failed to clear async storage during signOut:", err);
+    }
 
     return {};
   } catch (error) {

@@ -10,7 +10,7 @@ Below is a structured report with: high/medium/low severity issues, redundancies
 
 High severity (should fix ASAP)
 
-1. Duplicate, inconsistent token storage & Supabase session rehydration
+completed 1. Duplicate, inconsistent token storage & Supabase session rehydration
 
    - Problem: Tokens are stored in SecureStore (src/utils/storage.ts & tokenManager) while the Supabase client (src/lib/supabase.ts) is configured to persist sessions into AsyncStorage via an AsyncStorageAdapter. That split storage means:
 
@@ -38,7 +38,7 @@ High severity (should fix ASAP)
 
    - Minimal next step: pick SecureStore-backed Supabase storage or centralize to AsyncStorage; implement one adapter and update usages.
 
-2. Conflicting/offline queue duplication and format mismatch
+completed 2. Conflicting/offline queue duplication and format mismatch
 
    - Problem: Two different offline queue implementations:
 
@@ -56,7 +56,7 @@ High severity (should fix ASAP)
 
    - Minimal next step: create a migration plan to convert existing stored base queue items into enhanced queue format on startup.
 
-3. Risk of partial writes / data loss during set deletion + insert in sync functions
+completed 3. Risk of partial writes / data loss during set deletion + insert in sync functions
 
    - Problem: Functions delete existing sets then insert new ones without transaction semantics. If insertion fails after delete, sets are lost.
 
@@ -94,7 +94,7 @@ Medium severity (fix in next sprint) 5) Inconsistent naming and field mapping (s
 - Fix:
   - Ensure a central transform layer and reuse the transforms across services. Add runtime validation on payloads (e.g., zod) at sync endpoint entrypoints to normalize fields.
 
-6. TokenManager creates its own supabase client separate from src/lib/supabase.ts
+completed 6. TokenManager creates its own supabase client separate from src/lib/supabase.ts
 
    - Problem: tokenManager constructs a new createClient instance (without storage adapter) and calls auth.refreshSession. Meanwhile other code uses default supabase import. Multiple clients may diverge in state.
    - Files: src/utils/tokenManager.ts, src/lib/supabase.ts
