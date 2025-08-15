@@ -366,6 +366,19 @@ export class TokenManager {
       const tokens = await this.getTokens();
       if (tokens) {
         this.scheduleTokenRefresh(tokens.expiresAt);
+
+        // Attempt to rehydrate the shared Supabase client session using stored tokens.
+        // This centralizes session rehydration in TokenManager so other modules (auth.service)
+        // don't need to perform ad-hoc setSession calls and risk races.
+        try {
+          await supabase.auth.setSession({
+            access_token: tokens.accessToken,
+            refresh_token: tokens.refreshToken,
+          });
+          logger.info("TokenManager: Supabase session rehydrated during initialization", undefined, "auth");
+        } catch (rehydErr) {
+          logger.warn("TokenManager: Failed to rehydrate Supabase session during initialization", rehydErr, "auth");
+        }
       }
     } catch (error) {
       logger.error("TokenManager: Failed to initialize auto-refresh", error, "auth");

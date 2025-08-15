@@ -6,7 +6,7 @@
 import { ENV_CONFIG } from "@/config/constants";
 import { ERROR_MESSAGES, SUCCESS_MESSAGES } from "@/constants/auth";
 import { logger } from "@/utils/logger";
-import { storeTokens, clearTokens, getTokens, areTokensExpired } from "@/utils/storage";
+import { storeTokens, getTokens, clearTokens, areTokensExpired } from "@/utils/tokenManager";
 import type { Database } from "@/types/database";
 import type {
   LoginCredentials,
@@ -479,24 +479,10 @@ export async function initializeAuth(): Promise<AuthResponse> {
   try {
     logger.info("Initializing authentication state", undefined, "auth");
 
-    // Attempt to rehydrate Supabase session from locally stored tokens (tokenManager / storage)
-    try {
-      const tokens = await getTokens();
-      if (tokens && tokens.accessToken && tokens.refreshToken) {
-        try {
-          await supabase.auth.setSession({
-            access_token: tokens.accessToken,
-            refresh_token: tokens.refreshToken,
-          });
-          logger.info("Rehydrated Supabase session from local tokens", undefined, "auth");
-        } catch (setErr) {
-          logger.warn("Failed to rehydrate Supabase session from local tokens", setErr, "auth");
-          // Proceed — later getSession() will return null and we will clear tokens
-        }
-      }
-    } catch (tokenReadErr) {
-      logger.warn("Error reading local tokens during initialization", tokenReadErr, "auth");
-    }
+    // TokenManager handles migration and rehydration of stored tokens on initialization.
+    // Avoid ad-hoc supabase.auth.setSession calls here to prevent race conditions.
+    // TokenManager's initialization (import side-effect) will rehydrate the shared Supabase client.
+    // No-op migration/rehydration performed here.
 
     // Get current session - Supabase handles token validation automatically
     const {
@@ -562,23 +548,14 @@ export async function initializeAuth(): Promise<AuthResponse> {
  * Handle successful authentication - simplified
  */
 async function handleSuccessfulAuth(session: any): Promise<void> {
-  // Store tokens securely
+  // Store tokens — TokenManager will rehydrate Supabase and schedule refresh.
   await storeTokens({
     accessToken: session.access_token,
     refreshToken: session.refresh_token,
     expiresAt: new Date(session.expires_at! * 1000).toISOString(),
   });
 
-  // Ensure Supabase client is rehydrated with the new session so getSession/getUser succeed immediately.
-  try {
-    await supabase.auth.setSession({
-      access_token: session.access_token,
-      refresh_token: session.refresh_token,
-    });
-    logger.info("auth.service: Supabase session rehydrated after successful auth", undefined, "auth", session.user?.id);
-  } catch (rehydErr) {
-    logger.warn("auth.service: Failed to rehydrate Supabase session after storing tokens", rehydErr, "auth");
-  }
+  // Do not call supabase.auth.setSession here; TokenManager centralizes session rehydration.
 }
 
 /**
