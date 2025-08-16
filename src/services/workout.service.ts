@@ -711,26 +711,75 @@ export class WorkoutService {
       let syncedCount = 0;
       let errorCount = 0;
 
-      for (const offlineWorkout of pendingWorkouts) {
-        try {
-          // Attempt to sync with server
-          const { error } = await this.supabase
-            .from("workout_sessions")
-            .upsert(offlineWorkout.data, { onConflict: "id" });
-
-          if (error) {
-            throw error;
-          }
-
-          // Remove from offline storage on successful sync
-          await offlineService.removeWorkoutOffline(offlineWorkout.id);
-          syncedCount++;
-
-          logger.debug("Workout synced successfully", { workoutId: offlineWorkout.id }, "workout", user.id);
-        } catch (error) {
-          errorCount++;
-          logger.error("Failed to sync workout", error, "workout", user.id);
+      // Batch sync pending workouts using the server-side workout-sync edge function.
+      // This posts full workout objects (including sets) to the canonical sync endpoint,
+      // and relies on the server to handle conflicts/atomic replacement.
+      try {
+        const tokens = await getTokens();
+        if (!tokens || !tokens.accessToken) {
+          throw new Error("No access token available for sync");
         }
+
+        const functionUrl = `${ENV_CONFIG.supabaseUrl.replace(/\/$/, "")}/functions/v1/workout-sync`;
+
+        const payload = {
+          workouts: pendingWorkouts.map((p) => p.data),
+          lastSyncTime: new Date().toISOString(),
+        };
+
+        const res = await fetch(functionUrl, {
+          method: "POST",
+          headers: {
+            Authorization: `Bearer ${tokens.accessToken}`,
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify(payload),
+        });
+
+        const json = await res.json().catch(() => ({}));
+
+        if (!res.ok) {
+          // If the function returned a non-200, treat as errors for all workouts
+          logger.error("workout-sync function failed", json || { status: res.status }, "workout", user.id);
+          errorCount += pendingWorkouts.length;
+        } else {
+          // Expect { results: [{ id, status, error?, server_version? }], sync_time, ... }
+          const results: any[] = Array.isArray(json.results) ? json.results : [];
+
+          for (const r of results) {
+            if (r.status === "synced") {
+              try {
+                await offlineService.removeWorkoutOffline(r.id);
+                syncedCount++;
+                logger.debug("Workout synced (server) and removed offline", { workoutId: r.id }, "workout", user.id);
+              } catch (remErr) {
+                // If removal fails, count as error but continue
+                errorCount++;
+                logger.error("Failed to remove workout after successful sync", remErr, "workout", user.id);
+              }
+            } else if (r.status === "conflict") {
+              // Keep conflicted workout in offline queue and log
+              resultConflictsLog: {
+                logger.warn(
+                  "Workout conflict during sync",
+                  { workoutId: r.id, serverVersion: r.server_version },
+                  "workout",
+                  user.id
+                );
+              }
+              // increment error/conflict counters accordingly
+              errorCount++;
+            } else {
+              // status === "error" or unknown
+              errorCount++;
+              logger.error("Workout sync error (server)", { workoutId: r.id, error: r.error }, "workout", user.id);
+            }
+          }
+        }
+      } catch (error) {
+        // If the whole batch sync fails, mark as errors
+        errorCount += pendingWorkouts.length;
+        logger.error("Failed to perform batch workout sync", error, "workout", user.id);
       }
 
       logger.info("Sync completed", { syncedCount, errorCount }, "workout", user.id);

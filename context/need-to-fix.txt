@@ -19,16 +19,17 @@ Status summary (updated)
   - Files changed: src/services/offline.service.ts, src/services/database.service.ts, src/utils/storage.ts
   - Rationale: Eliminates dual-queue duplication, prevents double-processing and race conditions, and centralizes offline logic in OfflineService. Enhanced queue format is now authoritative.
 
-- completed: 3. Risk of partial writes / data loss during set deletion + insert in sync functions (still requires server-side work)
-  - Problem: Functions delete existing sets then insert new ones without transaction semantics. If insertion fails after delete, sets are lost.
-  - Files: supabase/functions/workout-sync/index.ts, supabase/functions/sync-workouts/index.ts
-  - Fix (planned): Use upsert or DB transaction (server-side function) to perform replace atomically.
-  - Status: Pending server-side change.
+- completed: 3. Atomic server-side sync implemented (data-loss risk mitigated)
+  - Implemented: Added a database stored procedure `replace_workout_sets(p_session_id, p_user_id, p_sets)` which performs atomic replacement of exercise sets inside a single DB transaction. Updated the canonical sync Edge Function to call this RPC and handle RPC results. Updated the frontend to call the canonical sync endpoint with full workout objects (including sets).
+  - Files changed: supabase/migrations/20240116000010_atomic_workout_sync.sql, supabase/functions/workout-sync/index.ts, src/services/workout.service.ts
+  - Rationale: Eliminates the delete-then-insert race condition and prevents partial-write data loss by performing set replacement atomically in the database.
+  - Status: Completed.
 
-- in_progress: 4. Two overlapping sync endpoints (workout-sync vs sync-workouts) — redundancy + maintenance risk
-  - Files: supabase/functions/workout-sync/index.ts, supabase/functions/sync-workouts/index.ts
-  - Fix: Consolidate into one canonical sync endpoint.
-  - Status: Pending.
+- completed: 4. Consolidated sync endpoints (workout-sync is canonical)
+  - Implemented: Deprecated and removed the redundant `sync-workouts` endpoint and updated client to call `workout-sync`. A deprecation stub was used during transition and the redundant endpoint was removed from the codebase after migration/deploy.
+  - Files changed: supabase/functions/sync-workouts/index.ts (deprecated/removed), supabase/functions/workout-sync/index.ts, src/services/workout.service.ts
+  - Rationale: Single source of truth for sync behavior reduces maintenance and avoids inconsistent conflict handling.
+  - Status: Completed.
 
 Medium severity (fix in next sprint)
 5) Inconsistent naming and field mapping (snake_case vs camelCase)
@@ -101,6 +102,11 @@ What I changed (file-level)
 - Updated: src/services/auth.service.ts → delegates token persistence to TokenManager and removed ad-hoc supabase.auth.setSession calls
 - Updated: src/services/offline.service.ts → uses utils/storage async helpers and APP_INFO.version; enhanced queue now authoritative
 - Updated: src/services/database.service.ts → no longer writes to legacy offlineWorkouts key; delegates to OfflineService or enqueues generic operations via utils/storage
+- Added: supabase/migrations/20240116000010_atomic_workout_sync.sql → stored procedure `replace_workout_sets` for atomic set replacement
+- Updated: supabase/functions/workout-sync/index.ts → now calls `replace_workout_sets` RPC to perform atomic set replacement
+- Updated: src/services/workout.service.ts → switches to batch POST to canonical `/functions/v1/workout-sync` and handles per-workout results
+- Deprecated/Removed: supabase/functions/sync-workouts (redundant endpoint) — replaced with canonical `workout-sync`
+- Rationale: These changes implement an atomic, reliable sync flow and consolidate sync logic to a single endpoint to prevent data loss and reduce maintenance overhead.
 
 Notes about PWAs / web
 - StorageAdapter provides web fallbacks:

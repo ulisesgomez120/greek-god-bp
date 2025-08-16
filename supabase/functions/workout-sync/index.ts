@@ -168,58 +168,29 @@ async function syncWorkout(
       throw new Error(`Failed to sync workout: ${workoutError.message}`);
     }
 
-    // Upsert exercise sets (safer than delete-then-insert).
-    // We'll upsert incoming sets, then remove any server sets not present in the incoming payload.
-    if (workout.sets && workout.sets.length > 0) {
-      const setsData = workout.sets.map((set) => ({
-        id: set.id,
-        session_id: workout.id,
-        exercise_id: set.exercise_id,
-        set_number: set.set_number,
-        weight_kg: set.weight_kg,
-        reps: set.reps,
-        rpe: set.rpe,
-        is_warmup: set.is_warmup || false,
-        rest_seconds: set.rest_seconds,
-        notes: set.notes,
-      }));
+    // Replace exercise sets atomically using a database RPC to avoid delete-then-insert races.
+    // The RPC `replace_workout_sets` will validate ownership and perform the replace in a single DB transaction.
+    try {
+      const setsPayload = Array.isArray(workout.sets) ? workout.sets : [];
 
-      // Upsert incoming sets (onConflict by id)
-      const { error: upsertError } = await supabase.from("exercise_sets").upsert(setsData, { onConflict: "id" });
-      if (upsertError) {
-        throw new Error(`Failed to upsert exercise sets: ${upsertError.message}`);
+      const { data: rpcResult, error: rpcError } = await supabase.rpc("replace_workout_sets", {
+        p_session_id: workout.id,
+        p_user_id: userId,
+        p_sets: setsPayload,
+      });
+
+      // supabase-js returns rpcResult in `data`; rpcResult is expected to be a JSONB object like { success: true, sets_replaced: N }
+      if (rpcError) {
+        throw new Error(`Failed to replace exercise sets (rpc error): ${rpcError.message}`);
       }
 
-      // Build list of incoming IDs for cleanup
-      const incomingIds = setsData.map((s) => s.id).filter(Boolean);
-
-      // Delete server-side sets that are not present in incoming payload (cleanup)
-      try {
-        if (incomingIds.length > 0) {
-          const { error: deleteError } = await supabase
-            .from("exercise_sets")
-            .delete()
-            .eq("session_id", workout.id)
-            .not("id", "in", `(${incomingIds.map((id) => `'${id}'`).join(",")})`);
-
-          if (deleteError) {
-            // Non-fatal: log and continue
-            console.warn("Failed to delete stale sets:", deleteError);
-          }
-        }
-      } catch (cleanupErr) {
-        console.warn("Error during cleanup of stale sets:", cleanupErr);
+      if (!rpcResult || (rpcResult && rpcResult.success === false)) {
+        const rpcMsg = rpcResult && rpcResult.error ? rpcResult.error : "Unknown RPC error";
+        throw new Error(`Failed to replace exercise sets: ${rpcMsg}`);
       }
-    } else {
-      // No sets provided: ensure server has none (optional)
-      try {
-        const { error: deleteAllError } = await supabase.from("exercise_sets").delete().eq("session_id", workout.id);
-        if (deleteAllError) {
-          console.warn("Failed to delete all sets when none provided:", deleteAllError);
-        }
-      } catch (e) {
-        console.warn("Error deleting sets when none provided:", e);
-      }
+    } catch (err) {
+      // Any failure here should surface so the outer sync logic marks the workout as conflicted
+      throw err;
     }
 
     return {
