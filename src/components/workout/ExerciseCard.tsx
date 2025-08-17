@@ -31,7 +31,7 @@ interface ExerciseCardProps {
   exercise: Exercise;
   currentSets: ExerciseSet[];
   previousWorkoutSets: ExerciseSet[];
-  onSetComplete: (setData: ExerciseSetFormData) => void;
+  onSetComplete: (setData: ExerciseSetFormData) => Promise<any>;
   isActive: boolean;
   style?: ViewStyle;
 }
@@ -165,8 +165,9 @@ export const ExerciseCard: React.FC<ExerciseCardProps> = ({
   }, [triggerSelectionHaptic]);
 
   const handleSetComplete = useCallback(
-    (setData: ExerciseSetFormData) => {
-      onSetComplete({
+    async (setData: ExerciseSetFormData) => {
+      // Ensure we return a Promise so callers (like SetLogger) can await completion.
+      const result = await onSetComplete({
         ...setData,
         exerciseId: exercise.id,
       });
@@ -183,6 +184,8 @@ export const ExerciseCard: React.FC<ExerciseCardProps> = ({
         "workout",
         user?.id
       );
+
+      return result;
     },
     [exercise.id, nextSetNumber, onSetComplete, user?.id]
   );

@@ -1,15 +1,15 @@
 // ============================================================================
-// WORKOUT SERVICE
+// WORKOUT SERVICE (online-first, Phase 2)
 // ============================================================================
-// Comprehensive workout session management with offline support, data validation,
-// and automatic recovery mechanisms
+// Workout session management simplified for online-first flow.
+// Removed auto-save / auto-sync timers, debounced sync, and event-driven sync.
+// These features were removed in Phase 2 as requested and will not be kept
+// for backwards compatibility. Remaining methods perform direct server calls
+// and provide optimistic UI behavior where appropriate.
 
 import { logger } from "../utils/logger";
 import { authService } from "./auth.service";
 import supabase from "@/lib/supabase";
-import { events } from "@/utils/events";
-import { ENV_CONFIG, WORKOUT_CONSTANTS, ERROR_MESSAGES, SUCCESS_MESSAGES } from "../config/constants";
-import { getTokens } from "@/utils/tokenManager";
 import type {
   WorkoutSession,
   ExerciseSet,
@@ -26,9 +26,6 @@ import type { Database } from "../types/database";
 
 export interface WorkoutServiceConfig {
   enableOfflineMode: boolean;
-  autoSave: boolean;
-  autoSync: boolean;
-  syncInterval: number; // in milliseconds
   maxRetries: number;
   retryDelay: number; // in milliseconds
 }
@@ -74,27 +71,17 @@ export class WorkoutService {
   private supabase = supabase;
   private config: WorkoutServiceConfig;
   private currentSession: WorkoutSession | null = null;
-  private autoSaveTimer?: ReturnType<typeof setInterval>;
-  private syncTimer?: ReturnType<typeof setInterval>;
-
-  // Event-driven sync fields
-  private isSyncing: boolean = false;
-  private debounceTimeout?: ReturnType<typeof setTimeout>;
-  private unsubscribers: Array<() => void> = [];
 
   private constructor(config?: Partial<WorkoutServiceConfig>) {
+    // Minimal configuration for online-first flow.
     this.config = {
-      enableOfflineMode: true,
-      autoSave: true,
-      autoSync: true,
-      syncInterval: 30000, // 30 seconds
+      enableOfflineMode: false,
       maxRetries: 3,
-      retryDelay: 1000, // 1 second
+      retryDelay: 1000,
       ...config,
     };
 
-    // Initialize event-driven subscriptions (replaces periodic polling by default)
-    this.setupSubscriptions();
+    // Note: event subscriptions and auto-sync/auto-save removed intentionally.
   }
 
   public static getInstance(config?: Partial<WorkoutServiceConfig>): WorkoutService {
@@ -127,21 +114,81 @@ export class WorkoutService {
 
       logger.info("Starting new workout", { name, exerciseCount: exercises.length }, "workout", user.id);
 
-      // Create workout session
-      let workout: WorkoutSession = {
-        id: `workout_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
-        userId: user.id,
-        planId: options.planId,
-        sessionId: options.sessionId,
-        name,
-        startedAt: new Date().toISOString(),
-        // legacy fields retained in object for compatibility; server-side persistence handled below
-        syncStatus: "pending",
-        offlineCreated: true,
-        createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString(),
-        sets: [],
-      };
+      // Attempt to create workout session on the server and let Supabase generate the ID.
+      let workout: WorkoutSession;
+      try {
+        const insertPayload: any = {
+          user_id: user.id,
+          plan_id: options.planId,
+          session_id: options.sessionId,
+          name,
+          started_at: new Date().toISOString(),
+          sync_status: "synced",
+          offline_created: false,
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString(),
+        };
+
+        const { data: inserted, error: insertError } = await this.supabase
+          .from("workout_sessions")
+          .insert(insertPayload)
+          .select()
+          .single();
+
+        if (insertError || !inserted) {
+          logger.warn(
+            "Failed to persist workout to Supabase, continuing with local session",
+            insertError,
+            "workout",
+            user.id
+          );
+
+          // Fall back to local session object with temporary id
+          workout = {
+            id: `workout_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+            userId: user.id,
+            planId: options.planId,
+            sessionId: options.sessionId,
+            name,
+            startedAt: new Date().toISOString(),
+            syncStatus: "pending",
+            offlineCreated: true,
+            createdAt: new Date().toISOString(),
+            updatedAt: new Date().toISOString(),
+            sets: [],
+          };
+        } else {
+          // Normalize server response into WorkoutSession shape
+          workout = {
+            id: inserted.id,
+            userId: inserted.user_id,
+            planId: inserted.plan_id,
+            sessionId: inserted.session_id,
+            name: inserted.name,
+            startedAt: inserted.started_at,
+            syncStatus: inserted.sync_status,
+            offlineCreated: inserted.offline_created || false,
+            createdAt: inserted.created_at,
+            updatedAt: inserted.updated_at,
+            sets: [],
+          } as WorkoutSession;
+        }
+      } catch (err) {
+        logger.warn("Unexpected error while persisting workout to Supabase", err, "workout", user.id);
+        workout = {
+          id: `workout_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+          userId: user.id,
+          planId: options.planId,
+          sessionId: options.sessionId,
+          name,
+          startedAt: new Date().toISOString(),
+          syncStatus: "pending",
+          offlineCreated: true,
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString(),
+          sets: [],
+        };
+      }
 
       // Persist workout to Supabase (best-effort). If persistence fails we continue with an in-memory session.
       try {
@@ -180,18 +227,13 @@ export class WorkoutService {
       // Set as current session
       this.currentSession = workout;
 
-      // Start auto-save if enabled
-      if (this.config.autoSave) {
-        this.startAutoSave();
-      }
-
       logger.info("Workout started successfully", { workoutId: workout.id }, "workout", user.id);
 
       return {
         success: true,
         data: workout,
         offline: this.config.enableOfflineMode,
-        syncPending: true,
+        syncPending: false,
       };
     } catch (error) {
       logger.error("Failed to start workout", error, "workout");
@@ -233,11 +275,29 @@ export class WorkoutService {
       // Get current set number for this exercise
       const existingSets = this.currentSession.sets?.filter((set) => set.exerciseId === setData.exerciseId) || [];
 
-      const newSet: ExerciseSet = {
-        id: `set_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
-        sessionId: this.currentSession.id,
+      // Prepare payload for server-side insertion and let Supabase generate the set ID.
+      const sessionId = this.currentSession.id;
+      const setNumber = existingSets.length + 1;
+      const setPayload: any = {
+        session_id: sessionId,
+        exercise_id: setData.exerciseId,
+        set_number: setNumber,
+        weight_kg: setData.weightKg ?? null,
+        reps: setData.reps,
+        rpe: setData.rpe ?? null,
+        is_warmup: !!setData.isWarmup,
+        is_failure: false,
+        rest_seconds: setData.restSeconds ?? null,
+        notes: setData.notes ?? null,
+        created_at: new Date().toISOString(),
+      };
+
+      // Optimistically add a provisional set locally while we persist.
+      const provisionalSet: ExerciseSet = {
+        id: `temp_set_${Date.now()}`,
+        sessionId,
         exerciseId: setData.exerciseId,
-        setNumber: existingSets.length + 1,
+        setNumber,
         weightKg: setData.weightKg,
         reps: setData.reps,
         rpe: setData.rpe,
@@ -248,56 +308,76 @@ export class WorkoutService {
         createdAt: new Date().toISOString(),
       };
 
-      // Add set to current session
       if (!this.currentSession.sets) {
         this.currentSession.sets = [];
       }
-      this.currentSession.sets.push(newSet);
-
-      // Update session timestamp
+      this.currentSession.sets.push(provisionalSet);
       this.currentSession.updatedAt = new Date().toISOString();
 
-      // Persist the set to Supabase (best-effort). If persistence fails we keep the set in memory.
+      // Persist the set to Supabase (best-effort). Replace provisional set with server row when available.
       try {
-        const setPayload = {
-          id: newSet.id,
-          session_id: newSet.sessionId,
-          exercise_id: newSet.exerciseId,
-          set_number: newSet.setNumber,
-          weight_kg: newSet.weightKg,
-          reps: newSet.reps,
-          rpe: newSet.rpe,
-          is_warmup: newSet.isWarmup,
-          is_failure: newSet.isFailure,
-          rest_seconds: newSet.restSeconds,
-          notes: newSet.notes,
-          created_at: new Date().toISOString(),
-        };
+        const { data: insertedSet, error: setInsertError } = await this.supabase
+          .from("exercise_sets")
+          .insert(setPayload)
+          .select()
+          .single();
 
-        const { error: setInsertError } = await this.supabase.from("exercise_sets").insert(setPayload);
-
-        if (setInsertError) {
+        if (setInsertError || !insertedSet) {
           logger.warn("Failed to persist exercise set to Supabase", setInsertError, "workout", user.id);
+          // keep provisional set as-is
         } else {
-          // Optionally update workout session's updated_at on server
-          await this.supabase
-            .from("workout_sessions")
-            .update({ updated_at: new Date().toISOString() })
-            .eq("id", newSet.sessionId)
-            .eq("user_id", user.id);
+          // Map inserted row to ExerciseSet and replace provisional entry
+          const mapped: ExerciseSet = {
+            id: insertedSet.id,
+            sessionId: insertedSet.session_id,
+            exerciseId: insertedSet.exercise_id,
+            setNumber: insertedSet.set_number,
+            weightKg: insertedSet.weight_kg ?? undefined,
+            reps: Number(insertedSet.reps),
+            rpe: insertedSet.rpe ?? undefined,
+            isWarmup: !!insertedSet.is_warmup,
+            isFailure: !!insertedSet.is_failure,
+            restSeconds: insertedSet.rest_seconds ?? undefined,
+            notes: insertedSet.notes ?? undefined,
+            createdAt: insertedSet.created_at,
+          };
+
+          // Replace provisional set in currentSession.sets
+          const idx = this.currentSession.sets.findIndex((s) => s.id === provisionalSet.id);
+          if (idx >= 0) {
+            this.currentSession.sets[idx] = mapped;
+          } else {
+            this.currentSession.sets.push(mapped);
+          }
+
+          // Update workout session updated_at on server (best-effort)
+          try {
+            await this.supabase
+              .from("workout_sessions")
+              .update({ updated_at: new Date().toISOString() })
+              .eq("id", sessionId)
+              .eq("user_id", user.id);
+          } catch (e) {
+            // non-fatal
+          }
         }
       } catch (err) {
         logger.warn("Unexpected error while persisting exercise set to Supabase", err, "workout", user.id);
       }
 
+      // Determine final set (prefer server-mapped entry if available)
+      const provisionalIndex = this.currentSession.sets.findIndex((s) => s.id === provisionalSet.id);
+      const finalSet: ExerciseSet =
+        provisionalIndex >= 0 ? (this.currentSession.sets[provisionalIndex] as ExerciseSet) : provisionalSet;
+
       logger.info(
         "Exercise set added",
         {
-          exerciseId: setData.exerciseId,
-          setNumber: newSet.setNumber,
-          weight: setData.weightKg,
-          reps: setData.reps,
-          rpe: setData.rpe,
+          exerciseId: finalSet.exerciseId,
+          setNumber: finalSet.setNumber,
+          weight: finalSet.weightKg,
+          reps: finalSet.reps,
+          rpe: finalSet.rpe,
         },
         "workout",
         user.id
@@ -305,9 +385,9 @@ export class WorkoutService {
 
       return {
         success: true,
-        data: newSet,
+        data: finalSet,
         offline: this.config.enableOfflineMode,
-        syncPending: true,
+        syncPending: false,
       };
     } catch (error) {
       logger.error("Failed to add exercise set", error, "workout");
@@ -351,7 +431,7 @@ export class WorkoutService {
         notes,
         totalVolumeKg: stats.totalVolume,
         averageRpe: stats.averageRpe,
-        syncStatus: "pending",
+        syncStatus: "synced",
         updatedAt: new Date().toISOString(),
       };
 
@@ -385,7 +465,6 @@ export class WorkoutService {
 
       // Clear current session
       this.currentSession = null;
-      this.stopAutoSave();
 
       logger.info(
         "Workout completed",
@@ -403,7 +482,7 @@ export class WorkoutService {
         success: true,
         data: completedWorkout,
         offline: this.config.enableOfflineMode,
-        syncPending: true,
+        syncPending: false,
       };
     } catch (error) {
       logger.error("Failed to complete workout", error, "workout");
@@ -429,17 +508,9 @@ export class WorkoutService {
       const user = await authService.getCurrentUser();
       const workoutId = this.currentSession.id;
 
-      // Offline storage removed in migration to online-first; no client-side cleanup required here.
-      // If desired, we could delete server-side session here, but we keep client behavior minimal.
-      try {
-        // No-op placeholder to preserve behavior in case future logic is needed
-      } catch (err) {
-        logger.warn("cancelWorkout: cleanup noop failed", err, "workout");
-      }
-
-      // Clear current session
+      // Online-first: no client-side offline queue to clean up.
+      // Keep behavior minimal and clear local session.
       this.currentSession = null;
-      this.stopAutoSave();
 
       logger.info("Workout cancelled", { workoutId }, "workout", user?.id);
 
@@ -470,7 +541,6 @@ export class WorkoutService {
         return null;
       }
 
-      // Query server for incomplete workouts (most recent)
       try {
         const { data: sessions, error } = await this.supabase
           .from("workout_sessions")
@@ -489,9 +559,9 @@ export class WorkoutService {
         const latest = (sessions as any[])[0];
         return {
           workoutId: latest.id,
-          lastSavedAt: latest.updated_at || latest.started_at,
+          lastSavedAt: (latest.updated_at ?? latest.started_at) as string,
           currentExercise: 0,
-          currentSet: latest.set_count || 0,
+          currentSet: Number(latest.set_count ?? 0),
           completedSets: [], // detailed sets can be fetched via recoverWorkoutSession
           canRecover: true,
         };
@@ -535,7 +605,6 @@ export class WorkoutService {
           };
         }
 
-        // Normalize exercise_sets from snake_case -> camelCase ExerciseSet[]
         const sets = Array.isArray(workoutRow.exercise_sets)
           ? workoutRow.exercise_sets.map((s: any) => ({
               id: s.id,
@@ -561,11 +630,11 @@ export class WorkoutService {
           sessionId: workoutRow.session_id,
           name: workoutRow.name,
           startedAt: workoutRow.started_at,
-          completedAt: workoutRow.completed_at ?? null,
-          durationMinutes: workoutRow.duration_minutes ?? null,
-          notes: workoutRow.notes ?? null,
-          totalVolumeKg: workoutRow.total_volume_kg ?? null,
-          averageRpe: workoutRow.average_rpe ?? null,
+          completedAt: workoutRow.completed_at ?? undefined,
+          durationMinutes: workoutRow.duration_minutes ?? undefined,
+          notes: workoutRow.notes ?? undefined,
+          totalVolumeKg: workoutRow.total_volume_kg ?? undefined,
+          averageRpe: workoutRow.average_rpe ?? undefined,
           syncStatus: workoutRow.sync_status,
           offlineCreated: workoutRow.offline_created || false,
           createdAt: workoutRow.created_at,
@@ -575,11 +644,6 @@ export class WorkoutService {
 
         // Set as current session
         this.currentSession = recoveredWorkout;
-
-        // Start auto-save if enabled
-        if (this.config.autoSave) {
-          this.startAutoSave();
-        }
 
         logger.info("Workout session recovered", { workoutId }, "workout", user.id);
       } catch (err) {
@@ -601,7 +665,7 @@ export class WorkoutService {
         success: true,
         data: recoveredWorkout,
         offline: this.config.enableOfflineMode,
-        syncPending: true,
+        syncPending: false,
       };
     } catch (error) {
       logger.error("Failed to recover workout session", error, "workout");
@@ -616,9 +680,6 @@ export class WorkoutService {
   // WORKOUT STATISTICS
   // ============================================================================
 
-  /**
-   * Calculate workout statistics
-   */
   private calculateWorkoutStats(workout: WorkoutSession): WorkoutStats {
     const sets = workout.sets || [];
     const workingSets = sets.filter((set) => !set.isWarmup);
@@ -643,205 +704,6 @@ export class WorkoutService {
       duration,
       setCount: sets.length,
       exerciseCount: exerciseIds.size,
-    };
-  }
-
-  // ============================================================================
-  // EVENT SUBSCRIPTIONS & DEBOUNCED SYNC
-  // ============================================================================
-
-  /**
-   * Setup event subscriptions for auth/network/offline changes
-   */
-  private setupSubscriptions(): void {
-    try {
-      // Auth events
-      this.unsubscribers.push(
-        events.on("auth:signed_in", () => {
-          this.scheduleDebouncedSync();
-        })
-      );
-      this.unsubscribers.push(
-        events.on("auth:token_refreshed", () => {
-          this.scheduleDebouncedSync();
-        })
-      );
-
-      // Network events
-      this.unsubscribers.push(
-        events.on("network:online", () => {
-          this.scheduleDebouncedSync();
-        })
-      );
-
-      // Offline pending changes (only trigger if there are pending items)
-      this.unsubscribers.push(
-        events.on("offline:pending_changed", (payload) => {
-          try {
-            if (payload && (payload as any).pendingCount > 0) {
-              this.scheduleDebouncedSync();
-            }
-          } catch (err) {
-            // ignore malformed payloads
-          }
-        })
-      );
-
-      // App lifecycle (optional)
-      this.unsubscribers.push(
-        events.on("app:foreground", () => {
-          this.scheduleDebouncedSync();
-        })
-      );
-    } catch (err) {
-      logger.warn("workoutService: failed to setup subscriptions", err, "workout");
-    }
-  }
-
-  /**
-   * Schedule a debounced sync. If bypass is true, run immediately.
-   */
-  private scheduleDebouncedSync(bypass: boolean = false): void {
-    if (bypass) {
-      void this.runSyncRunner();
-      return;
-    }
-
-    if (this.debounceTimeout) {
-      clearTimeout(this.debounceTimeout);
-    }
-
-    this.debounceTimeout = setTimeout(() => {
-      void this.runSyncRunner();
-    }, 2000); // 2s debounce window
-  }
-
-  /**
-   * Run the sync runner with concurrency guard and token check.
-   */
-  private async runSyncRunner(): Promise<void> {
-    if (this.isSyncing) {
-      logger.debug("Sync already in progress, skipping", undefined, "workout");
-      return;
-    }
-
-    // Quick guard: ensure we have tokens before attempting sync
-    try {
-      const tokens = await getTokens();
-      if (!tokens || !tokens.accessToken) {
-        logger.debug("Skipping sync: no tokens available", undefined, "workout");
-        return;
-      }
-    } catch (err) {
-      logger.debug("Skipping sync: failed to read tokens", err, "workout");
-      return;
-    }
-
-    this.isSyncing = true;
-    try {
-      await this.syncPendingWorkouts();
-    } catch (err) {
-      logger.error("runSyncRunner encountered an error", err, "workout");
-    } finally {
-      this.isSyncing = false;
-    }
-  }
-
-  /**
-   * Public method to trigger immediate sync (bypasses debounce).
-   */
-  public triggerSyncNow(): void {
-    void this.runSyncRunner();
-  }
-
-  // ============================================================================
-  // AUTO-SAVE FUNCTIONALITY
-  // ============================================================================
-
-  /**
-   * Start auto-save timer
-   */
-  private startAutoSave(): void {
-    if (this.autoSaveTimer) {
-      clearInterval(this.autoSaveTimer);
-    }
-
-    this.autoSaveTimer = setInterval(async () => {
-      if (this.currentSession) {
-        try {
-          const user = await authService.getCurrentUser();
-          if (user) {
-            await this.supabase
-              .from("workout_sessions")
-              .update({ updated_at: new Date().toISOString() })
-              .eq("id", this.currentSession.id)
-              .eq("user_id", user.id);
-            logger.debug("Auto-saved workout session (updated_at)", { workoutId: this.currentSession.id }, "workout");
-          }
-        } catch (error) {
-          logger.error("Auto-save failed (persist)", error, "workout");
-        }
-      }
-    }, 10000); // Auto-save every 10 seconds
-  }
-
-  /**
-   * Stop auto-save timer
-   */
-  private stopAutoSave(): void {
-    if (this.autoSaveTimer) {
-      clearInterval(this.autoSaveTimer);
-      this.autoSaveTimer = undefined;
-    }
-  }
-
-  // ============================================================================
-  // AUTO-SYNC FUNCTIONALITY
-  // ============================================================================
-
-  /**
-   * Start auto-sync timer
-   */
-  private startAutoSync(): void {
-    if (this.syncTimer) {
-      clearInterval(this.syncTimer);
-    }
-
-    // Periodically attempt to sync pending workouts, but only when tokens/session exist.
-    this.syncTimer = setInterval(async () => {
-      try {
-        // Quick guard: avoid calling authService.getCurrentUser repeatedly when unauthenticated.
-        const tokens = await getTokens();
-        if (!tokens || !tokens.accessToken) {
-          // No tokens -> skip sync silently.
-          return;
-        }
-
-        await this.syncPendingWorkouts();
-      } catch (err) {
-        logger.error("Auto-sync encountered an error", err, "workout");
-      }
-    }, this.config.syncInterval);
-  }
-
-  /**
-   * Stop auto-sync timer
-   */
-  private stopAutoSync(): void {
-    if (this.syncTimer) {
-      clearInterval(this.syncTimer);
-      this.syncTimer = undefined;
-    }
-  }
-
-  /**
-   * Sync pending workouts with server
-   */
-  async syncPendingWorkouts(): Promise<WorkoutServiceResult<{ syncedCount: number; errorCount: number }>> {
-    // Offline queue no longer used. Return noop result for compatibility.
-    return {
-      success: true,
-      data: { syncedCount: 0, errorCount: 0 },
     };
   }
 
@@ -925,87 +787,45 @@ export class WorkoutService {
     }
   }
 
+  /**
+   * Sync pending workouts with server (compatibility shim).
+   * Offline queue no longer used — kept as a noop for Phase 2 compatibility.
+   */
+  async syncPendingWorkouts(): Promise<WorkoutServiceResult<{ syncedCount: number; errorCount: number }>> {
+    return {
+      success: true,
+      data: { syncedCount: 0, errorCount: 0 },
+    };
+  }
+
   // ============================================================================
   // GETTERS AND STATE
   // ============================================================================
 
-  /**
-   * Get current workout session
-   */
   getCurrentSession(): WorkoutSession | null {
     return this.currentSession;
   }
 
-  /**
-   * Check if there's an active workout
-   */
   hasActiveWorkout(): boolean {
     return this.currentSession !== null;
   }
 
-  /**
-   * Get workout service configuration
-   */
   getConfig(): WorkoutServiceConfig {
     return { ...this.config };
   }
 
-  /**
-   * Update service configuration
-   */
   updateConfig(newConfig: Partial<WorkoutServiceConfig>): void {
     this.config = { ...this.config, ...newConfig };
-
-    // Restart timers if needed
-    if (this.config.autoSync) {
-      this.startAutoSync();
-    } else {
-      this.stopAutoSync();
-    }
-
-    if (this.config.autoSave && this.currentSession) {
-      this.startAutoSave();
-    } else if (!this.config.autoSave) {
-      this.stopAutoSave();
-    }
+    // No timers to start/stop in online-first flow.
   }
 
   // ============================================================================
   // CLEANUP
   // ============================================================================
 
-  /**
-   * Cleanup service resources
-   */
   async cleanup(): Promise<void> {
     try {
-      this.stopAutoSave();
-      this.stopAutoSync();
       this.currentSession = null;
-
-      // Unsubscribe event handlers
-      try {
-        for (const unsub of this.unsubscribers) {
-          try {
-            unsub();
-          } catch (err) {
-            // swallow individual unsubscribe errors
-          }
-        }
-      } catch (err) {
-        // ignore
-      } finally {
-        this.unsubscribers = [];
-      }
-
-      // Clear debounce timer if present
-      if (this.debounceTimeout) {
-        clearTimeout(this.debounceTimeout);
-        this.debounceTimeout = undefined;
-      }
-
-      this.isSyncing = false;
-
       logger.info("Workout service cleaned up", undefined, "workout");
     } catch (error) {
       logger.error("Failed to cleanup workout service", error, "workout");
