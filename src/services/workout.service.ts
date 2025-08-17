@@ -5,7 +5,6 @@
 // and automatic recovery mechanisms
 
 import { logger } from "../utils/logger";
-import { offlineService } from "./offline.service";
 import { authService } from "./auth.service";
 import supabase from "@/lib/supabase";
 import { events } from "@/utils/events";
@@ -129,13 +128,14 @@ export class WorkoutService {
       logger.info("Starting new workout", { name, exerciseCount: exercises.length }, "workout", user.id);
 
       // Create workout session
-      const workout: WorkoutSession = {
+      let workout: WorkoutSession = {
         id: `workout_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
         userId: user.id,
         planId: options.planId,
         sessionId: options.sessionId,
         name,
         startedAt: new Date().toISOString(),
+        // legacy fields retained in object for compatibility; server-side persistence handled below
         syncStatus: "pending",
         offlineCreated: true,
         createdAt: new Date().toISOString(),
@@ -143,13 +143,38 @@ export class WorkoutService {
         sets: [],
       };
 
-      // Store offline immediately
-      if (this.config.enableOfflineMode) {
-        await offlineService.storeWorkoutOffline(
-          workout,
-          options.priority || "medium",
-          options.conflictResolution || "merge"
-        );
+      // Persist workout to Supabase (best-effort). If persistence fails we continue with an in-memory session.
+      try {
+        const { data: inserted, error: insertError } = await this.supabase
+          .from("workout_sessions")
+          .insert({
+            id: workout.id,
+            user_id: workout.userId,
+            plan_id: workout.planId,
+            session_id: workout.sessionId,
+            name: workout.name,
+            started_at: workout.startedAt,
+            sync_status: "synced",
+            offline_created: false,
+            created_at: new Date().toISOString(),
+            updated_at: new Date().toISOString(),
+          })
+          .select()
+          .single();
+
+        if (insertError) {
+          logger.warn(
+            "Failed to persist workout to Supabase, continuing with local session",
+            insertError,
+            "workout",
+            user.id
+          );
+        } else if (inserted) {
+          // Merge any server-assigned fields back into the local workout object
+          workout = { ...workout, ...inserted } as WorkoutSession;
+        }
+      } catch (err) {
+        logger.warn("Unexpected error while persisting workout to Supabase", err, "workout", user.id);
       }
 
       // Set as current session
@@ -232,9 +257,37 @@ export class WorkoutService {
       // Update session timestamp
       this.currentSession.updatedAt = new Date().toISOString();
 
-      // Store offline immediately
-      if (this.config.enableOfflineMode) {
-        await offlineService.storeWorkoutOffline(this.currentSession);
+      // Persist the set to Supabase (best-effort). If persistence fails we keep the set in memory.
+      try {
+        const setPayload = {
+          id: newSet.id,
+          session_id: newSet.sessionId,
+          exercise_id: newSet.exerciseId,
+          set_number: newSet.setNumber,
+          weight_kg: newSet.weightKg,
+          reps: newSet.reps,
+          rpe: newSet.rpe,
+          is_warmup: newSet.isWarmup,
+          is_failure: newSet.isFailure,
+          rest_seconds: newSet.restSeconds,
+          notes: newSet.notes,
+          created_at: new Date().toISOString(),
+        };
+
+        const { error: setInsertError } = await this.supabase.from("exercise_sets").insert(setPayload);
+
+        if (setInsertError) {
+          logger.warn("Failed to persist exercise set to Supabase", setInsertError, "workout", user.id);
+        } else {
+          // Optionally update workout session's updated_at on server
+          await this.supabase
+            .from("workout_sessions")
+            .update({ updated_at: new Date().toISOString() })
+            .eq("id", newSet.sessionId)
+            .eq("user_id", user.id);
+        }
+      } catch (err) {
+        logger.warn("Unexpected error while persisting exercise set to Supabase", err, "workout", user.id);
       }
 
       logger.info(
@@ -302,9 +355,32 @@ export class WorkoutService {
         updatedAt: new Date().toISOString(),
       };
 
-      // Store offline
-      if (this.config.enableOfflineMode) {
-        await offlineService.storeWorkoutOffline(completedWorkout, "high"); // High priority for completed workouts
+      // Persist completed workout to Supabase (best-effort)
+      try {
+        const { error: upsertError } = await this.supabase.from("workout_sessions").upsert(
+          {
+            id: completedWorkout.id,
+            user_id: completedWorkout.userId,
+            plan_id: completedWorkout.planId,
+            session_id: completedWorkout.sessionId,
+            name: completedWorkout.name,
+            started_at: completedWorkout.startedAt,
+            completed_at: completedWorkout.completedAt,
+            duration_minutes: completedWorkout.durationMinutes,
+            notes: completedWorkout.notes,
+            total_volume_kg: completedWorkout.totalVolumeKg,
+            average_rpe: completedWorkout.averageRpe,
+            sync_status: "synced",
+            updated_at: new Date().toISOString(),
+          },
+          { onConflict: "id" }
+        );
+
+        if (upsertError) {
+          logger.warn("Failed to persist completed workout to Supabase", upsertError, "workout", user.id);
+        }
+      } catch (err) {
+        logger.warn("Unexpected error while persisting completed workout to Supabase", err, "workout", user.id);
       }
 
       // Clear current session
@@ -353,9 +429,12 @@ export class WorkoutService {
       const user = await authService.getCurrentUser();
       const workoutId = this.currentSession.id;
 
-      // Remove from offline storage
-      if (this.config.enableOfflineMode) {
-        await offlineService.removeWorkoutOffline(workoutId);
+      // Offline storage removed in migration to online-first; no client-side cleanup required here.
+      // If desired, we could delete server-side session here, but we keep client behavior minimal.
+      try {
+        // No-op placeholder to preserve behavior in case future logic is needed
+      } catch (err) {
+        logger.warn("cancelWorkout: cleanup noop failed", err, "workout");
       }
 
       // Clear current session
@@ -391,32 +470,35 @@ export class WorkoutService {
         return null;
       }
 
-      // Get pending workouts from offline storage
-      const pendingWorkouts = await offlineService.getPendingWorkouts();
+      // Query server for incomplete workouts (most recent)
+      try {
+        const { data: sessions, error } = await this.supabase
+          .from("workout_sessions")
+          .select(
+            "id, started_at, updated_at, completed_at, name, (select count(*) from exercise_sets where session_id = workout_sessions.id) as set_count"
+          )
+          .eq("user_id", user.id)
+          .is("completed_at", null)
+          .order("updated_at", { ascending: false })
+          .limit(5);
 
-      // Find incomplete workouts (no completedAt)
-      const incompleteWorkouts = pendingWorkouts.filter(
-        (workout) => !workout.data.completedAt && workout.data.userId === user.id
-      );
+        if (error || !sessions || (Array.isArray(sessions) && sessions.length === 0)) {
+          return null;
+        }
 
-      if (incompleteWorkouts.length === 0) {
+        const latest = (sessions as any[])[0];
+        return {
+          workoutId: latest.id,
+          lastSavedAt: latest.updated_at || latest.started_at,
+          currentExercise: 0,
+          currentSet: latest.set_count || 0,
+          completedSets: [], // detailed sets can be fetched via recoverWorkoutSession
+          canRecover: true,
+        };
+      } catch (err) {
+        logger.error("Failed to query server for recoverable sessions", err, "workout");
         return null;
       }
-
-      // Get the most recent incomplete workout
-      const latestIncomplete = incompleteWorkouts.sort((a, b) => b.timestamp - a.timestamp)[0];
-
-      const workoutData = latestIncomplete.data as WorkoutSession;
-      const sets = workoutData.sets || [];
-
-      return {
-        workoutId: workoutData.id,
-        lastSavedAt: new Date(latestIncomplete.timestamp).toISOString(),
-        currentExercise: 0, // Would need to calculate based on sets
-        currentSet: sets.length,
-        completedSets: sets,
-        canRecover: true,
-      };
     } catch (error) {
       logger.error("Failed to check for recoverable session", error, "workout");
       return null;
@@ -436,28 +518,88 @@ export class WorkoutService {
         };
       }
 
-      // Get workout from offline storage
-      const workout = await offlineService.getWorkoutOffline(workoutId);
-      if (!workout) {
+      // Fetch workout and its sets from server and normalize to frontend types
+      let recoveredWorkout: WorkoutSession | null = null;
+      try {
+        const { data: workoutRow, error } = await this.supabase
+          .from("workout_sessions")
+          .select("*, exercise_sets(*)")
+          .eq("id", workoutId)
+          .eq("user_id", user.id)
+          .single();
+
+        if (error || !workoutRow) {
+          return {
+            success: false,
+            error: "Workout session not found",
+          };
+        }
+
+        // Normalize exercise_sets from snake_case -> camelCase ExerciseSet[]
+        const sets = Array.isArray(workoutRow.exercise_sets)
+          ? workoutRow.exercise_sets.map((s: any) => ({
+              id: s.id,
+              sessionId: s.session_id,
+              exerciseId: s.exercise_id,
+              plannedExerciseId: s.planned_exercise_id ?? null,
+              setNumber: s.set_number,
+              weightKg: s.weight_kg ?? null,
+              reps: s.reps ?? null,
+              rpe: s.rpe ?? null,
+              isWarmup: !!s.is_warmup,
+              isFailure: !!s.is_failure,
+              restSeconds: s.rest_seconds ?? null,
+              notes: s.notes ?? null,
+              createdAt: s.created_at,
+            }))
+          : [];
+
+        recoveredWorkout = {
+          id: workoutRow.id,
+          userId: workoutRow.user_id,
+          planId: workoutRow.plan_id,
+          sessionId: workoutRow.session_id,
+          name: workoutRow.name,
+          startedAt: workoutRow.started_at,
+          completedAt: workoutRow.completed_at ?? null,
+          durationMinutes: workoutRow.duration_minutes ?? null,
+          notes: workoutRow.notes ?? null,
+          totalVolumeKg: workoutRow.total_volume_kg ?? null,
+          averageRpe: workoutRow.average_rpe ?? null,
+          syncStatus: workoutRow.sync_status,
+          offlineCreated: workoutRow.offline_created || false,
+          createdAt: workoutRow.created_at,
+          updatedAt: workoutRow.updated_at,
+          sets,
+        } as WorkoutSession;
+
+        // Set as current session
+        this.currentSession = recoveredWorkout;
+
+        // Start auto-save if enabled
+        if (this.config.autoSave) {
+          this.startAutoSave();
+        }
+
+        logger.info("Workout session recovered", { workoutId }, "workout", user.id);
+      } catch (err) {
+        logger.error("Failed to recover workout session from server", err, "workout");
         return {
           success: false,
-          error: "Workout session not found",
+          error: "Failed to recover workout session",
         };
       }
 
-      // Set as current session
-      this.currentSession = workout;
-
-      // Start auto-save
-      if (this.config.autoSave) {
-        this.startAutoSave();
+      if (!recoveredWorkout) {
+        return {
+          success: false,
+          error: "Workout session not available",
+        };
       }
-
-      logger.info("Workout session recovered", { workoutId }, "workout", user.id);
 
       return {
         success: true,
-        data: workout,
+        data: recoveredWorkout,
         offline: this.config.enableOfflineMode,
         syncPending: true,
       };
@@ -625,12 +767,19 @@ export class WorkoutService {
     }
 
     this.autoSaveTimer = setInterval(async () => {
-      if (this.currentSession && this.config.enableOfflineMode) {
+      if (this.currentSession) {
         try {
-          await offlineService.storeWorkoutOffline(this.currentSession);
-          logger.debug("Auto-saved workout session", { workoutId: this.currentSession.id }, "workout");
+          const user = await authService.getCurrentUser();
+          if (user) {
+            await this.supabase
+              .from("workout_sessions")
+              .update({ updated_at: new Date().toISOString() })
+              .eq("id", this.currentSession.id)
+              .eq("user_id", user.id);
+            logger.debug("Auto-saved workout session (updated_at)", { workoutId: this.currentSession.id }, "workout");
+          }
         } catch (error) {
-          logger.error("Auto-save failed", error, "workout");
+          logger.error("Auto-save failed (persist)", error, "workout");
         }
       }
     }, 10000); // Auto-save every 10 seconds
@@ -689,112 +838,11 @@ export class WorkoutService {
    * Sync pending workouts with server
    */
   async syncPendingWorkouts(): Promise<WorkoutServiceResult<{ syncedCount: number; errorCount: number }>> {
-    try {
-      const user = await authService.getCurrentUser();
-      if (!user) {
-        return {
-          success: false,
-          error: "User not authenticated",
-        };
-      }
-
-      const pendingWorkouts = await offlineService.getPendingWorkouts();
-      if (pendingWorkouts.length === 0) {
-        return {
-          success: true,
-          data: { syncedCount: 0, errorCount: 0 },
-        };
-      }
-
-      logger.info(`Syncing ${pendingWorkouts.length} pending workouts`, undefined, "workout", user.id);
-
-      let syncedCount = 0;
-      let errorCount = 0;
-
-      // Batch sync pending workouts using the server-side workout-sync edge function.
-      // This posts full workout objects (including sets) to the canonical sync endpoint,
-      // and relies on the server to handle conflicts/atomic replacement.
-      try {
-        const tokens = await getTokens();
-        if (!tokens || !tokens.accessToken) {
-          throw new Error("No access token available for sync");
-        }
-
-        const functionUrl = `${ENV_CONFIG.supabaseUrl.replace(/\/$/, "")}/functions/v1/workout-sync`;
-
-        const payload = {
-          workouts: pendingWorkouts.map((p) => p.data),
-          lastSyncTime: new Date().toISOString(),
-        };
-
-        const res = await fetch(functionUrl, {
-          method: "POST",
-          headers: {
-            Authorization: `Bearer ${tokens.accessToken}`,
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify(payload),
-        });
-
-        const json = await res.json().catch(() => ({}));
-
-        if (!res.ok) {
-          // If the function returned a non-200, treat as errors for all workouts
-          logger.error("workout-sync function failed", json || { status: res.status }, "workout", user.id);
-          errorCount += pendingWorkouts.length;
-        } else {
-          // Expect { results: [{ id, status, error?, server_version? }], sync_time, ... }
-          const results: any[] = Array.isArray(json.results) ? json.results : [];
-
-          for (const r of results) {
-            if (r.status === "synced") {
-              try {
-                await offlineService.removeWorkoutOffline(r.id);
-                syncedCount++;
-                logger.debug("Workout synced (server) and removed offline", { workoutId: r.id }, "workout", user.id);
-              } catch (remErr) {
-                // If removal fails, count as error but continue
-                errorCount++;
-                logger.error("Failed to remove workout after successful sync", remErr, "workout", user.id);
-              }
-            } else if (r.status === "conflict") {
-              // Keep conflicted workout in offline queue and log
-              resultConflictsLog: {
-                logger.warn(
-                  "Workout conflict during sync",
-                  { workoutId: r.id, serverVersion: r.server_version },
-                  "workout",
-                  user.id
-                );
-              }
-              // increment error/conflict counters accordingly
-              errorCount++;
-            } else {
-              // status === "error" or unknown
-              errorCount++;
-              logger.error("Workout sync error (server)", { workoutId: r.id, error: r.error }, "workout", user.id);
-            }
-          }
-        }
-      } catch (error) {
-        // If the whole batch sync fails, mark as errors
-        errorCount += pendingWorkouts.length;
-        logger.error("Failed to perform batch workout sync", error, "workout", user.id);
-      }
-
-      logger.info("Sync completed", { syncedCount, errorCount }, "workout", user.id);
-
-      return {
-        success: true,
-        data: { syncedCount, errorCount },
-      };
-    } catch (error) {
-      logger.error("Failed to sync pending workouts", error, "workout");
-      return {
-        success: false,
-        error: error instanceof Error ? error.message : "Failed to sync workouts",
-      };
-    }
+    // Offline queue no longer used. Return noop result for compatibility.
+    return {
+      success: true,
+      data: { syncedCount: 0, errorCount: 0 },
+    };
   }
 
   /**

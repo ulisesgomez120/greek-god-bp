@@ -36,7 +36,7 @@ Medium severity (fix in next sprint)
    - Ensure central transform layer and runtime validation (zod) in edge functions and frontend transforms.
    - Status: Pending.
 
-6. TokenManager creates its own supabase client separate from src/lib/supabase.ts
+6. completed: TokenManager creates its own supabase client separate from src/lib/supabase.ts
    - Fix: TokenManager now uses the shared supabase import (no extra createClient).
    - Status: Completed.
 

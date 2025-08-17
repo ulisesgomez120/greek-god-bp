@@ -6,7 +6,6 @@
 
 import React from "react";
 import { View, Text, TouchableOpacity, StyleSheet, Animated } from "react-native";
-import { useWorkoutSync } from "../../hooks/useWorkoutSync";
 import { useAppSelector } from "../../hooks/redux";
 import { logger } from "../../utils/logger";
 
@@ -26,9 +25,21 @@ export interface SyncIndicatorProps {
 // ============================================================================
 
 export function SyncIndicator({ style, showDetails = false, onPress, compact = false }: SyncIndicatorProps) {
-  const { syncState, conflicts, canSync, startSync, retryFailedSync } = useWorkoutSync();
+  // Online-first: derive network and pending state from Redux; background sync hooks removed.
   const networkStatus = useAppSelector((state) => state.ui.networkStatus);
-  const pendingWorkouts = useAppSelector((state) => state.workout.offline.pendingSessions);
+  const pendingWorkouts = useAppSelector((state) => state.offline?.pendingWorkouts ?? []);
+
+  // Maintain minimal syncState and conflicts placeholders for UI compatibility.
+  const syncState = { isActive: false, progress: 0, currentWorkout: undefined, lastSyncTime: undefined, errorCount: 0 };
+  const conflicts: any[] = [];
+  const canSync = networkStatus === "online";
+  // startSync/retry functions removed in online-first mode.
+  const startSync = async () => {
+    logger.info("startSync called, but background sync is disabled in online-first mode", undefined, "sync");
+  };
+  const retryFailedSync = async () => {
+    logger.info("retryFailedSync called, but background sync is disabled in online-first mode", undefined, "sync");
+  };
 
   // ============================================================================
   // SYNC STATUS LOGIC
@@ -124,32 +135,22 @@ export function SyncIndicator({ style, showDetails = false, onPress, compact = f
   // HANDLERS
   // ============================================================================
 
-  const handlePress = async () => {
+  const handlePress = () => {
     try {
       if (onPress) {
         onPress();
         return;
       }
 
-      // Default press behavior based on status
-      switch (statusInfo.status) {
-        case "pending":
-        case "error":
-          logger.info("Manual sync triggered from indicator", undefined, "sync");
-          await startSync({ force: true });
-          break;
-        case "conflicts":
-          // Would open conflict resolution modal
-          logger.info("Conflict resolution requested", undefined, "sync");
-          break;
-        case "synced":
-        case "idle":
-          if (pendingWorkouts.length > 0) {
-            await startSync();
-          }
-          break;
-        default:
-          break;
+      // Online-first: no background sync. Provide information to user/developers.
+      if (pendingWorkouts.length > 0) {
+        logger.info(
+          "Pending workouts exist; user should retry when online or inspect offline queue",
+          undefined,
+          "sync"
+        );
+      } else {
+        logger.info("Sync indicator pressed - no action in online-first mode", undefined, "sync");
       }
     } catch (error) {
       logger.error("Sync indicator action failed", error, "sync");

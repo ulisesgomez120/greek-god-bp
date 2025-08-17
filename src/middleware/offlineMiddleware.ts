@@ -3,6 +3,9 @@
 // ============================================================================
 // Offline queue management middleware for handling actions when offline,
 // automatic synchronization when back online, and conflict resolution
+// DEPRECATION NOTE: This middleware is retained for Phase 2 to preserve behavior.
+// It will be removed in Phase 3 when the Redux offline slice is deleted and UI
+// components are fully converted to online-first direct persistence.
 
 import { Middleware } from "@reduxjs/toolkit";
 import { logger } from "../utils/logger";

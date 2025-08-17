@@ -3,6 +3,10 @@
 // ============================================================================
 // Background sync hook with conflict resolution, retry logic, and network-aware
 // synchronization strategies
+// DEPRECATION NOTE: This hook is retained for backward compatibility during Phase 2.
+// UI components should stop calling background sync and instead rely on direct
+// persistence via workoutService with explicit user-visible loading states.
+// Planned removal: Phase 4 — do not add new usages.
 
 import { useState, useEffect, useCallback, useRef } from "react";
 import { useAppDispatch, useAppSelector } from "./redux";
@@ -192,7 +196,8 @@ export function useWorkoutSync(): UseWorkoutSyncReturn {
 
         // Dispatch Redux actions
         dispatch(setSyncStatus("syncing"));
-        dispatch(showSyncStartedNotification());
+        // Use a plain action object to avoid TypeScript payload mismatch for the zero-arg notification.
+        dispatch({ type: "ui/showSyncStartedNotification" });
 
         // Get sync strategy
         const strategy = getSyncStrategy();

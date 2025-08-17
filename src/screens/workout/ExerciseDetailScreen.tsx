@@ -97,6 +97,9 @@ export const ExerciseDetailScreen: React.FC<ExerciseDetailScreenProps> = ({ navi
     nextExercise: null,
   });
 
+  // Local submitting state for set submissions
+  const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
+
   // Network status (used to attempt immediate sync when online)
   const { isConnected } = useNetworkState();
 
@@ -205,6 +208,7 @@ export const ExerciseDetailScreen: React.FC<ExerciseDetailScreenProps> = ({ navi
 
   const handleSetComplete = useCallback(
     async (setData: ExerciseSetFormData) => {
+      setIsSubmitting(true);
       try {
         // Ensure there's an active workout session; if not, start one using workoutContext
         if (!workoutService.hasActiveWorkout()) {
@@ -220,7 +224,7 @@ export const ExerciseDetailScreen: React.FC<ExerciseDetailScreenProps> = ({ navi
           }
         }
 
-        // Persist the set via workoutService (offline-first). Service returns the created set.
+        // Persist the set via workoutService (direct online). Service returns the created set.
         const result = await workoutService.addExerciseSet(setData);
 
         if (!result.success) {
@@ -239,24 +243,18 @@ export const ExerciseDetailScreen: React.FC<ExerciseDetailScreenProps> = ({ navi
           restDuration: setData.restSeconds || exerciseData.restSeconds,
         }));
 
-        // If online, attempt an immediate sync to push data to Supabase
-        if (isConnected) {
-          try {
-            await workoutService.syncPendingWorkouts();
-          } catch (syncErr) {
-            console.warn("Immediate sync failed (will retry via auto-sync):", syncErr);
-          }
-        }
-
+        // Removed immediate background sync: persistence is attempted inline by the service.
         console.log("Set logged successfully:", createdSet);
         return result;
       } catch (error) {
         console.error("Failed to log set:", error);
         Alert.alert("Error", "Failed to log set. Please try again.");
         return { success: false, error: error instanceof Error ? error.message : "Failed to log set" };
+      } finally {
+        setIsSubmitting(false);
       }
     },
-    [exerciseData.restSeconds, workoutContext, isConnected]
+    [exerciseData.restSeconds, workoutContext]
   );
 
   // ============================================================================
@@ -486,6 +484,7 @@ export const ExerciseDetailScreen: React.FC<ExerciseDetailScreenProps> = ({ navi
             }
             onSetComplete={handleSetComplete}
             isFirstSet={state.completedSets.length === 0}
+            isSubmitting={isSubmitting}
           />
         </View>
 

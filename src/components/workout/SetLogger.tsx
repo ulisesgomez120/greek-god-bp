@@ -31,6 +31,8 @@ interface SetLoggerProps {
   // onSetComplete now returns a Promise with the workout service result so callers can await persistence
   onSetComplete: (setData: ExerciseSetFormData) => Promise<any>;
   isFirstSet: boolean;
+  // Optional externally-controlled submitting state (Phase 2 compatibility)
+  isSubmitting?: boolean;
   style?: ViewStyle;
 }
 
@@ -75,6 +77,8 @@ export const SetLogger: React.FC<SetLoggerProps> = ({
   suggestedReps,
   onSetComplete,
   isFirstSet,
+  // rename prop locally to avoid collision with internal state
+  isSubmitting: isSubmittingProp,
   style,
 }) => {
   // ============================================================================
@@ -95,7 +99,10 @@ export const SetLogger: React.FC<SetLoggerProps> = ({
   const [focusedField, setFocusedField] = useState<string | null>(null);
   const [errors, setErrors] = useState<{ [key: string]: string }>({});
   const [showRPESelector, setShowRPESelector] = useState(false);
-  const [isSubmitting, setIsSubmitting] = useState(false);
+  // Local submitting state used only if parent doesn't control isSubmitting.
+  const [isLocalSubmitting, setIsLocalSubmitting] = useState(false);
+  // Effective submitting flag: prefer prop when provided (online-first UI control), otherwise use local state.
+  const submitting = typeof isSubmittingProp !== "undefined" ? isSubmittingProp : isLocalSubmitting;
 
   // Refs for input focus management
   const weightInputRef = useRef<TextInput>(null);
@@ -253,7 +260,8 @@ export const SetLogger: React.FC<SetLoggerProps> = ({
   }, [state]);
 
   const handleSubmit = useCallback(async () => {
-    if (isSubmitting) return;
+    // Prevent duplicate submissions whether controlled externally or using local state.
+    if (submitting) return;
 
     if (!validateForm()) {
       await triggerHaptic("error");
@@ -261,7 +269,11 @@ export const SetLogger: React.FC<SetLoggerProps> = ({
     }
 
     try {
-      setIsSubmitting(true);
+      // If parent did not provide isSubmitting, manage local submitting state.
+      if (typeof isSubmittingProp === "undefined") {
+        setIsLocalSubmitting(true);
+      }
+
       await triggerSetCompleteHaptic();
 
       const setData: ExerciseSetFormData = {
@@ -314,10 +326,12 @@ export const SetLogger: React.FC<SetLoggerProps> = ({
       Alert.alert("Error", "Failed to log set. Please try again.");
       await triggerHaptic("error");
     } finally {
-      setIsSubmitting(false);
+      if (typeof isSubmittingProp === "undefined") {
+        setIsLocalSubmitting(false);
+      }
     }
   }, [
-    isSubmitting,
+    // do not include internal local state setter in deps; include external prop if referenced
     validateForm,
     triggerSetCompleteHaptic,
     triggerHaptic,
@@ -325,6 +339,7 @@ export const SetLogger: React.FC<SetLoggerProps> = ({
     setNumber,
     state,
     onSetComplete,
+    isSubmittingProp,
   ]);
 
   // ============================================================================
@@ -436,10 +451,10 @@ export const SetLogger: React.FC<SetLoggerProps> = ({
       <Button
         variant='primary'
         onPress={handleSubmit}
-        disabled={isSubmitting}
+        disabled={submitting}
         style={styles.logButton}
         accessibilityLabel={`Log set ${setNumber}`}>
-        <Text style={styles.logButtonText}>{isSubmitting ? "Logging..." : `Log Set ${setNumber}`}</Text>
+        <Text style={styles.logButtonText}>{submitting ? "Logging..." : `Log Set ${setNumber}`}</Text>
       </Button>
 
       {showRPESelector && (
