@@ -27,7 +27,12 @@ export interface SyncIndicatorProps {
 export function SyncIndicator({ style, showDetails = false, onPress, compact = false }: SyncIndicatorProps) {
   // Online-first: derive network and pending state from Redux; background sync hooks removed.
   const networkStatus = useAppSelector((state) => state.ui.networkStatus);
-  const pendingWorkouts = useAppSelector((state) => state.offline?.pendingWorkouts ?? []);
+  // Offline data was migrated into the workout slice during Phase 2.
+  // Read pending items from workout.offline when present; fall back to empty array.
+  const pendingWorkouts = useAppSelector(
+    (state) =>
+      (state as any).workout?.offline?.pendingWorkouts ?? (state as any).workout?.offline?.pendingSessions ?? []
+  );
 
   // Maintain minimal syncState and conflicts placeholders for UI compatibility.
   const syncState = { isActive: false, progress: 0, currentWorkout: undefined, lastSyncTime: undefined, errorCount: 0 };

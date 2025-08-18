@@ -16,11 +16,9 @@ import workoutSlice from "./workout/workoutSlice";
 import progressSlice from "./progress/progressSlice";
 import subscriptionSlice from "./subscription/subscriptionSlice";
 import uiSlice from "./ui/uiSlice";
-import offlineSlice from "./offline/offlineSlice";
 
 // Middleware
 import { authMiddleware } from "../middleware/authMiddleware";
-import { offlineMiddleware } from "../middleware/offlineMiddleware";
 import { reduxLoggerMiddleware } from "../middleware/reduxLoggerMiddleware";
 
 // Utils
@@ -37,7 +35,7 @@ const persistConfig = {
   version: 1,
   storage: AsyncStorage,
   // Only persist essential data for offline functionality
-  whitelist: ["auth", "workout", "ui", "offline"],
+  whitelist: ["auth", "workout", "ui"],
   // Exclude API cache and temporary states
   blacklist: ["api"],
 };
@@ -54,8 +52,8 @@ const authPersistConfig = {
 const workoutPersistConfig = {
   key: "workout",
   storage: AsyncStorage,
-  // Persist offline data and current workout state
-  whitelist: ["offline", "currentWorkout", "exercises", "plans"],
+  // Persist current workout state and essential lists
+  whitelist: ["currentWorkout", "exercises", "plans"],
 };
 
 // UI slice persistence - user preferences
@@ -80,7 +78,6 @@ const rootReducer = combineReducers({
   progress: progressSlice,
   subscription: subscriptionSlice,
   ui: persistReducer(uiPersistConfig, uiSlice),
-  offline: offlineSlice,
 });
 
 // Apply root persistence
@@ -104,8 +101,7 @@ const getDefaultMiddleware = (getDefaultMiddleware: any) => {
     // Add RTK Query middleware
     .concat(baseApi.middleware)
     // Add custom middleware
-    .concat(authMiddleware)
-    .concat(offlineMiddleware);
+    .concat(authMiddleware);
 
   // Add development middleware
   if (DEV_CONSTANTS.enableDebugMode) {
@@ -247,7 +243,7 @@ store.subscribe(() => {
     // Could trigger app-wide error boundary or force logout
   }
 
-  if (state.workout.offline.syncStatus === "error") {
+  if (state.workout?.offline?.syncStatus === "error") {
     logger.warn("Workout sync error detected, will retry automatically");
   }
 });
