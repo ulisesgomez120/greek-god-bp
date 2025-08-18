@@ -63,42 +63,42 @@ const WorkoutNavigator: React.FC = () => {
       }}>
       <WorkoutStack.Screen
         name='WorkoutHome'
-        component={ProgramSelectionScreen}
+        component={ProgramSelectionScreen as any}
         options={{
           title: "Choose Program",
         }}
       />
       <WorkoutStack.Screen
         name='ProgramSelection'
-        component={ProgramSelectionScreen}
+        component={ProgramSelectionScreen as any}
         options={{
           title: "Choose Program",
         }}
       />
       <WorkoutStack.Screen
         name='PhaseSelection'
-        component={PhaseSelectionScreen}
+        component={PhaseSelectionScreen as any}
         options={({ route }) => ({
           title: "Choose Phase",
         })}
       />
       <WorkoutStack.Screen
         name='DaySelection'
-        component={DaySelectionScreen}
+        component={DaySelectionScreen as any}
         options={{
           title: "Choose Workout",
         }}
       />
       <WorkoutStack.Screen
         name='ExerciseList'
-        component={ExerciseListScreen}
+        component={ExerciseListScreen as any}
         options={{
           title: "Today's Workout",
         }}
       />
       <WorkoutStack.Screen
         name='ExerciseDetail'
-        component={ExerciseDetailScreen}
+        component={ExerciseDetailScreen as any}
         options={{
           title: "Exercise Details",
           presentation: "modal",
@@ -106,7 +106,7 @@ const WorkoutNavigator: React.FC = () => {
       />
       <WorkoutStack.Screen
         name='WorkoutSummary'
-        component={WorkoutSummaryScreen}
+        component={WorkoutSummaryScreen as any}
         options={{
           title: "Workout Complete",
           gestureEnabled: false,

@@ -8,6 +8,7 @@ import React from "react";
 import { View, Text, TouchableOpacity, StyleSheet, Animated } from "react-native";
 import { useAppSelector } from "../../hooks/redux";
 import { logger } from "../../utils/logger";
+import { selectOfflineQueue, selectSyncStatus } from "../../store/workout/workoutSlice";
 
 // ============================================================================
 // TYPES
@@ -27,12 +28,9 @@ export interface SyncIndicatorProps {
 export function SyncIndicator({ style, showDetails = false, onPress, compact = false }: SyncIndicatorProps) {
   // Online-first: derive network and pending state from Redux; background sync hooks removed.
   const networkStatus = useAppSelector((state) => state.ui.networkStatus);
-  // Offline data was migrated into the workout slice during Phase 2.
-  // Read pending items from workout.offline when present; fall back to empty array.
-  const pendingWorkouts = useAppSelector(
-    (state) =>
-      (state as any).workout?.offline?.pendingWorkouts ?? (state as any).workout?.offline?.pendingSessions ?? []
-  );
+  // Read pending items from workout slice via selectors (safe fallbacks handled in slice)
+  const pendingWorkouts = useAppSelector(selectOfflineQueue);
+  const sliceSyncStatus = useAppSelector(selectSyncStatus);
 
   // Maintain minimal syncState and conflicts placeholders for UI compatibility.
   const syncState = { isActive: false, progress: 0, currentWorkout: undefined, lastSyncTime: undefined, errorCount: 0 };

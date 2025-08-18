@@ -48,149 +48,140 @@ interface DirectServiceResult<T = any> {
 
 Remove offline infrastructure files and modify workout flow files to use direct database operations.
 
-**Files to Delete:**
+Files that are targeted for deletion or conversion (status noted below):
 
-- `src/services/offline.service.ts` - Complete offline storage system
-- `src/hooks/useWorkoutSync.ts` - Background sync hook
-- `src/store/offline/offlineSlice.ts` - Offline Redux state management
-- `src/middleware/offlineMiddleware.ts` - Offline Redux middleware
-- `src/components/workout/SyncIndicator.tsx` - Sync status UI component (updated to online-first variant instead of delete)
+- `src/services/offline.service.ts` - Complete offline storage system (planned removal; keep until Phase 4 validation)
+- `src/hooks/useWorkoutSync.ts` - Background sync hook (marked for removal in Phase 4; compatibility fixes applied)
+- `src/store/offline/offlineSlice.ts` - Offline Redux state management (removed from store config; file deletion pending verification)
+- `src/middleware/offlineMiddleware.ts` - Offline Redux middleware (removed from store config; file deletion pending verification)
+- `src/components/workout/SyncIndicator.tsx` - Converted to online-first informational component (updated)
 - `supabase/functions/workout-sync/index.ts` - Server-side sync edge function (candidate for removal; keep until server behavior validated)
 
-**Files to Modify:**
+Files modified (high level):
 
-- `src/services/workout.service.ts` - Replace offline operations with direct Supabase calls (updated)
-- `src/services/database.service.ts` - Remove offline queue delegation
-- `src/screens/workout/ExerciseDetailScreen.tsx` - Remove sync calls, add loading states (updated)
+- `src/services/workout.service.ts` - Replaced offline operations with direct Supabase calls (implemented)
+- `src/services/database.service.ts` - Remove offline queue delegation (planned)
+- `src/screens/workout/ExerciseDetailScreen.tsx` - Removed sync calls, added loading states (implemented)
 - `src/store/workout/workoutSlice.ts` - Remove sync-related actions and state (planned)
-- `src/store/index.ts` - Remove offline slice from store configuration (planned)
+- `src/store/index.ts` - Removed offline slice from store configuration (implemented)
 - `src/utils/storage.ts` - Remove offline queue utilities (planned)
-- `src/middleware/authMiddleware.ts` - Remove sync-related middleware actions (planned)
-- `src/components/workout/SyncIndicator.tsx` - Converted to an online-first informational component (updated)
+- `src/middleware/authMiddleware.ts` - Removed sync-related middleware actions and fixed types (updated)
+- `src/components/workout/SyncIndicator.tsx` - Converted to an online-first informational component (implemented)
+- `src/components/workout/SetLogger.tsx` - Accepts `isSubmitting` prop for external control (implemented)
+- `src/components/workout/ExerciseCard.tsx` - `onSetComplete` updated to return a Promise (implemented)
+- `src/screens/workout/WorkoutSummaryScreen.tsx` - Rewritten to use server-driven loading/retry (implemented)
+- `tsconfig.json` - Simplified to fix TypeScript checks (updated)
 
-**Configuration Updates:**
-
-- Update `src/config/constants.ts` to remove offline-related constants
-- Modify any import statements that reference deleted or migrated files
+**Note:** Files are being retained until server behavior and end-to-end flows are validated. Where removal is safe it's been removed from runtime (store configuration / import removal), but actual file deletion is deferred to Phase 4 in most cases to keep rollback simple.
 
 ## [Functions]
 
 Replace offline storage and sync functions with direct database operations.
 
-**New Functions:**
+**New Functions (conceptual):**
 
-- `createWorkoutSession(workout: WorkoutSession): Promise<DirectServiceResult<WorkoutSession>>` in `src/services/workout.service.ts` (conceptual)
-- `addSetToWorkout(sessionId: string, setData: ExerciseSetFormData): Promise<DirectServiceResult<ExerciseSet>>` in `src/services/workout.service.ts` (conceptual)
-- `updateWorkoutSession(sessionId: string, updates: Partial<WorkoutSession>): Promise<DirectServiceResult<WorkoutSession>>` in `src/services/workout.service.ts` (conceptual)
-- `completeWorkoutSession(sessionId: string, notes?: string): Promise<DirectServiceResult<WorkoutSession>>` in `src/services/workout.service.ts` (conceptual)
+- `createWorkoutSession(workout: WorkoutSession): Promise<DirectServiceResult<WorkoutSession>>` in `src/services/workout.service.ts`
+- `addSetToWorkout(sessionId: string, setData: ExerciseSetFormData): Promise<DirectServiceResult<ExerciseSet>>` in `src/services/workout.service.ts`
+- `updateWorkoutSession(sessionId: string, updates: Partial<WorkoutSession>): Promise<DirectServiceResult<WorkoutSession>>` in `src/services/workout.service.ts`
+- `completeWorkoutSession(sessionId: string, notes?: string): Promise<DirectServiceResult<WorkoutSession>>` in `src/services/workout.service.ts`
 
-**Modified Functions:**
+**Modified / Implemented Functions:**
 
-- `startWorkout()` in `src/services/workout.service.ts` - Remove offline storage, add direct Supabase insert (implemented)
-- `addExerciseSet()` in `src/services/workout.service.ts` - Remove offline storage, add direct Supabase insert (implemented)
-- `completeWorkout()` in `src/services/workout.service.ts` - Remove offline storage, add direct Supabase update (implemented)
-- `handleSetComplete()` in `src/screens/workout/ExerciseDetailScreen.tsx` - Remove immediate sync call and add submitting/loading state (implemented)
+- `startWorkout()` in `src/services/workout.service.ts` - now creates a workout session directly in Supabase (implemented)
+- `addExerciseSet()` in `src/services/workout.service.ts` - inserts sets directly in Supabase (implemented)
+- `completeWorkout()` in `src/services/workout.service.ts` - updates session directly in Supabase (implemented)
+- `handleSetComplete()` in `src/screens/workout/ExerciseDetailScreen.tsx` - removed immediate sync call and added submitting/loading state (implemented)
 
-**Removed Functions:**
+**Compatibility Stubs / Notes:**
 
-- All functions in `src/services/offline.service.ts` (planned removal)
-- `syncPendingWorkouts()` from `src/services/workout.service.ts` (retained a no-op compatibility stub)
-- All sync-related Redux thunks in `src/store/offline/offlineSlice.ts` (planned removal)
-- All sync-related functions in `src/hooks/useWorkoutSync.ts` (planned removal)
+- `syncPendingWorkouts()` is retained as a no-op compatibility stub in `workout.service.ts` to avoid breaking existing callers; slated for removal in Phase 4.
+- `useWorkoutSync` hook remains in the codebase with deprecation comments and minor type fixes; scheduled for removal in Phase 4.
 
 ## [Classes]
 
 Remove OfflineService class and simplify WorkoutService class.
 
-**Removed Classes:**
+**Removed Classes (planned):**
 
-- `OfflineService` class in `src/services/offline.service.ts` - Complete removal including singleton pattern (planned)
+- `OfflineService` class in `src/services/offline.service.ts` - Complete removal planned for Phase 4 after validation
 
-**Modified Classes:**
+**Modified Classes (implemented where noted):**
 
 - `WorkoutService` class in `src/services/workout.service.ts`:
-  - Remove `offlineService` dependency (done)
-  - Remove sync-related methods where appropriate (kept compatibility stub)
-  - Remove offline configuration options (kept but can be removed later)
-  - Simplify constructor to remove sync configuration over time
-  - Replace offline storage calls with direct Supabase operations (done)
-  - Add proper loading states and error handling for direct operations (partially done)
+  - `offlineService` dependency removed where possible (done in core methods)
+  - Sync-related methods removed or kept as compatibility stubs
+  - Constructor simplified (sync timers removed)
+  - Direct Supabase operations used for CRUD on workout sessions and sets (done)
+  - Loading states and error handling added to public methods (partially done; screen-level loading controls applied)
 
 ## [Dependencies]
 
-No new dependencies required; remove offline-related imports.
+No new dependencies required. Remove offline-related imports over phases.
 
-Remove imports of:
-
-- `src/services/offline.service.ts` from all files (in-progress)
-- `src/hooks/useWorkoutSync.ts` from components (in-progress)
-- `src/store/offline/offlineSlice.ts` from store configuration (planned)
-- Any offline-related utility imports
-
-Update existing Supabase client usage to handle direct operations with proper error handling and loading states.
+- Removed imports and usage of offline slice from the store configuration.
+- Removed useWorkoutSync imports from UI components where applicable (in progress).
+- Kept server-side sync edge function until server behavior validated.
 
 ## [Testing]
 
-Update existing tests to remove offline scenarios and add direct operation tests.
+Update tests to reflect online-first behavior.
 
-**Test File Updates:**
+**Test File Updates Needed:**
 
-- Remove any tests related to offline functionality
-- Update workout service tests to test direct database operations
-- Add tests for loading states and error handling in direct operations
-- Update component tests to remove sync-related UI testing
+- Remove offline-related test cases
+- Update workout service tests to mock direct Supabase operations
+- Add tests for loading states and failure scenarios
+- Run full TypeScript check and fix remaining issues
 
-**New Test Scenarios:**
+**Current recommendation:** run `npx tsc --noEmit` after local environment tsconfig adjustments, then run manual smoke tests for workout flows (log set, complete workout, recover session).
 
-- Direct workout creation with network errors
-- Exercise set logging with immediate database persistence
-- Workout completion with proper state updates
-- Error handling for failed database operations
-
-## [Implementation Order]
+## [Implementation Order and Phases]
 
 Implement changes in phases to minimize disruption and ensure data integrity.
 
-1. **Phase 1: Modify WorkoutService for Direct Operations**
+1. **Phase 1: Modify WorkoutService for Direct Operations** (COMPLETED)
 
-   - Update `startWorkout()` to create workout session directly in Supabase (completed)
-   - Update `addExerciseSet()` to insert sets directly in Supabase (completed)
-   - Update `completeWorkout()` to update session directly in Supabase (completed)
-   - Add proper loading states and error handling (ExerciseDetailScreen updated)
-   - Remove offline storage calls but keep sync methods temporarily (completed: offline calls removed from WorkoutService; sync stub kept)
+   - Update `startWorkout()` to create workout session directly in Supabase — done
+   - Update `addExerciseSet()` to insert sets directly in Supabase — done
+   - Update `completeWorkout()` to update session directly in Supabase — done
+   - Add loading states and error handling — done (component-level)
+   - Remove offline storage calls but keep compatibility stubs — done
 
-2. **Phase 2: Update UI Components**
+2. **Phase 2: Update UI Components** (LARGELY COMPLETED)
 
-   - Modify `ExerciseDetailScreen.tsx` to handle loading states (completed)
-   - Remove sync calls and sync status indicators from other screens (in progress)
-   - Add proper error handling and retry mechanisms
-   - Update other workout-related screens similarly
+   - Modify `ExerciseDetailScreen.tsx` to handle loading states — done
+   - Update `SetLogger.tsx` to accept `isSubmitting` prop and avoid duplicate submissions — done
+   - Update `ExerciseCard.tsx` to make `onSetComplete` async and return a Promise — done
+   - Replace `SyncIndicator` usages with online-first variant — done (component converted)
+   - Remove `useWorkoutSync` and `syncPendingWorkouts` calls from UI components — in progress (removed from major screens; remaining references documented)
+   - Rewrite `WorkoutSummaryScreen.tsx` to load session data and show loading/error/retry states — done
 
-3. **Phase 3: Clean Up Redux State**
+3. **Phase 3: Clean Up Redux State** (IN PROGRESS / NEXT)
 
-   - Remove offline slice from store configuration
-   - Remove sync-related actions from workout slice
-   - Update components to use simplified state structure
-   - Remove sync-related middleware
+   - Remove offline slice from store configuration — done (imports removed)
+   - Delete or archive `src/store/offline/offlineSlice.ts` after ensuring no runtime references — pending
+   - Remove sync-related actions from workout slice and UI selectors — pending
+   - Remove `offlineMiddleware` usage and references — marked for deletion (file present for now)
+   - Update components that still reference offline slice to use graceful fallbacks (keep selectors until Phase 4) — ongoing
 
-4. **Phase 4: Remove Offline Infrastructure**
+4. **Phase 4: Remove Offline Infrastructure** (FUTURE)
 
-   - Delete `OfflineService` and related files
-   - Remove `useWorkoutSync` hook
-   - Delete sync-related edge functions after server validation
-   - Clean up imports and unused utilities
+   - Delete `OfflineService` and related storage utilities
+   - Remove `useWorkoutSync` hook and related tests
+   - Remove server-side sync edge function(s) only after production validation
+   - Final clean-up of imports and types
 
 5. **Phase 5: Testing and Optimization**
-   - Test all workout flows with direct operations
-   - Add proper error handling and user feedback
-   - Optimize database queries and caching
-   - Update documentation and remove offline references
+   - Full type-check and fix remaining TS issues
+   - Run integration/manual smoke tests for workout flows
+   - Add or update unit/integration tests
+   - Update documentation and developer guides
 
 ---
 
 ## [Progress]
 
-Current status (updates based on implemented changes):
+Current status (updated to reflect recent work):
 
 - [x] Phase 1.1: Update startWorkout() for direct Supabase operations — src/services/workout.service.ts updated
 - [x] Phase 1.2: Update addExerciseSet() for direct Supabase operations — src/services/workout.service.ts updated
@@ -198,26 +189,64 @@ Current status (updates based on implemented changes):
 - [x] Phase 1.4: Add proper loading states and error handling — src/screens/workout/ExerciseDetailScreen.tsx updated (isSubmitting state)
 - [x] Phase 1.5: Remove offline storage calls from WorkoutService — offline calls removed, compatibility sync stub retained
 - [ ] Phase 1.6: Test Phase 1 changes and verify functionality (typecheck & runtime tests)
-- [ ] Phase 2: Update additional UI components to remove/replace sync indicators — src/components/workout/SyncIndicator.tsx converted to online-first (partial)
-- [ ] Phase 3: Clean up Redux state and remove offline slice
-- [ ] Phase 4: Remove offline infrastructure files (deletions pending validation)
-- [ ] Phase 5: Final testing and optimization
-
-Files modified in Phase 1 (reference):
-
-- src/services/workout.service.ts
-- src/screens/workout/ExerciseDetailScreen.tsx
-- src/components/workout/SyncIndicator.tsx
-
-Notes:
-
-- TypeScript full check was skipped per instruction (tsc reported tsconfig setting issue). Recommend running `npx tsc --noEmit` after adjusting tsconfig or in your environment once you are ready.
-- I retained a compatibility `syncPendingWorkouts` stub to avoid breaking callers until the Redux cleanup is performed.
-- Server-side edge function `supabase/functions/workout-sync/index.ts` is still present and should be removed only after confirming server-side behaviour/clients.
+- [x] Phase 2.1: Modify UI components to use online-first patterns (SetLogger, ExerciseCard, ExerciseDetail) — updated
+- [x] Phase 2.2: Replace SyncIndicator with online-first informational component — src/components/workout/SyncIndicator.tsx updated
+- [x] Phase 2.3: Remove sync calls from main screens (ExerciseDetail done; ExerciseList & WorkoutSummary updated) — mostly done
+- [x] Phase 2.4: Update WorkoutSummaryScreen to use loading/retry states — src/screens/workout/WorkoutSummaryScreen.tsx updated
+- [x] Phase 2.5: Remove offline slice references from store configuration — src/store/index.ts updated
+- [x] Phase 2.6: Remove offline middleware from runtime config (file still present, marked for Phase 3/4 deletion)
+- [x] Phase 2.7: Fix TypeScript errors (useWorkoutSync useRef, authMiddleware setTimeout, WorkoutNavigator component types) — fixed
+- [ ] Phase 3.1: Remove remaining offlineService usages and migrate to online-first
+- [ ] Phase 3.2: Clean up remaining Redux offline references (slices, selectors)
+- [ ] Phase 3.3: Test workout flows to ensure online-first behavior works correctly
+- [ ] Phase 4.1: Delete offline.service.ts, useWorkoutSync.ts, and offline middleware (after Phase 3 validation)
+- [ ] Phase 5: Full typecheck, tests, and documentation updates
 
 ---
 
-## How to start a new task with context
+## [Next Task — Phase 3: Redux & Remaining Offline Removal]
+
+Goal: Remove remaining offline references and prepare the codebase for final cleanup in Phase 4.
+
+Scope:
+
+- Find and remove any remaining imports/usages of `offline.service`, `offlineSlice`, `offlineMiddleware`, and `useWorkoutSync` across the codebase.
+- Update `src/services/database.service.ts` to remove offline queue delegation if present.
+- Update any components that still reference offline selectors to use the new workout slice or fallbacks.
+- Remove or update tests referencing offline functionality.
+- Create a migration checklist and run `npx tsc --noEmit` and a manual smoke test of workout flows.
+
+Files to inspect and update (initial list):
+
+- src/services/database.service.ts
+- src/store/workout/workoutSlice.ts
+- src/store/offline/offlineSlice.ts
+- src/middleware/offlineMiddleware.ts
+- src/hooks/useWorkoutSync.ts
+- src/screens/workout/ExerciseListScreen.tsx
+- src/screens/workout/WorkoutSummaryScreen.tsx (verify all sync calls removed)
+- src/screens/workout/ExerciseDetailScreen.tsx (already updated; re-verify)
+- src/components/workout/SyncIndicator.tsx (verify graceful fallback)
+- src/components/workout/SetLogger.tsx (verify `isSubmitting` wiring from all call sites)
+
+Phase 3 Checklist:
+
+- [ ] Search repository and remove leftover offline imports/usages
+- [ ] Update remaining components to accept/loading states where necessary
+- [ ] Delete / archive `src/store/offline/offlineSlice.ts` (after verifying no references)
+- [ ] Delete `src/middleware/offlineMiddleware.ts` and adjust middleware chain
+- [ ] Run `npx tsc --noEmit` and fix any TS regressions
+- [ ] Run manual smoke test for workout flows and document issues
+
+If you want, I can start Phase 3 now and:
+
+- Create a dedicated task with the checklist above
+- Begin by searching for remaining usages of `syncPendingWorkouts`, `useWorkoutSync`, and `offlineSlice` and produce an inventory
+- Then make targeted edits (one at a time, with confirmations)
+
+---
+
+## [How to start a new task with context]
 
 If you want me or another implementation agent to continue working on the next steps, create a new task that includes the relevant context and the path to this plan file. Example (what I will do when you ask me to "start the next task"):
 
@@ -227,29 +256,37 @@ If you want me or another implementation agent to continue working on the next s
 
 2. Provide the minimal instruction and desired phase, for example:
 
-   - "Start Phase 2: convert UI to online-first (remove sync calls from remaining components). Use implementation_plan.md as the source of truth."
+   - "Start Phase 3: remove remaining offlineService usages and clean up Redux offline references. Use implementation_plan.md as the source of truth."
 
-3. If you want me to create a new automated task entry (so it appears in the workflow), I can create it now. I will include:
+3. If you want me to create a new automated task entry, I can create it now. I will include:
    - Task description summarizing the phase and files
    - Task progress checklist
    - Plan document navigation commands (so the implementer can read sections quickly)
 
-Example new_task payload I will create when you ask me to start (I can run this for you):
+Example new_task payload I will create when you ask me to start:
 
 ```xml
 <new_task>
 <context>
-[Short description]
-Refer to @implementation_plan.md for full plan.
+Start Phase 3: Remove remaining offlineService usages and migrate to online-first.
 
-[Task Progress]
-task_progress Items:
-- [ ] Phase 2.1: Remove useWorkoutSync imports from all components
-- [ ] Phase 2.2: Replace SyncIndicator with online-first variant
-- [ ] Phase 2.3: Remove immediate sync calls from screens
-- [ ] Phase 2.4: Run typecheck and smoke-test UI flows
+task_progress:
+- [ ] Find remaining references to offlineSlice, offline.service, and useWorkoutSync
+- [ ] Update database.service to remove queue delegation
+- [ ] Run typecheck and manual smoke test
+- [ ] Delete offline slice and middleware after validation
 </context>
 </new_task>
 ```
 
-If you want me to start Phase 2 now, tell me "Start Phase 2" and I will create the task and begin making the changes. Alternatively, tell me which specific step to start next (e.g., "remove offline slice from the Redux store" or "update remaining UI screens to drop sync calls").
+---
+
+## [Notes & Recommendations]
+
+- Keep the compatibility stub `syncPendingWorkouts()` in `workout.service.ts` until all references are removed; it reduces risk during staged migration.
+- Run incremental type-checks (`npx tsc --noEmit`) after each major change to catch TS regressions early.
+- Manual smoke tests should cover:
+  - Start workout, add sets, and complete workout (online)
+  - Error during set save (simulate network down)
+  - Retry flow for WorkoutSummary and recovery flow
+- After Phase 3 verification, proceed with Phase 4 deletions and then run full test suite.

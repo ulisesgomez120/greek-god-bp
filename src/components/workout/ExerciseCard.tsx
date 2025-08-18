@@ -73,6 +73,8 @@ export const ExerciseCard: React.FC<ExerciseCardProps> = ({
   const [showInstructions, setShowInstructions] = useState(false);
   const [showPreviousData, setShowPreviousData] = useState(false);
   const [showProgressionTip, setShowProgressionTip] = useState(false);
+  // Local submitting state used to disable SetLogger while a set is being persisted.
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   // ============================================================================
   // COMPUTED VALUES
@@ -166,26 +168,32 @@ export const ExerciseCard: React.FC<ExerciseCardProps> = ({
 
   const handleSetComplete = useCallback(
     async (setData: ExerciseSetFormData) => {
-      // Ensure we return a Promise so callers (like SetLogger) can await completion.
-      const result = await onSetComplete({
-        ...setData,
-        exerciseId: exercise.id,
-      });
-
-      logger.info(
-        "Set logged",
-        {
+      // Manage local submitting state so SetLogger can be disabled during persistence.
+      setIsSubmitting(true);
+      try {
+        // Ensure we return a Promise so callers (like SetLogger) can await completion.
+        const result = await onSetComplete({
+          ...setData,
           exerciseId: exercise.id,
-          setNumber: nextSetNumber,
-          weight: setData.weightKg,
-          reps: setData.reps,
-          rpe: setData.rpe,
-        },
-        "workout",
-        user?.id
-      );
+        });
 
-      return result;
+        logger.info(
+          "Set logged",
+          {
+            exerciseId: exercise.id,
+            setNumber: nextSetNumber,
+            weight: setData.weightKg,
+            reps: setData.reps,
+            rpe: setData.rpe,
+          },
+          "workout",
+          user?.id
+        );
+
+        return result;
+      } finally {
+        setIsSubmitting(false);
+      }
     },
     [exercise.id, nextSetNumber, onSetComplete, user?.id]
   );
@@ -391,6 +399,7 @@ export const ExerciseCard: React.FC<ExerciseCardProps> = ({
           suggestedWeight={suggestedWeight}
           onSetComplete={handleSetComplete}
           isFirstSet={isFirstSet}
+          isSubmitting={isSubmitting}
         />
       </View>
     </ScrollView>

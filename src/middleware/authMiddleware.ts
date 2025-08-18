@@ -28,7 +28,6 @@ export const authMiddleware: Middleware = (store) => (next) => (action: any) => 
     "workout/startWorkout",
     "workout/completeWorkout",
     "workout/addExerciseSet",
-    "workout/syncPendingWorkouts",
     "progress/calculateMetrics",
     "progress/updatePersonalRecords",
     "subscription/create",
@@ -139,7 +138,7 @@ export const authMiddleware: Middleware = (store) => (next) => (action: any) => 
 // TOKEN REFRESH SCHEDULING
 // ============================================================================
 
-let tokenRefreshTimeout: NodeJS.Timeout | null = null;
+let tokenRefreshTimeout: ReturnType<typeof setTimeout> | null = null;
 
 /**
  * Schedule automatic token refresh before expiration

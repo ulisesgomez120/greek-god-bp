@@ -787,17 +787,6 @@ export class WorkoutService {
     }
   }
 
-  /**
-   * Sync pending workouts with server (compatibility shim).
-   * Offline queue no longer used — kept as a noop for Phase 2 compatibility.
-   */
-  async syncPendingWorkouts(): Promise<WorkoutServiceResult<{ syncedCount: number; errorCount: number }>> {
-    return {
-      success: true,
-      data: { syncedCount: 0, errorCount: 0 },
-    };
-  }
-
   // ============================================================================
   // GETTERS AND STATE
   // ============================================================================

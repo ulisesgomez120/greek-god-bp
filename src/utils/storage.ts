@@ -298,74 +298,38 @@ export interface OfflineWorkout {
 /**
  * Add workout to offline queue
  */
-export const addToOfflineQueue = async (workout: Omit<OfflineWorkout, "timestamp" | "syncAttempts">): Promise<void> => {
-  try {
-    const queue = await getOfflineQueue();
-    const newWorkout: OfflineWorkout = {
-      ...workout,
-      timestamp: Date.now(),
-      syncAttempts: 0,
-    };
-
-    queue.push(newWorkout);
-    await setAsyncItem(STORAGE_KEYS.async.offlineWorkouts, queue);
-    logger.info(`Added workout to offline queue: ${workout.id}`);
-  } catch (error) {
-    logger.error("Failed to add workout to offline queue:", error);
-    throw error;
-  }
+export const addToOfflineQueue = async (
+  _workout: Omit<OfflineWorkout, "timestamp" | "syncAttempts">
+): Promise<void> => {
+  // Offline queueing has been removed in Phase 3. This function is now a no-op.
+  logger.warn("addToOfflineQueue called but offline queueing has been removed (Phase 3).");
+  return;
 };
 
 /**
  * Get offline workout queue
  */
 export const getOfflineQueue = async (): Promise<OfflineWorkout[]> => {
-  try {
-    const queue = await getAsyncItem<OfflineWorkout[]>(STORAGE_KEYS.async.offlineWorkouts);
-    return queue || [];
-  } catch (error) {
-    logger.error("Failed to retrieve offline queue:", error);
-    return [];
-  }
+  // Offline queueing removed — return empty queue as fallback.
+  return [];
 };
 
 /**
  * Remove workout from offline queue
  */
-export const removeFromOfflineQueue = async (workoutId: string): Promise<void> => {
-  try {
-    const queue = await getOfflineQueue();
-    const updatedQueue = queue.filter((workout) => workout.id !== workoutId);
-    await setAsyncItem(STORAGE_KEYS.async.offlineWorkouts, updatedQueue);
-    logger.info(`Removed workout from offline queue: ${workoutId}`);
-  } catch (error) {
-    logger.error("Failed to remove workout from offline queue:", error);
-    throw error;
-  }
+export const removeFromOfflineQueue = async (_workoutId: string): Promise<void> => {
+  // Offline queueing removed — no-op.
+  logger.warn("removeFromOfflineQueue called but offline queueing has been removed (Phase 3).");
+  return;
 };
 
 /**
  * Update workout sync attempt
  */
-export const updateSyncAttempt = async (workoutId: string, error?: string): Promise<void> => {
-  try {
-    const queue = await getOfflineQueue();
-    const workoutIndex = queue.findIndex((workout) => workout.id === workoutId);
-
-    if (workoutIndex !== -1) {
-      queue[workoutIndex].syncAttempts += 1;
-      queue[workoutIndex].lastSyncAttempt = Date.now();
-      if (error) {
-        queue[workoutIndex].syncError = error;
-      }
-
-      await setAsyncItem(STORAGE_KEYS.async.offlineWorkouts, queue);
-      logger.debug(`Updated sync attempt for workout: ${workoutId}`);
-    }
-  } catch (error) {
-    logger.error("Failed to update sync attempt:", error);
-    throw error;
-  }
+export const updateSyncAttempt = async (_workoutId: string, _error?: string): Promise<void> => {
+  // Offline sync attempts tracking removed — no-op.
+  logger.warn("updateSyncAttempt called but offline sync is removed (Phase 3).");
+  return;
 };
 
 // ============================================================================

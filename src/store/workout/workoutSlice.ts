@@ -26,6 +26,7 @@ const initialState: WorkoutState = {
   currentExercise: 0,
   currentSet: 0,
   restTimer: 0,
+  // Keep a minimal offline shape to satisfy existing types while offline behavior is phased out.
   offline: {
     pendingSessions: [],
     syncStatus: "idle",
@@ -270,44 +271,6 @@ export const calculateProgression = createAsyncThunk(
   }
 );
 
-/**
- * Sync pending workouts with server
- */
-export const syncPendingWorkouts = createAsyncThunk(
-  "workout/syncPendingWorkouts",
-  async (_, { rejectWithValue, getState, dispatch }) => {
-    try {
-      const state = getState() as any;
-      const pendingSessions = state.workout.offline.pendingSessions;
-      const userId = state.auth.user?.id;
-
-      if (pendingSessions.length === 0) {
-        logger.info("No pending workouts to sync", undefined, "workout", userId);
-        return { syncedCount: 0, conflicts: [] };
-      }
-
-      logger.info(`Syncing ${pendingSessions.length} pending workouts`, undefined, "workout", userId);
-
-      // This would typically call the API to sync workouts
-      // For now, we'll simulate the sync process
-      const syncResults = {
-        syncedCount: pendingSessions.length,
-        conflicts: [],
-      };
-
-      // Mark all as synced (in a real implementation, handle conflicts)
-      pendingSessions.forEach((session: WorkoutSession) => {
-        logger.info("Workout synced successfully", { workoutId: session.id }, "workout", userId);
-      });
-
-      return syncResults;
-    } catch (error) {
-      logger.error("Failed to sync pending workouts", error, "workout");
-      return rejectWithValue("Failed to sync workouts");
-    }
-  }
-);
-
 // ============================================================================
 // PROGRESSION ALGORITHMS
 // ============================================================================
@@ -484,33 +447,6 @@ const workoutSlice = createSlice({
       logger.info("Rest timer stopped", undefined, "workout");
     },
 
-    // Add workout to offline queue
-    addToOfflineQueue: (state, action: PayloadAction<WorkoutSession>) => {
-      const existingIndex = state.offline.pendingSessions.findIndex((session) => session.id === action.payload.id);
-
-      if (existingIndex >= 0) {
-        // Update existing session
-        state.offline.pendingSessions[existingIndex] = action.payload;
-      } else {
-        // Add new session
-        state.offline.pendingSessions.push(action.payload);
-      }
-
-      logger.info("Workout added to offline queue", { workoutId: action.payload.id }, "workout");
-    },
-
-    // Remove workout from offline queue
-    removeFromOfflineQueue: (state, action: PayloadAction<string>) => {
-      state.offline.pendingSessions = state.offline.pendingSessions.filter((session) => session.id !== action.payload);
-      logger.info("Workout removed from offline queue", { workoutId: action.payload }, "workout");
-    },
-
-    // Set sync status
-    setSyncStatus: (state, action: PayloadAction<"idle" | "syncing" | "error">) => {
-      state.offline.syncStatus = action.payload;
-      logger.info("Sync status changed", { status: action.payload }, "workout");
-    },
-
     // Load workout plans
     setWorkoutPlans: (state, action: PayloadAction<WorkoutPlan[]>) => {
       state.plans = action.payload;
@@ -536,16 +472,14 @@ const workoutSlice = createSlice({
       state.restTimer = 0;
     },
 
-    // Clear all offline data (for logout)
+    // Clear data (for logout)
     clearOfflineData: (state) => {
-      state.offline.pendingSessions = [];
-      state.offline.syncStatus = "idle";
       state.currentWorkout = null;
       state.isActive = false;
       state.currentExercise = 0;
       state.currentSet = 0;
       state.restTimer = 0;
-      logger.info("Offline workout data cleared", undefined, "workout");
+      logger.info("Workout data cleared", undefined, "workout");
     },
   },
   extraReducers: (builder) => {
@@ -560,9 +494,6 @@ const workoutSlice = createSlice({
         state.currentExercise = 0;
         state.currentSet = 0;
         state.restTimer = 0;
-
-        // Add to offline queue immediately
-        state.offline.pendingSessions.push(action.payload.workout);
       })
       .addCase(startWorkout.rejected, (state, action) => {
         logger.error("Start workout failed", action.payload, "workout");
@@ -581,11 +512,7 @@ const workoutSlice = createSlice({
         state.currentSet = 0;
         state.restTimer = 0;
 
-        // Update in offline queue
-        const queueIndex = state.offline.pendingSessions.findIndex((session) => session.id === action.payload.id);
-        if (queueIndex >= 0) {
-          state.offline.pendingSessions[queueIndex] = action.payload;
-        }
+        // No offline queue updates in online-first flow
       })
       .addCase(completeWorkout.rejected, (state, action) => {
         logger.error("Complete workout failed", action.payload, "workout");
@@ -604,13 +531,7 @@ const workoutSlice = createSlice({
           }
           (state.currentWorkout as any).sets.push(action.payload);
 
-          // Update in offline queue
-          const queueIndex = state.offline.pendingSessions.findIndex(
-            (session) => session.id === state.currentWorkout!.id
-          );
-          if (queueIndex >= 0) {
-            state.offline.pendingSessions[queueIndex] = state.currentWorkout;
-          }
+          // No offline queue updates in online-first flow
         }
       })
       .addCase(addExerciseSet.rejected, (state, action) => {
@@ -634,23 +555,7 @@ const workoutSlice = createSlice({
         logger.error("Calculate progression failed", action.payload, "workout");
       });
 
-    // Sync Pending Workouts
-    builder
-      .addCase(syncPendingWorkouts.pending, (state) => {
-        state.offline.syncStatus = "syncing";
-      })
-      .addCase(syncPendingWorkouts.fulfilled, (state, action) => {
-        state.offline.syncStatus = "idle";
-
-        // Clear synced sessions (in real implementation, handle conflicts)
-        if (action.payload.conflicts.length === 0) {
-          state.offline.pendingSessions = [];
-        }
-      })
-      .addCase(syncPendingWorkouts.rejected, (state, action) => {
-        state.offline.syncStatus = "error";
-        logger.error("Sync pending workouts failed", action.payload, "workout");
-      });
+    // (offline sync removed)
   },
 });
 
@@ -664,9 +569,6 @@ export const {
   startRestTimer,
   updateRestTimer,
   stopRestTimer,
-  addToOfflineQueue,
-  removeFromOfflineQueue,
-  setSyncStatus,
   setWorkoutPlans,
   setExercises,
   cancelWorkout,
@@ -680,15 +582,14 @@ export const selectIsWorkoutActive = (state: { workout: WorkoutState }) => state
 export const selectCurrentExercise = (state: { workout: WorkoutState }) => state.workout.currentExercise;
 export const selectCurrentSet = (state: { workout: WorkoutState }) => state.workout.currentSet;
 export const selectRestTimer = (state: { workout: WorkoutState }) => state.workout.restTimer;
-export const selectOfflineQueue = (state: { workout: WorkoutState }) => state.workout.offline.pendingSessions;
-export const selectSyncStatus = (state: { workout: WorkoutState }) => state.workout.offline.syncStatus;
+export const selectOfflineQueue = (state: { workout: WorkoutState }) => [];
+export const selectSyncStatus = (state: { workout: WorkoutState }) => "idle";
 export const selectWorkoutPlans = (state: { workout: WorkoutState }) => state.workout.plans;
 export const selectExercises = (state: { workout: WorkoutState }) => state.workout.exercises;
 export const selectProgressMetrics = (state: { workout: WorkoutState }) => state.workout.progressMetrics;
 
 // Computed selectors
-export const selectHasPendingWorkouts = (state: { workout: WorkoutState }) =>
-  state.workout.offline.pendingSessions.length > 0;
+export const selectHasPendingWorkouts = (state: { workout: WorkoutState }) => false;
 
 export const selectCurrentWorkoutDuration = (state: { workout: WorkoutState }) => {
   const currentWorkout = state.workout.currentWorkout;
