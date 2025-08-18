@@ -1,41 +1,9 @@
-// OFFLINE SERVICE (REMOVED - PHASE 3)
-// This file used to implement comprehensive offline storage and synchronization.
-// Phase 3 removes client-side offline sync. To avoid breaking imports while
-// callers are migrated, we provide a lightweight stub that exposes the same
-// surface but will throw if any method is invoked. This makes remaining call
-// sites fail fast so they can be updated to online-first flows.
+// REMOVED IN PHASE 4
+// The original implementation was archived to src/archived/offline.service.ts
+// This file has been removed as part of the Phase 4 cleanup.
 //
-// Once callers are migrated, this file should be deleted entirely in Phase 4.
+// NOTE: This file intentionally exports nothing. If any runtime import still
+// references offlineService, that import will need to be updated to use the
+// online-first APIs (src/services/workout.service.ts / src/services/database.service.ts).
 
-export class OfflineServiceStub {
-  private constructor() {}
-
-  static async storeWorkoutOffline(): Promise<void> {
-    throw new Error(
-      "OfflineService.storeWorkoutOffline has been removed. Migrate to online-first APIs (workoutService/databaseService) instead."
-    );
-  }
-
-  static async getPendingWorkouts(): Promise<any[]> {
-    // Return empty list as fallback to avoid undefined checks in caller code paths
-    return [];
-  }
-
-  static async removeWorkoutOffline(): Promise<void> {
-    throw new Error("OfflineService.removeWorkoutOffline has been removed. Migrate to online-first APIs instead.");
-  }
-
-  static async clearAllOfflineData(): Promise<void> {
-    // No-op fallback
-    return;
-  }
-}
-
-export const offlineService = {
-  storeWorkoutOffline: OfflineServiceStub.storeWorkoutOffline,
-  getPendingWorkouts: OfflineServiceStub.getPendingWorkouts,
-  removeWorkoutOffline: OfflineServiceStub.removeWorkoutOffline,
-  clearAllOfflineData: OfflineServiceStub.clearAllOfflineData,
-};
-
-export default offlineService;
+export {};

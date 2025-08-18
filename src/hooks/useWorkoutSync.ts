@@ -1,19 +1,9 @@
-// NOTE: useWorkoutSync has been removed in Phase 3.
-// This file intentionally throws at runtime to surface any remaining call-sites
-// so they can be migrated to online-first flows (use workoutService directly).
+// REMOVED IN PHASE 4
+// The original implementation was archived to src/archived/useWorkoutSync.ts
+// This file has been removed as part of the Phase 4 cleanup.
 //
-// Migration guidance:
-// - Replace `const { startSync, ... } = useWorkoutSync()` with direct calls to
-//   `workoutService` APIs and component-level submitting/loading state.
-// - If you relied on notifications, call the uiSlice actions directly or use the
-//   existing notification helpers.
-//
-// This file will be deleted in Phase 4 once all callers are migrated.
+// NOTE: This module intentionally exports nothing. If any runtime import still
+// references `useWorkoutSync`, those imports must be migrated to use the
+// online-first APIs (src/services/workout.service.ts / src/services/database.service.ts).
 
-export function useWorkoutSync(): never {
-  throw new Error(
-    "useWorkoutSync has been removed. Migrate callers to use workoutService APIs and local submitting state."
-  );
-}
-
-export default useWorkoutSync;
+export {};
