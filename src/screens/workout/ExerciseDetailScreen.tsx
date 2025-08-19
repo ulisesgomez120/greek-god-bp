@@ -12,7 +12,7 @@ import { RouteProp } from "@react-navigation/native";
 import Text from "../../components/ui/Text";
 import { Button } from "../../components/ui/Button";
 import SetLogger from "../../components/workout/SetLogger";
-import RestTimer from "../../components/workout/RestTimer";
+import CompactRestTimer from "../../components/workout/CompactRestTimer";
 
 // Services
 import workoutService from "../../services/workout.service";
@@ -461,11 +461,9 @@ export const ExerciseDetailScreen: React.FC<ExerciseDetailScreenProps> = ({ navi
         {renderHeader()}
 
         {/* Rest Timer Section */}
-        {state.showRestTimer && (
-          <View style={styles.restTimerSection}>
-            <RestTimer duration={state.restDuration} onComplete={handleRestComplete} onSkip={handleSkipRest} />
-          </View>
-        )}
+        <View style={styles.restTimerSection}>
+          <CompactRestTimer duration={state.restDuration} onComplete={handleRestComplete} onSkip={handleSkipRest} />
+        </View>
 
         {/* Set Logging Section */}
         <View style={styles.setLoggerSection}>

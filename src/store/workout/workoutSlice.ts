@@ -25,7 +25,6 @@ const initialState: WorkoutState = {
   isActive: false,
   currentExercise: 0,
   currentSet: 0,
-  restTimer: 0,
   // Keep a minimal offline shape to satisfy existing types while offline behavior is phased out.
   offline: {
     pendingSessions: [],
@@ -430,23 +429,6 @@ const workoutSlice = createSlice({
       logger.info("Current set changed", { setIndex: action.payload }, "workout");
     },
 
-    // Start rest timer
-    startRestTimer: (state, action: PayloadAction<number>) => {
-      state.restTimer = action.payload;
-      logger.info("Rest timer started", { duration: action.payload }, "workout");
-    },
-
-    // Update rest timer
-    updateRestTimer: (state, action: PayloadAction<number>) => {
-      state.restTimer = action.payload;
-    },
-
-    // Stop rest timer
-    stopRestTimer: (state) => {
-      state.restTimer = 0;
-      logger.info("Rest timer stopped", undefined, "workout");
-    },
-
     // Load workout plans
     setWorkoutPlans: (state, action: PayloadAction<WorkoutPlan[]>) => {
       state.plans = action.payload;
@@ -469,7 +451,6 @@ const workoutSlice = createSlice({
       state.isActive = false;
       state.currentExercise = 0;
       state.currentSet = 0;
-      state.restTimer = 0;
     },
 
     // Clear data (for logout)
@@ -478,7 +459,6 @@ const workoutSlice = createSlice({
       state.isActive = false;
       state.currentExercise = 0;
       state.currentSet = 0;
-      state.restTimer = 0;
       logger.info("Workout data cleared", undefined, "workout");
     },
   },
@@ -493,7 +473,6 @@ const workoutSlice = createSlice({
         state.isActive = true;
         state.currentExercise = 0;
         state.currentSet = 0;
-        state.restTimer = 0;
       })
       .addCase(startWorkout.rejected, (state, action) => {
         logger.error("Start workout failed", action.payload, "workout");
@@ -510,7 +489,6 @@ const workoutSlice = createSlice({
         state.isActive = false;
         state.currentExercise = 0;
         state.currentSet = 0;
-        state.restTimer = 0;
 
         // No offline queue updates in online-first flow
       })
@@ -563,17 +541,8 @@ const workoutSlice = createSlice({
 // ACTIONS AND SELECTORS
 // ============================================================================
 
-export const {
-  setCurrentExercise,
-  setCurrentSet,
-  startRestTimer,
-  updateRestTimer,
-  stopRestTimer,
-  setWorkoutPlans,
-  setExercises,
-  cancelWorkout,
-  clearOfflineData,
-} = workoutSlice.actions;
+export const { setCurrentExercise, setCurrentSet, setWorkoutPlans, setExercises, cancelWorkout, clearOfflineData } =
+  workoutSlice.actions;
 
 // Selectors
 export const selectWorkout = (state: { workout: WorkoutState }) => state.workout;
@@ -581,7 +550,6 @@ export const selectCurrentWorkout = (state: { workout: WorkoutState }) => state.
 export const selectIsWorkoutActive = (state: { workout: WorkoutState }) => state.workout.isActive;
 export const selectCurrentExercise = (state: { workout: WorkoutState }) => state.workout.currentExercise;
 export const selectCurrentSet = (state: { workout: WorkoutState }) => state.workout.currentSet;
-export const selectRestTimer = (state: { workout: WorkoutState }) => state.workout.restTimer;
 export const selectOfflineQueue = (state: { workout: WorkoutState }) => [];
 export const selectSyncStatus = (state: { workout: WorkoutState }) => "idle";
 export const selectWorkoutPlans = (state: { workout: WorkoutState }) => state.workout.plans;

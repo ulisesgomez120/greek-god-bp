@@ -74,7 +74,7 @@ export interface WorkoutState {
   isActive: boolean;
   currentExercise: number;
   currentSet: number;
-  restTimer: number;
+  restTimer?: number;
   offline: {
     pendingSessions: WorkoutSession[];
     syncStatus: "idle" | "syncing" | "error";
