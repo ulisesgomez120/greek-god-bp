@@ -129,6 +129,7 @@ export class WorkoutService {
           updated_at: new Date().toISOString(),
         };
 
+        // Single attempt: let the database generate the ID. If it fails, fall back to a provisional local session.
         const { data: inserted, error: insertError } = await this.supabase
           .from("workout_sessions")
           .insert(insertPayload)
@@ -143,9 +144,9 @@ export class WorkoutService {
             user.id
           );
 
-          // Fall back to local session object with temporary id
+          // Fall back to local provisional session (use temp prefix to avoid collision with DB UUIDs)
           workout = {
-            id: `workout_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+            id: `temp_workout_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
             userId: user.id,
             planId: options.planId,
             sessionId: options.sessionId,
@@ -176,7 +177,7 @@ export class WorkoutService {
       } catch (err) {
         logger.warn("Unexpected error while persisting workout to Supabase", err, "workout", user.id);
         workout = {
-          id: `workout_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+          id: `temp_workout_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
           userId: user.id,
           planId: options.planId,
           sessionId: options.sessionId,
@@ -188,40 +189,6 @@ export class WorkoutService {
           updatedAt: new Date().toISOString(),
           sets: [],
         };
-      }
-
-      // Persist workout to Supabase (best-effort). If persistence fails we continue with an in-memory session.
-      try {
-        const { data: inserted, error: insertError } = await this.supabase
-          .from("workout_sessions")
-          .insert({
-            id: workout.id,
-            user_id: workout.userId,
-            plan_id: workout.planId,
-            session_id: workout.sessionId,
-            name: workout.name,
-            started_at: workout.startedAt,
-            sync_status: "synced",
-            offline_created: false,
-            created_at: new Date().toISOString(),
-            updated_at: new Date().toISOString(),
-          })
-          .select()
-          .single();
-
-        if (insertError) {
-          logger.warn(
-            "Failed to persist workout to Supabase, continuing with local session",
-            insertError,
-            "workout",
-            user.id
-          );
-        } else if (inserted) {
-          // Merge any server-assigned fields back into the local workout object
-          workout = { ...workout, ...inserted } as WorkoutSession;
-        }
-      } catch (err) {
-        logger.warn("Unexpected error while persisting workout to Supabase", err, "workout", user.id);
       }
 
       // Set as current session
@@ -269,6 +236,41 @@ export class WorkoutService {
         return {
           success: false,
           error: "User not authenticated",
+        };
+      }
+
+      // Validate exercise exists in DB to avoid FK violations.
+      // This prevents attempts to insert exercise_sets referencing missing exercises.
+      try {
+        const { data: existingExercise, error: exError } = await this.supabase
+          .from("exercises")
+          .select("id")
+          .eq("id", setData.exerciseId)
+          .maybeSingle();
+
+        if (exError) {
+          logger.warn("Failed to validate exercise existence", exError, "workout", user.id);
+        }
+
+        if (!existingExercise) {
+          logger.warn(
+            "Attempted to add set for missing exercise id; aborting to avoid FK violation",
+            { exerciseId: setData.exerciseId },
+            "workout",
+            user.id
+          );
+
+          return {
+            success: false,
+            error: "Exercise not found",
+          };
+        }
+      } catch (err) {
+        logger.warn("Unexpected error while validating exercise existence", err, "workout", user.id);
+        // Proceed cautiously — if validation fails due to transient error, abort to be safe.
+        return {
+          success: false,
+          error: "Failed to validate exercise existence",
         };
       }
 

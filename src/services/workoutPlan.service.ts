@@ -208,7 +208,7 @@ export class WorkoutPlanService {
             exerciseCount: session.planned_exercises?.length || 0,
             exercises:
               session.planned_exercises?.map((ex: any) => ({
-                id: ex.id,
+                id: ex.exercise_id ?? ex.exercises?.id ?? ex.id,
                 name: ex.exercises?.name || "Unknown Exercise",
                 targetSets: ex.target_sets,
                 targetRepsMin: ex.target_reps_min || 0,
@@ -256,7 +256,7 @@ export class WorkoutPlanService {
             exerciseCount: session.planned_exercises?.length || 0,
             exercises:
               session.planned_exercises?.map((ex: any) => ({
-                id: ex.id,
+                id: ex.exercise_id ?? ex.exercises?.id ?? ex.id,
                 name: ex.exercises?.name || "Unknown Exercise",
                 targetSets: ex.target_sets,
                 targetRepsMin: ex.target_reps_min || 0,
