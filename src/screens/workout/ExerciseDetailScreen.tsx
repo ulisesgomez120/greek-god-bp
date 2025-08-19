@@ -17,7 +17,6 @@ import RestTimer from "../../components/workout/RestTimer";
 // Services
 import workoutService from "../../services/workout.service";
 import workoutPlanService from "../../services/workoutPlan.service";
-import useNetworkState from "../../hooks/useNetworkState";
 
 // Types
 import { WorkoutStackParamList } from "../../types/navigation";
@@ -99,9 +98,6 @@ export const ExerciseDetailScreen: React.FC<ExerciseDetailScreenProps> = ({ navi
 
   // Local submitting state for set submissions
   const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
-
-  // Network status (used to attempt immediate sync when online)
-  const { isConnected } = useNetworkState();
 
   // ============================================================================
   // EFFECTS

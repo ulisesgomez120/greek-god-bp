@@ -18,10 +18,6 @@ import { store, persistor, waitForRehydration } from "./src/store";
 import AppNavigator from "./src/navigation/AppNavigator";
 import SplashScreen from "./src/components/ui/SplashScreen";
 import ErrorBoundary from "./src/components/ui/ErrorBoundary";
-import ConnectionStatusIndicator from "./src/components/ui/ConnectionStatusIndicator";
-
-// Hooks
-import { useNetworkStatus } from "./src/hooks/useNetworkStatus";
 
 // Utils
 import { logger } from "./src/utils/logger";
@@ -31,7 +27,6 @@ import { logger } from "./src/utils/logger";
 // ============================================================================
 
 const AppContent: React.FC = () => {
-  const { isConnected } = useNetworkStatus();
   const [isRehydrated, setIsRehydrated] = useState(false);
 
   useEffect(() => {
@@ -41,9 +36,7 @@ const AppContent: React.FC = () => {
         await waitForRehydration();
         setIsRehydrated(true);
 
-        logger.info("App initialized successfully", {
-          isConnected,
-        });
+        logger.info("App initialized successfully");
       } catch (error) {
         logger.error("App initialization failed:", error);
         setIsRehydrated(true); // Continue anyway
@@ -51,7 +44,7 @@ const AppContent: React.FC = () => {
     };
 
     initializeApp();
-  }, [isConnected]);
+  }, []);
 
   // Show splash screen during store rehydration
   if (!isRehydrated) {
@@ -60,9 +53,6 @@ const AppContent: React.FC = () => {
 
   return (
     <View style={styles.container}>
-      {/* Connection Status Indicator */}
-      <ConnectionStatusIndicator />
-
       {/* Main Navigation */}
       <AppNavigator />
 

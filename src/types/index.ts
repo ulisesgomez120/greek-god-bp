@@ -311,7 +311,6 @@ export interface UIState {
     progress: boolean;
     subscription: boolean;
   };
-  networkStatus: "online" | "offline";
   lastSyncAt?: string;
   error?: string;
 }

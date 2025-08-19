@@ -12,14 +12,12 @@ import * as Linking from "expo-linking";
 
 // Hooks
 import { useAuth } from "../hooks/useAuth";
-import { useNetworkState } from "../hooks/useNetworkState";
 
 // Navigators
 import AuthNavigator from "./AuthNavigator";
 import TabNavigator from "./TabNavigator";
 
 // Components
-import ConnectionStatusIndicator from "../components/ui/ConnectionStatusIndicator";
 import SplashScreen from "../components/ui/SplashScreen";
 
 // ============================================================================
@@ -87,7 +85,6 @@ const AppNavigator: React.FC = () => {
     resendEmailVerification,
     updateProfile,
   } = useAuth();
-  const { isConnected } = useNetworkState();
 
   // Check if user has completed onboarding
   const isOnboardingComplete = user?.user_metadata?.onboarding_complete === true;
@@ -145,9 +142,6 @@ const AppNavigator: React.FC = () => {
           )}
         </RootStack.Navigator>
       </NavigationContainer>
-
-      {/* Connection Status Indicator */}
-      <ConnectionStatusIndicator />
     </>
   );
 };

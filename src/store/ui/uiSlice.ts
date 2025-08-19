@@ -14,7 +14,6 @@ import type { UIState, Notification, NotificationAction } from "../../types";
 
 const initialState: UIState = {
   theme: "light",
-  networkStatus: "online",
   loading: {
     global: false,
     workout: false,
@@ -47,44 +46,6 @@ const uiSlice = createSlice({
     toggleTheme: (state) => {
       state.theme = state.theme === "light" ? "dark" : "light";
       logger.info("Theme toggled", { newTheme: state.theme }, "ui");
-    },
-
-    // Network status management
-    setNetworkStatus: (state, action: PayloadAction<"online" | "offline">) => {
-      const previousStatus = state.networkStatus;
-      state.networkStatus = action.payload;
-
-      if (previousStatus !== action.payload) {
-        logger.info(
-          "Network status changed",
-          {
-            from: previousStatus,
-            to: action.payload,
-          },
-          "ui"
-        );
-
-        // Add notification for network status changes
-        if (action.payload === "offline") {
-          state.notifications.push({
-            id: `network_${Date.now()}`,
-            type: "warning",
-            title: "You're Offline",
-            message: "Your workouts are saved locally and will sync when you're back online.",
-            duration: 5000,
-            createdAt: new Date().toISOString(),
-          });
-        } else if (action.payload === "online" && previousStatus === "offline") {
-          state.notifications.push({
-            id: `network_${Date.now()}`,
-            type: "success",
-            title: "Back Online",
-            message: "Connection restored. Syncing your data...",
-            duration: 3000,
-            createdAt: new Date().toISOString(),
-          });
-        }
-      }
     },
 
     // Global loading state
@@ -443,7 +404,7 @@ const uiSlice = createSlice({
         subscription: false,
       };
       state.error = undefined;
-      // Keep theme and network status
+      // Keep theme
       logger.info("UI data cleared", undefined, "ui");
     },
   },
@@ -456,7 +417,6 @@ const uiSlice = createSlice({
 export const {
   setTheme,
   toggleTheme,
-  setNetworkStatus,
   setLoading,
   setError,
   clearError,
@@ -482,9 +442,6 @@ export const {
 // Selectors
 export const selectUI = (state: { ui: UIState }) => state.ui;
 export const selectTheme = (state: { ui: UIState }) => state.ui.theme;
-export const selectNetworkStatus = (state: { ui: UIState }) => state.ui.networkStatus;
-export const selectIsOnline = (state: { ui: UIState }) => state.ui.networkStatus === "online";
-export const selectIsOffline = (state: { ui: UIState }) => state.ui.networkStatus === "offline";
 export const selectGlobalLoading = (state: { ui: UIState }) => state.ui.loading;
 export const selectGlobalError = (state: { ui: UIState }) => state.ui.error;
 export const selectNotifications = (state: { ui: UIState }) => state.ui.notifications;
