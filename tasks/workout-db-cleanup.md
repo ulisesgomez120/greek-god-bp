@@ -46,10 +46,10 @@ This task continues the DB cleanup and service refactor after the foreign-key is
 - [x] Add exercise existence validation in `workoutService`
 - [x] Add diagnostics scripts and run checks
 - [x] Verify e2e set logging
-- [ ] Move or remove diagnostic scripts (place under `scripts/diagnostics/` if keeping)
-  - [ ] Delete or move `scripts/diagnose_exercise_id.mjs`
-  - [ ] Delete or move `scripts/check_planned_exercises.mjs`
-  - [ ] Remove temporary console.log debug statements scattered in services/UI
+- [x] Move or remove diagnostic scripts (place under `scripts/diagnostics/` if keeping)
+  - [x] Delete or move `scripts/diagnose_exercise_id.mjs`
+  - [x] Delete or move `scripts/check_planned_exercises.mjs`
+  - [x] Remove temporary console.log debug statements scattered in services/UI
 - [ ] Consolidate and refactor transforms (centralize snake_case <-> camelCase mapping)
   - [ ] Audit `src/types/transforms.ts` and expand/correct mappings
   - [ ] Ensure null/undefined values are handled consistently

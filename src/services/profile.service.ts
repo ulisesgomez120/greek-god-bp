@@ -31,6 +31,7 @@ import {
   EXPERIENCE_LEVELS,
 } from "@/types/profile";
 import type { ExperienceLevel } from "@/types/database";
+import { transformUserProfile, transformUserProfileToDb } from "@/types/transforms";
 
 // SUPABASE CLIENT
 // (using shared client from src/lib/supabase)
@@ -96,25 +97,23 @@ export class ProfileService {
         };
       }
 
-      // Transform database row to UserProfile
+      // Transform database row to UserProfile using canonical transform for core fields
+      // and augment with additional profile-specific fields not yet covered by the transform.
+      const profileCore = transformUserProfile(data as any);
       const profile: UserProfile = {
-        id: data.id,
-        email: data.email,
-        displayName: data.display_name,
+        ...profileCore,
         avatarUrl: data.avatar_url || undefined,
         heightCm: data.height_cm || undefined,
         weightKg: data.weight_kg ? Number(data.weight_kg) : undefined,
         birthDate: data.birth_date || undefined,
         gender: data.gender || undefined,
-        experienceLevel: data.experience_level,
         fitnessGoals: data.fitness_goals || [],
         availableEquipment: data.available_equipment || [],
         privacySettings: (data.privacy_settings as unknown as PrivacySettings) || DEFAULT_PRIVACY_SETTINGS,
         role: data.role || "user",
         stripeCustomerId: data.stripe_customer_id || undefined,
         onboardingCompleted: data.onboarding_completed || false,
-        createdAt: data.created_at,
-        updatedAt: data.updated_at,
+        // createdAt/updatedAt already provided by transformUserProfile
       };
 
       // Cache the profile
@@ -159,20 +158,28 @@ export class ProfileService {
         };
       }
 
-      // Prepare database insert
-      const insertData = {
+      // Prepare database insert using centralized transform for core fields
+      const dbProfileCore = transformUserProfileToDb({
         id: userId,
-        email: profileData.email || "", // Will be set by auth trigger
-        display_name: profileData.displayName,
-        height_cm: profileData.heightCm,
-        weight_kg: profileData.weightKg,
-        birth_date: profileData.birthDate,
-        gender: profileData.gender,
-        experience_level: profileData.experienceLevel,
-        fitness_goals: profileData.fitnessGoals,
+        email: profileData.email,
+        displayName: profileData.displayName,
+        experienceLevel: profileData.experienceLevel,
+      } as any);
+
+      const insertData: any = {
+        ...dbProfileCore,
+        id: userId,
+        email: profileData.email || "", // Will be set by auth trigger if empty
+        height_cm: profileData.heightCm ?? null,
+        weight_kg: profileData.weightKg ?? null,
+        birth_date: profileData.birthDate ?? null,
+        gender: profileData.gender ?? null,
+        fitness_goals: profileData.fitnessGoals || [],
         available_equipment: [], // Default empty array since we're not collecting equipment
         privacy_settings: DEFAULT_PRIVACY_SETTINGS as any, // Cast to Json type
         onboarding_completed: true,
+        // ensure display_name is present
+        display_name: (dbProfileCore as any).display_name ?? profileData.displayName,
       };
 
       // Use authenticated client if provided, otherwise fall back to global client
@@ -256,22 +263,29 @@ export class ProfileService {
         }
       }
 
-      // Prepare database update
-      const updateData: any = {};
-      if (updates.displayName !== undefined) updateData.display_name = updates.displayName;
-      if (updates.heightCm !== undefined) updateData.height_cm = updates.heightCm;
-      if (updates.weightKg !== undefined) updateData.weight_kg = updates.weightKg;
-      if (updates.birthDate !== undefined) updateData.birth_date = updates.birthDate;
-      if (updates.gender !== undefined) updateData.gender = updates.gender;
-      if (updates.fitnessGoals !== undefined) updateData.fitness_goals = updates.fitnessGoals;
+      // Prepare database update using centralized transform where applicable.
+      const appLevelUpdates: any = {};
+      if (updates.displayName !== undefined) appLevelUpdates.displayName = updates.displayName;
+      if (updates.heightCm !== undefined) appLevelUpdates.heightCm = updates.heightCm;
+      if (updates.weightKg !== undefined) appLevelUpdates.weightKg = updates.weightKg;
+      if (updates.birthDate !== undefined) appLevelUpdates.birthDate = updates.birthDate;
+      if (updates.gender !== undefined) appLevelUpdates.gender = updates.gender;
+      if (updates.fitnessGoals !== undefined) appLevelUpdates.fitnessGoals = updates.fitnessGoals;
+
+      // Transform camelCase app updates to DB format
+      const dbUpdatesFromTransforms = transformUserProfileToDb(appLevelUpdates as any) as any;
+
+      // Handle privacy settings merge separately
+      const updateData: any = { ...dbUpdatesFromTransforms };
       if (updates.privacySettings !== undefined) {
-        // Merge with existing privacy settings
         const currentProfile = await this.getProfile(userId);
         if (currentProfile.success && currentProfile.data) {
           updateData.privacy_settings = {
             ...currentProfile.data.privacySettings,
             ...updates.privacySettings,
           } as any;
+        } else {
+          updateData.privacy_settings = updates.privacySettings as any;
         }
       }
 

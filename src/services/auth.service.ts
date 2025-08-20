@@ -19,6 +19,7 @@ import type {
 
 import supabase from "@/lib/supabase";
 import { events } from "@/utils/events";
+import { transformUserProfileToDb } from "@/types/transforms";
 
 // ============================================================================
 // AUTHENTICATION FUNCTIONS
@@ -562,15 +563,29 @@ async function handleSuccessfulAuth(session: any): Promise<void> {
  * Create user profile after successful signup
  */
 async function createUserProfile(userId: string, signupData: SignupData): Promise<void> {
-  const { error } = await supabase.from("user_profiles").insert({
+  // Use the central transform for the core profile fields, but avoid passing
+  // fields not declared on Partial<UserProfile> to prevent type errors.
+  const dbProfile = transformUserProfileToDb({
     id: userId,
     email: signupData.email,
-    display_name: signupData.profile.displayName,
-    experience_level: signupData.profile.experienceLevel,
+    displayName: signupData.profile.displayName,
+    experienceLevel: signupData.profile.experienceLevel,
+  } as any);
+
+  // Build the final insert payload explicitly (snake_case) and cast to any to
+  // satisfy Supabase typings while keeping transforms centralized.
+  const insertPayload: any = {
+    ...dbProfile,
     fitness_goals: signupData.profile.fitnessGoals || [],
-    height_cm: signupData.profile.heightCm,
-    weight_kg: signupData.profile.weightKg,
-  });
+    height_cm: signupData.profile.heightCm ?? null,
+    weight_kg: signupData.profile.weightKg ?? null,
+    id: userId,
+    email: signupData.email,
+    // ensure display_name is present for the DB row
+    display_name: (dbProfile as any).display_name ?? signupData.profile.displayName,
+  };
+
+  const { error } = await supabase.from("user_profiles").insert(insertPayload);
 
   if (error) {
     throw error;

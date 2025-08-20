@@ -11,6 +11,7 @@ import { logger } from "../utils/logger";
 import { authService } from "./auth.service";
 import supabase from "@/lib/supabase";
 import { databaseService } from "./database.service";
+import { transformWorkoutSessionWithSets } from "@/types/transforms";
 import type {
   WorkoutSession,
   ExerciseSet,
@@ -230,18 +231,18 @@ export class WorkoutService {
       // Prepare payload for server-side insertion and let Supabase generate the set ID.
       const sessionId = this.currentSession.id;
       const setNumber = existingSets.length + 1;
-      const setPayload: any = {
-        session_id: sessionId,
-        exercise_id: setData.exerciseId,
-        set_number: setNumber,
-        weight_kg: setData.weightKg ?? null,
+      // Build app-level set object (camelCase). DatabaseService will handle DB transforms.
+      const appSet: any = {
+        sessionId,
+        exerciseId: setData.exerciseId,
+        setNumber,
+        weightKg: setData.weightKg ?? undefined,
         reps: setData.reps,
-        rpe: setData.rpe ?? null,
-        is_warmup: !!setData.isWarmup,
-        is_failure: false,
-        rest_seconds: setData.restSeconds ?? null,
-        notes: setData.notes ?? null,
-        created_at: new Date().toISOString(),
+        rpe: setData.rpe ?? undefined,
+        isWarmup: !!setData.isWarmup,
+        isFailure: false,
+        restSeconds: setData.restSeconds ?? undefined,
+        notes: setData.notes ?? undefined,
       };
 
       // Optimistically add a provisional set locally while we persist.
@@ -268,20 +269,8 @@ export class WorkoutService {
 
       // Persist the set via DatabaseService (best-effort). Replace provisional set with server row when available.
       try {
-        const dbSets = [
-          {
-            sessionId,
-            exerciseId: setData.exerciseId,
-            setNumber,
-            weightKg: setData.weightKg ?? undefined,
-            reps: setData.reps,
-            rpe: setData.rpe ?? undefined,
-            isWarmup: !!setData.isWarmup,
-            isFailure: false,
-            restSeconds: setData.restSeconds ?? undefined,
-            notes: setData.notes ?? undefined,
-          },
-        ];
+        // Use the app-level set object; DatabaseService will transform to DB format
+        const dbSets = [appSet];
 
         const insertedSets = await databaseService.insertExerciseSets(dbSets);
         const insertedSet = Array.isArray(insertedSets) && insertedSets.length > 0 ? insertedSets[0] : null;
@@ -387,30 +376,17 @@ export class WorkoutService {
 
       // Persist completed workout to Supabase (best-effort)
       try {
-        const { error: upsertError } = await this.supabase.from("workout_sessions").upsert(
-          {
-            id: completedWorkout.id,
-            user_id: completedWorkout.userId,
-            plan_id: completedWorkout.planId,
-            session_id: completedWorkout.sessionId,
-            name: completedWorkout.name,
-            started_at: completedWorkout.startedAt,
-            completed_at: completedWorkout.completedAt,
-            duration_minutes: completedWorkout.durationMinutes,
-            notes: completedWorkout.notes,
-            total_volume_kg: completedWorkout.totalVolumeKg,
-            average_rpe: completedWorkout.averageRpe,
-            sync_status: "synced",
-            updated_at: new Date().toISOString(),
-          },
-          { onConflict: "id" }
-        );
-
-        if (upsertError) {
-          logger.warn("Failed to persist completed workout to Supabase", upsertError, "workout", user.id);
-        }
+        // Delegate persistence to DatabaseService which handles transforms and retries.
+        await databaseService.updateWorkoutSession(completedWorkout.id, {
+          completedAt: completedWorkout.completedAt,
+          durationMinutes: completedWorkout.durationMinutes,
+          notes: completedWorkout.notes,
+          totalVolumeKg: completedWorkout.totalVolumeKg,
+          averageRpe: completedWorkout.averageRpe,
+          syncStatus: "synced",
+        });
       } catch (err) {
-        logger.warn("Unexpected error while persisting completed workout to Supabase", err, "workout", user.id);
+        logger.warn("Failed to persist completed workout via DatabaseService", err, "workout", user.id);
       }
 
       // Clear current session
@@ -555,45 +531,11 @@ export class WorkoutService {
           };
         }
 
-        const sets = Array.isArray(workoutRow.exercise_sets)
-          ? workoutRow.exercise_sets.map((s: any) => ({
-              id: s.id,
-              sessionId: s.session_id,
-              exerciseId: s.exercise_id,
-              plannedExerciseId: s.planned_exercise_id ?? null,
-              setNumber: s.set_number,
-              weightKg: s.weight_kg ?? null,
-              reps: s.reps ?? null,
-              rpe: s.rpe ?? null,
-              isWarmup: !!s.is_warmup,
-              isFailure: !!s.is_failure,
-              restSeconds: s.rest_seconds ?? null,
-              notes: s.notes ?? null,
-              createdAt: s.created_at,
-            }))
-          : [];
-
-        recoveredWorkout = {
-          id: workoutRow.id,
-          userId: workoutRow.user_id,
-          planId: workoutRow.plan_id,
-          sessionId: workoutRow.session_id,
-          name: workoutRow.name,
-          startedAt: workoutRow.started_at,
-          completedAt: workoutRow.completed_at ?? undefined,
-          durationMinutes: workoutRow.duration_minutes ?? undefined,
-          notes: workoutRow.notes ?? undefined,
-          totalVolumeKg: workoutRow.total_volume_kg ?? undefined,
-          averageRpe: workoutRow.average_rpe ?? undefined,
-          syncStatus: workoutRow.sync_status,
-          offlineCreated: workoutRow.offline_created || false,
-          createdAt: workoutRow.created_at,
-          updatedAt: workoutRow.updated_at,
-          sets,
-        } as WorkoutSession;
+        // Use central transform to map DB row (with nested exercise_sets) to app WorkoutSession shape
+        const transformed = transformWorkoutSessionWithSets(workoutRow as any) as WorkoutSession;
 
         // Set as current session
-        this.currentSession = recoveredWorkout;
+        this.currentSession = transformed;
 
         logger.info("Workout session recovered", { workoutId }, "workout", user.id);
       } catch (err) {

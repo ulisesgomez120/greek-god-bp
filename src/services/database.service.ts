@@ -698,9 +698,9 @@ export class DatabaseService {
   private calculateProgressMetrics(workoutData: any[], exerciseId?: string): ProgressMetrics {
     // Implementation of progress metrics calculation
     const totalWorkouts = workoutData.length;
-    const totalVolumeKg = workoutData.reduce((sum, workout) => sum + (workout.total_volume_kg || 0), 0);
+    const totalVolumeKg = workoutData.reduce((sum: number, workout: any) => sum + (workout.total_volume_kg || 0), 0);
     const averageSessionDuration =
-      workoutData.reduce((sum, workout) => sum + (workout.duration_minutes || 0), 0) / totalWorkouts || 0;
+      workoutData.reduce((sum: number, workout: any) => sum + (workout.duration_minutes || 0), 0) / totalWorkouts || 0;
 
     // Calculate strength progression and other metrics
     // This is a simplified version - you can expand based on your needs
@@ -712,6 +712,559 @@ export class DatabaseService {
       consistencyScore: 0, // Calculate based on workout frequency
       lastUpdated: new Date().toISOString(),
     };
+  }
+
+  // ============================================================================
+  // PROGRESS / ANALYTICS HELPERS (moved from ProgressService)
+  // These helpers centralize complex DB queries related to workout history,
+  // exercise history, strength progression, volume progression, and personal
+  // records so other services can delegate to DatabaseService.
+  // ============================================================================
+
+  /**
+   * Query workout history with filtering and pagination
+   */
+  async queryWorkoutHistory(
+    userId: string,
+    filters: {
+      startDate?: string;
+      endDate?: string;
+      exerciseIds?: string[];
+      muscleGroups?: string[];
+      planId?: string;
+      minDuration?: number;
+      maxDuration?: number;
+      searchQuery?: string;
+    } = {},
+    page: number = 1,
+    limit: number = 20
+  ): Promise<{ workouts: WorkoutSession[]; totalCount: number; hasMore: boolean }> {
+    try {
+      let query = supabase
+        .from("workout_sessions")
+        .select(
+          `
+          *,
+          exercise_sets (
+            *,
+            exercises (
+              name,
+              primary_muscle,
+              muscle_groups
+            )
+          )
+        `
+        )
+        .eq("user_id", userId)
+        .not("completed_at", "is", null)
+        .order("started_at", { ascending: false });
+
+      // Apply filters
+      if (filters.startDate) query = query.gte("started_at", filters.startDate);
+      if (filters.endDate) query = query.lte("started_at", filters.endDate);
+      if (filters.planId) query = query.eq("plan_id", filters.planId);
+      if (filters.minDuration) query = query.gte("duration_minutes", filters.minDuration);
+      if (filters.maxDuration) query = query.lte("duration_minutes", filters.maxDuration);
+      if (filters.searchQuery) query = query.ilike("name", `%${filters.searchQuery}%`);
+
+      // Count query
+      const countQuery = supabase
+        .from("workout_sessions")
+        .select("*", { count: "exact", head: true })
+        .eq("user_id", userId)
+        .not("completed_at", "is", null);
+
+      if (filters.startDate) countQuery.gte("started_at", filters.startDate);
+      if (filters.endDate) countQuery.lte("started_at", filters.endDate);
+      if (filters.planId) countQuery.eq("plan_id", filters.planId);
+      if (filters.minDuration) countQuery.gte("duration_minutes", filters.minDuration);
+      if (filters.maxDuration) countQuery.lte("duration_minutes", filters.maxDuration);
+      if (filters.searchQuery) countQuery.ilike("name", `%${filters.searchQuery}%`);
+
+      const { count } = await countQuery;
+
+      // Pagination
+      const offset = (page - 1) * limit;
+      query = query.range(offset, offset + limit - 1);
+
+      const { data: workouts, error } = await query;
+      if (error) throw error;
+
+      let filteredWorkouts = (workouts || []) as any[];
+
+      // Filter by exerciseIds or muscleGroups in-memory (when necessary)
+      if (filters.exerciseIds || filters.muscleGroups) {
+        filteredWorkouts = filteredWorkouts.filter((workout) => {
+          const workoutExercises = workout.exercise_sets || [];
+
+          if (filters.exerciseIds) {
+            return workoutExercises.some((set: any) => filters.exerciseIds!.includes(set.exercise_id));
+          }
+
+          if (filters.muscleGroups) {
+            return workoutExercises.some((set: any) => {
+              const exercise = set.exercises;
+              return (
+                exercise &&
+                (filters.muscleGroups!.includes(exercise.primary_muscle) ||
+                  exercise.muscle_groups?.some((mg: string) => filters.muscleGroups!.includes(mg)))
+              );
+            });
+          }
+
+          return true;
+        });
+      }
+
+      // Use centralized transforms to map DB rows to application types (keeps mapping consistent)
+      const transformedWorkouts: WorkoutSession[] = filteredWorkouts.map((workout: any) => {
+        // Map top-level workout session fields
+        const session = transformWorkoutSession(workout as DbWorkoutSession);
+
+        // Map exercise sets using the canonical transform and attach as sets
+        const sets = (workout.exercise_sets || []).map((set: any) => {
+          const mappedSet = transformExerciseSet(set as DbExerciseSet);
+
+          // If exercise metadata was included in the joined row, keep it on the set as an optional `exercise` field.
+          // Avoid mutating types — cast to any for this augmentation.
+          if (set.exercises) {
+            (mappedSet as any).exercise = {
+              id: set.exercises.id,
+              name: set.exercises.name,
+              primaryMuscle: set.exercises.primary_muscle,
+              muscleGroups: set.exercises.muscle_groups,
+            };
+          }
+
+          return mappedSet;
+        });
+
+        return {
+          ...session,
+          sets,
+        };
+      });
+
+      const hasMore = offset + limit < (count || 0);
+      return { workouts: transformedWorkouts, totalCount: count || 0, hasMore };
+    } catch (error) {
+      const dbError = this.handleDatabaseError(error);
+      throw dbError;
+    }
+  }
+
+  /**
+   * Query exercise history (last N sessions for an exercise)
+   */
+  async queryExerciseHistory(userId: string, exerciseId: string, limit: number = 6) {
+    try {
+      const { data: sessions, error } = await supabase
+        .from("workout_sessions")
+        .select(
+          `
+          id,
+          name,
+          started_at,
+          notes,
+          exercise_sets!inner (
+            set_number,
+            weight_kg,
+            reps,
+            rpe,
+            notes,
+            is_warmup,
+            is_failure,
+            created_at
+          )
+        `
+        )
+        .eq("user_id", userId)
+        .eq("exercise_sets.exercise_id", exerciseId)
+        .not("completed_at", "is", null)
+        .order("started_at", { ascending: false })
+        .limit(limit);
+
+      if (error) throw error;
+      if (!sessions || sessions.length === 0) return [];
+
+      // Convert to summary objects similar to ProgressService
+      const summaries = sessions.map((session: any) => {
+        const sets = (session.exercise_sets || [])
+          .sort((a: any, b: any) => a.set_number - b.set_number)
+          .map((set: any) => ({
+            setNumber: set.set_number,
+            weight: set.weight_kg || 0,
+            reps: set.reps || 0,
+            rpe: set.rpe,
+            notes: set.notes,
+            isWarmup: set.is_warmup || false,
+            isFailure: set.is_failure || false,
+          }));
+
+        // calculate best set
+        const workingSets = sets.filter((s: any) => !s.isWarmup);
+        let bestSet = workingSets[0] || { weight: 0, reps: 0, rpe: undefined };
+        let bestOneRepMax = 0;
+        for (const s of workingSets) {
+          const orm = this.calculateOneRepMaxForProgress(s.weight, s.reps, s.rpe);
+          if (orm > bestOneRepMax) {
+            bestOneRepMax = orm;
+            bestSet = s;
+          }
+        }
+
+        const totalVolume = workingSets.reduce((sum: number, s: any) => sum + s.weight * s.reps, 0);
+        const averageRpe =
+          workingSets.filter((s: any) => s.rpe).length > 0
+            ? workingSets
+                .filter((s: any) => s.rpe)
+                .reduce((sum: number, s: any, _i: number, arr: any[]) => sum + (s.rpe || 0) / arr.length, 0)
+            : undefined;
+
+        return {
+          sessionId: session.id,
+          sessionName: session.name,
+          date: session.started_at,
+          sets,
+          bestSet: {
+            weight: bestSet.weight,
+            reps: bestSet.reps,
+            volume: bestSet.weight * bestSet.reps,
+            estimatedOneRepMax: bestOneRepMax,
+          },
+          totalVolume,
+          averageRpe,
+          isPersonalRecord: false, // caller can determine via other helper
+          progressionFromPrevious: undefined,
+          notes: session.notes || undefined,
+        };
+      });
+
+      return summaries;
+    } catch (error) {
+      const dbError = this.handleDatabaseError(error);
+      throw dbError;
+    }
+  }
+
+  /**
+   * Query strength progression for an exercise
+   */
+  async queryStrengthProgression(
+    userId: string,
+    exerciseId: string,
+    timeframe: "month" | "quarter" | "year" = "quarter"
+  ) {
+    try {
+      const startDate = this.getStartDateForProgress(timeframe);
+
+      const { data: sets, error } = await supabase
+        .from("exercise_sets")
+        .select(
+          `
+          weight_kg,
+          reps,
+          rpe,
+          created_at,
+          workout_sessions!inner (
+            user_id,
+            started_at,
+            completed_at
+          )
+        `
+        )
+        .eq("exercise_id", exerciseId)
+        .eq("workout_sessions.user_id", userId)
+        .eq("is_warmup", false)
+        .not("workout_sessions.completed_at", "is", null)
+        .gte("workout_sessions.started_at", startDate)
+        .order("created_at", { ascending: true });
+
+      if (error) throw error;
+
+      const progressionData = (sets || [])
+        .filter((set: any) => set.weight_kg && set.reps)
+        .map((set: any) => ({
+          date: set.created_at,
+          exerciseId,
+          oneRepMax: this.calculateOneRepMaxForProgress(set.weight_kg, set.reps, set.rpe),
+          estimatedMax: this.calculateOneRepMaxForProgress(set.weight_kg, set.reps, set.rpe),
+          estimatedOneRepMax: this.calculateOneRepMaxForProgress(set.weight_kg, set.reps, set.rpe),
+          weight: set.weight_kg,
+          reps: set.reps,
+          rpe: set.rpe,
+        }));
+
+      return progressionData;
+    } catch (error) {
+      const dbError = this.handleDatabaseError(error);
+      throw dbError;
+    }
+  }
+
+  /**
+   * Query volume progression (session-level) optionally filtered by exercise
+   */
+  async queryVolumeProgression(
+    userId: string,
+    exerciseId?: string,
+    timeframe: "month" | "quarter" | "year" = "quarter"
+  ) {
+    try {
+      const startDate = this.getStartDateForProgress(timeframe);
+
+      let query = supabase
+        .from("workout_sessions")
+        .select(
+          `
+          started_at,
+          total_volume_kg,
+          average_rpe,
+          exercise_sets (
+            weight_kg,
+            reps,
+            is_warmup,
+            exercise_id
+          )
+        `
+        )
+        .eq("user_id", userId)
+        .not("completed_at", "is", null)
+        .gte("started_at", startDate)
+        .order("started_at", { ascending: true });
+
+      const { data: sessions, error } = await query;
+      if (error) throw error;
+
+      const volumeData = (sessions || [])
+        .map((session: any) => {
+          let sessionVolume = 0;
+          let sessionSets = 0;
+
+          if (exerciseId) {
+            const exerciseSets = (session.exercise_sets || []).filter(
+              (set: any) => set.exercise_id === exerciseId && !set.is_warmup
+            );
+
+            sessionVolume = exerciseSets.reduce(
+              (sum: number, set: any) => sum + (set.weight_kg || 0) * (set.reps || 0),
+              0
+            );
+            sessionSets = exerciseSets.length;
+          } else {
+            sessionVolume = session.total_volume_kg || 0;
+            sessionSets = (session.exercise_sets || []).filter((set: any) => !set.is_warmup).length;
+          }
+
+          return {
+            date: session.started_at,
+            totalVolume: sessionVolume,
+            sessionCount: 1,
+            volume: sessionVolume,
+            sets: sessionSets,
+            averageRpe: session.average_rpe,
+          };
+        })
+        .filter((d: any) => (d.volume || 0) > 0);
+
+      return volumeData;
+    } catch (error) {
+      const dbError = this.handleDatabaseError(error);
+      throw dbError;
+    }
+  }
+
+  /**
+   * Query personal records for a user
+   */
+  async queryPersonalRecords(userId: string, exerciseId?: string, limit: number = 50) {
+    try {
+      let query = supabase
+        .from("exercise_sets")
+        .select(
+          `
+          *,
+          exercises (
+            name,
+            primary_muscle
+          ),
+          workout_sessions!inner (
+            user_id,
+            started_at,
+            name
+          )
+        `
+        )
+        .eq("workout_sessions.user_id", userId)
+        .eq("is_warmup", false)
+        .not("workout_sessions.completed_at", "is", null)
+        .order("created_at", { ascending: false });
+
+      if (exerciseId) query = query.eq("exercise_id", exerciseId);
+
+      const { data: sets, error } = await query;
+      if (error) throw error;
+
+      const exerciseRecords = new Map<string, any[]>();
+
+      for (const set of sets || []) {
+        const exId = set.exercise_id;
+        const oneRepMax = this.calculateOneRepMaxForProgress(set.weight_kg || 0, set.reps || 0, set.rpe || undefined);
+        const volume = (set.weight_kg || 0) * (set.reps || 0);
+
+        if (!exerciseRecords.has(exId)) exerciseRecords.set(exId, []);
+
+        const records = exerciseRecords.get(exId)!;
+
+        const currentMaxRecord = records.find((r) => r.type === "weight");
+        if (!currentMaxRecord || oneRepMax > currentMaxRecord.value) {
+          const index = records.findIndex((r) => r.type === "weight");
+          if (index >= 0) records.splice(index, 1);
+
+          records.push({
+            exerciseId: exId,
+            type: "weight",
+            value: oneRepMax,
+            achievedAt: set.created_at,
+            sessionId: set.session_id,
+          });
+        }
+
+        const currentVolumeRecord = records.find((r) => r.type === "volume");
+        if (!currentVolumeRecord || volume > currentVolumeRecord.value) {
+          const index = records.findIndex((r) => r.type === "volume");
+          if (index >= 0) records.splice(index, 1);
+
+          records.push({
+            exerciseId: exId,
+            type: "volume",
+            value: volume,
+            achievedAt: set.created_at,
+            sessionId: set.session_id,
+          });
+        }
+
+        const sameWeightRecord = records.find(
+          (r) => r.type === "reps" && Math.abs(r.value - (set.weight_kg || 0)) < 0.5
+        );
+        if (!sameWeightRecord || (set.reps || 0) > sameWeightRecord.value) {
+          const index = records.findIndex((r) => r.type === "reps" && Math.abs(r.value - (set.weight_kg || 0)) < 0.5);
+          if (index >= 0) records.splice(index, 1);
+
+          records.push({
+            exerciseId: exId,
+            type: "reps",
+            value: set.reps || 0,
+            achievedAt: set.created_at,
+            sessionId: set.session_id,
+          });
+        }
+      }
+
+      const allRecords = Array.from(exerciseRecords.values())
+        .flat()
+        .sort((a, b) => new Date(b.achievedAt).getTime() - new Date(a.achievedAt).getTime())
+        .slice(0, limit);
+
+      return allRecords;
+    } catch (error) {
+      const dbError = this.handleDatabaseError(error);
+      throw dbError;
+    }
+  }
+
+  /**
+   * Export progress data (workouts, exercises, personal records, analytics)
+   */
+  async exportProgressData(userId: string, startDate: string, endDate: string, format: "json" | "csv" = "json") {
+    try {
+      const { workouts } = await this.queryWorkoutHistory(
+        userId,
+        {
+          startDate,
+          endDate,
+        },
+        1,
+        1000
+      );
+
+      const exerciseIds = Array.from(new Set(workouts.flatMap((w) => (w.sets || []).map((s: any) => s.exerciseId))));
+      const { data: exercises, error: exercisesError } = await supabase
+        .from("exercises")
+        .select("*")
+        .in("id", exerciseIds);
+
+      if (exercisesError) throw exercisesError;
+
+      const personalRecords = await this.queryPersonalRecords(userId);
+      const analytics = (await this.getProgressMetrics(userId)) ?? {};
+
+      const exportData = {
+        workouts,
+        exercises: (exercises || []) as any[],
+        progressMetrics: [analytics],
+        personalRecords,
+        exportDate: new Date().toISOString(),
+        userId,
+        dateRange: { start: startDate, end: endDate },
+      };
+
+      if (format === "json") return exportData;
+
+      // csv conversion (simple)
+      const csvRows: string[] = [];
+      csvRows.push("Date,Exercise,Sets,Reps,Weight,RPE,Volume,Notes");
+      for (const workout of exportData.workouts) {
+        for (const set of workout.sets || []) {
+          const exercise = exportData.exercises.find((e) => e.id === (set as any).exerciseId);
+          const row = [
+            workout.startedAt,
+            exercise?.name || "Unknown",
+            (set as any).setNumber,
+            (set as any).reps,
+            (set as any).weightKg,
+            (set as any).rpe || "",
+            ((set as any).weightKg || 0) * ((set as any).reps || 0),
+            (set as any).notes || "",
+          ].join(",");
+          csvRows.push(row);
+        }
+      }
+
+      return csvRows.join("\n");
+    } catch (error) {
+      const dbError = this.handleDatabaseError(error);
+      throw dbError;
+    }
+  }
+
+  // ============================================================================
+  // PROGRESS / ANALYTICS HELPERS (utility helpers)
+  // ============================================================================
+  public getStartDateForProgress(timeframe: "month" | "quarter" | "year"): string {
+    const now = new Date();
+    switch (timeframe) {
+      case "month":
+        return new Date(now.getFullYear(), now.getMonth() - 1, now.getDate()).toISOString().split("T")[0];
+      case "quarter":
+        return new Date(now.getFullYear(), now.getMonth() - 3, now.getDate()).toISOString().split("T")[0];
+      case "year":
+        return new Date(now.getFullYear() - 1, now.getMonth(), now.getDate()).toISOString().split("T")[0];
+      default:
+        return new Date(now.getFullYear(), now.getMonth() - 3, now.getDate()).toISOString().split("T")[0];
+    }
+  }
+
+  public calculateOneRepMaxForProgress(weight: number, reps: number, rpe?: number): number {
+    if (reps === 1) return weight;
+    // Prefer RPE-based modified Epley if available
+    if (rpe && rpe >= 6 && rpe <= 10) {
+      const repsInReserve = 10 - rpe;
+      const totalReps = reps + repsInReserve;
+      return weight * (1 + totalReps / 30);
+    }
+    // Fallback to Epley
+    return weight * (1 + reps / 30);
   }
 
   // ============================================================================
