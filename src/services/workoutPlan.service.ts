@@ -6,6 +6,7 @@
 import { databaseService } from "./database.service";
 import { logger } from "../utils/logger";
 import type { WorkoutPlanWithSessions } from "../types/database";
+import { normalizePlannedExercises, normalizePlanSummary } from "@/types/transforms";
 
 // ============================================================================
 // TYPES
@@ -80,37 +81,8 @@ export class WorkoutPlanService {
     try {
       const plans = await databaseService.getWorkoutPlans(experienceLevel);
 
-      // Map DB / transformed plan to WorkoutPlanSummary with flexible property access
-      return plans.map((plan: any) => {
-        const id: string = plan.id;
-        const name: string = plan.name;
-        const description: string = plan.description || "";
-
-        // type might be present on DB row (plan.type) or on transformed object
-        const type: "full_body" | "upper_lower" | "body_part_split" =
-          (plan.type as any) || (plan.plan_type as any) || (plan.typeName as any) || ("full_body" as any);
-
-        // frequency/duration fields may be snake_case (DB) or camelCase (transformed)
-        const frequencyPerWeek: number = plan.frequency_per_week ?? plan.sessionsPerWeek ?? plan.frequencyPerWeek ?? 0;
-        const durationWeeks: number = plan.duration_weeks ?? plan.durationWeeks ?? 0;
-
-        const difficulty: number = plan.difficulty ?? (plan.level ? Number(plan.level) : 1);
-
-        // target experience could be array or single field
-        const targetExperience: string[] =
-          plan.target_experience ?? plan.targetExperience ?? (plan.experienceLevel ? [plan.experienceLevel] : []) ?? [];
-
-        return {
-          id,
-          name,
-          description,
-          type,
-          frequencyPerWeek,
-          durationWeeks,
-          difficulty,
-          targetExperience,
-        } as WorkoutPlanSummary;
-      });
+      // Map DB / transformed plan to WorkoutPlanSummary via centralized normalizer
+      return plans.map((plan: any) => normalizePlanSummary(plan) as WorkoutPlanSummary);
     } catch (error) {
       logger.error("Failed to load workout plans", error, "workoutPlan");
       throw error;
@@ -206,17 +178,7 @@ export class WorkoutPlanService {
             weekNumber,
             estimatedDurationMinutes: session.estimated_duration_minutes || 60,
             exerciseCount: session.planned_exercises?.length || 0,
-            exercises:
-              session.planned_exercises?.map((ex: any) => ({
-                id: ex.exercise_id ?? ex.exercises?.id ?? ex.id,
-                name: ex.exercises?.name || "Unknown Exercise",
-                targetSets: ex.target_sets,
-                targetRepsMin: ex.target_reps_min || 0,
-                targetRepsMax: ex.target_reps_max || 0,
-                targetRpe: ex.target_rpe || undefined,
-                restSeconds: ex.rest_seconds || undefined,
-                notes: ex.notes || undefined,
-              })) || [],
+            exercises: normalizePlannedExercises(session.planned_exercises) || [],
           };
 
           if (phase) {
@@ -254,17 +216,7 @@ export class WorkoutPlanService {
             weekNumber,
             estimatedDurationMinutes: session.estimated_duration_minutes || 60,
             exerciseCount: session.planned_exercises?.length || 0,
-            exercises:
-              session.planned_exercises?.map((ex: any) => ({
-                id: ex.exercise_id ?? ex.exercises?.id ?? ex.id,
-                name: ex.exercises?.name || "Unknown Exercise",
-                targetSets: ex.target_sets,
-                targetRepsMin: ex.target_reps_min || 0,
-                targetRepsMax: ex.target_reps_max || 0,
-                targetRpe: ex.target_rpe || undefined,
-                restSeconds: ex.rest_seconds || undefined,
-                notes: ex.notes || undefined,
-              })) || [],
+            exercises: normalizePlannedExercises(session.planned_exercises) || [],
           };
 
           if (phases[phaseIndex]) {

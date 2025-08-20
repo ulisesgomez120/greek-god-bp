@@ -174,6 +174,44 @@ export function transformWorkoutPlan(dbPlan: DbWorkoutPlan): WorkoutPlan {
   };
 }
 
+export function normalizePlanSummary(plan: any): any {
+  const id = plan.id;
+  const name = plan.name;
+  const description = plan.description || "";
+
+  const type = (plan.type || plan.plan_type || plan.typeName || "full_body") as
+    | "full_body"
+    | "upper_lower"
+    | "body_part_split";
+
+  const frequencyPerWeek = Number(plan.frequency_per_week || plan.sessionsPerWeek || plan.frequencyPerWeek || 0);
+  const durationWeeks = Number(plan.duration_weeks || plan.durationWeeks || 0);
+
+  const difficulty = Number(plan.difficulty || (plan.level ? Number(plan.level) : 1));
+
+  let targetExperience: string[] = [];
+  if (Array.isArray(plan.target_experience) && plan.target_experience.length) {
+    targetExperience = plan.target_experience;
+  } else if (Array.isArray(plan.targetExperience) && plan.targetExperience.length) {
+    targetExperience = plan.targetExperience;
+  } else if (typeof plan.targetExperience === "string" && plan.targetExperience) {
+    targetExperience = [plan.targetExperience];
+  } else if (plan.experienceLevel) {
+    targetExperience = [plan.experienceLevel];
+  }
+
+  return {
+    id,
+    name,
+    description,
+    type,
+    frequencyPerWeek,
+    durationWeeks,
+    difficulty,
+    targetExperience,
+  };
+}
+
 export function transformSubscription(dbSubscription: DbSubscription): Subscription {
   return {
     id: dbSubscription.id,
@@ -232,6 +270,22 @@ function mapDifficultyToNumber(difficulty: "beginner" | "intermediate" | "advanc
     default:
       return 2;
   }
+}
+
+export function normalizePlannedExercises(planned?: (DbPlannedExercise & { exercises?: DbExercise })[]): any[] {
+  if (!planned) return [];
+  return planned.map((pe) => {
+    return {
+      id: pe.exercise_id ?? pe.exercises?.id ?? (pe as any).id,
+      name: pe.exercises?.name ?? (pe as any).name ?? "Unknown Exercise",
+      targetSets: (pe as any).target_sets ?? (pe as any).targetSets ?? 0,
+      targetRepsMin: (pe as any).target_reps_min ?? (pe as any).targetRepsMin ?? 0,
+      targetRepsMax: (pe as any).target_reps_max ?? (pe as any).targetRepsMax ?? 0,
+      targetRpe: (pe as any).target_rpe ?? (pe as any).targetRpe ?? undefined,
+      restSeconds: (pe as any).rest_seconds ?? (pe as any).restSeconds ?? undefined,
+      notes: (pe as any).notes ?? undefined,
+    };
+  });
 }
 
 // ============================================================================

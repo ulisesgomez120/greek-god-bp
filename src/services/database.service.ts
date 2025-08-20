@@ -4,9 +4,7 @@
 // Provides optimized database operations with offline sync capabilities
 
 import { supabase } from "@/lib/supabase";
-import AsyncStorage from "@react-native-async-storage/async-storage";
-import { STORAGE_KEYS, ERROR_MESSAGES } from "@/config/constants";
-import { getAsyncItem, setAsyncItem } from "@/utils/storage";
+import { ERROR_MESSAGES } from "@/config/constants";
 import type { WorkoutSession, ExerciseSet, UserProfile, Exercise, WorkoutPlan, ProgressMetrics } from "@/types";
 import type {
   UserProfile as DbUserProfile,
@@ -251,18 +249,8 @@ export class DatabaseService {
       const dbError = this.handleDatabaseError(error);
 
       if (dbError.isNetworkError) {
-        // Fallback: enqueue the profile update in a generic operation queue handled by storage/offline processors
-        try {
-          const opQueue = (await getAsyncItem<any[]>("operation_queue")) || [];
-          opQueue.push({
-            operation: "update_user_profile",
-            data: { id: userId, ...updates },
-            timestamp: Date.now(),
-          });
-          await setAsyncItem("operation_queue", opQueue);
-        } catch (err) {
-          console.warn("DatabaseService: failed to enqueue profile update for offline processing", err);
-        }
+        // Offline queue persistence has been removed from DatabaseService.
+        console.warn("DatabaseService: offline queue persistence removed; update_user_profile was not enqueued");
       }
 
       throw dbError;
@@ -361,14 +349,7 @@ export class DatabaseService {
       const dbError = this.handleDatabaseError(error);
 
       if (dbError.isNetworkError) {
-        // Offline handling: enqueue insert_workout_session for later processing
-        try {
-          const opQueue = (await getAsyncItem<any[]>("operation_queue")) || [];
-          opQueue.push({ operation: "insert_workout_session", data: session, timestamp: Date.now() });
-          await setAsyncItem("operation_queue", opQueue);
-        } catch (err) {
-          console.warn("DatabaseService: failed to enqueue insert_workout_session for offline processing", err);
-        }
+        console.warn("DatabaseService: offline queue persistence removed; insert_workout_session was not enqueued");
 
         // Return a temporary session with pending status
         return {
@@ -415,18 +396,7 @@ export class DatabaseService {
       const dbError = this.handleDatabaseError(error);
 
       if (dbError.isNetworkError) {
-        // Offline handling: enqueue update_workout_session for later processing
-        try {
-          const opQueue = (await getAsyncItem<any[]>("operation_queue")) || [];
-          opQueue.push({
-            operation: "update_workout_session",
-            data: { id: sessionId, ...updates },
-            timestamp: Date.now(),
-          });
-          await setAsyncItem("operation_queue", opQueue);
-        } catch (err) {
-          console.warn("DatabaseService: failed to enqueue update_workout_session for offline processing", err);
-        }
+        console.warn("DatabaseService: offline queue persistence removed; update_workout_session was not enqueued");
       }
 
       throw dbError;
@@ -466,14 +436,7 @@ export class DatabaseService {
       const dbError = this.handleDatabaseError(error);
 
       if (dbError.isNetworkError) {
-        // Fallback: enqueue the insert_exercise_sets operation for offline processing
-        try {
-          const opQueue = (await getAsyncItem<any[]>("operation_queue")) || [];
-          opQueue.push({ operation: "insert_exercise_sets", data: sets, timestamp: Date.now() });
-          await setAsyncItem("operation_queue", opQueue);
-        } catch (err) {
-          console.warn("DatabaseService: failed to enqueue insert_exercise_sets for offline processing", err);
-        }
+        console.warn("DatabaseService: offline queue persistence removed; insert_exercise_sets was not enqueued");
 
         // Return temporary sets with pending status
         return sets.map((set, index) => ({
@@ -567,6 +530,32 @@ export class DatabaseService {
         return [];
       }
 
+      throw dbError;
+    }
+  }
+
+  /**
+   * Get a single exercise by id.
+   * Returns the transformed Exercise or null if not found.
+   */
+  async getExerciseById(exerciseId: string): Promise<Exercise | null> {
+    try {
+      const { data, error } = await supabase.from("exercises").select("*").eq("id", exerciseId).maybeSingle();
+
+      if (error) throw error;
+      if (!data) return null;
+
+      return transformExercise(data as DbExercise);
+    } catch (error) {
+      const dbError = this.handleDatabaseError(error);
+      if (dbError.isNetworkError) {
+        // If network error, fall back to cached exercises if available
+        const cached = this.queryCache.get(this.getCacheKey("exercises", {}));
+        if (cached) {
+          const list: Exercise[] = cached.data as Exercise[];
+          return list.find((e) => e.id === exerciseId) ?? null;
+        }
+      }
       throw dbError;
     }
   }
@@ -765,13 +754,8 @@ export class DatabaseService {
   }
 
   async getOfflineQueueSize(): Promise<number> {
-    try {
-      const raw = await AsyncStorage.getItem(STORAGE_KEYS.async.offlineWorkouts);
-      const queue = raw ? JSON.parse(raw) : [];
-      return queue.length;
-    } catch {
-      return 0;
-    }
+    // Offline queue persistence removed from DatabaseService; report zero.
+    return 0;
   }
 
   async clearAllCache(): Promise<void> {
@@ -783,21 +767,12 @@ export class DatabaseService {
     offlineQueueSize: number;
     isOnline: boolean;
   }> {
-    try {
-      const raw = await AsyncStorage.getItem(STORAGE_KEYS.async.offlineWorkouts);
-      const queue = raw ? JSON.parse(raw) : [];
-      return {
-        cacheSize: this.queryCache.size,
-        offlineQueueSize: queue.length,
-        isOnline: this.isOnline,
-      };
-    } catch {
-      return {
-        cacheSize: this.queryCache.size,
-        offlineQueueSize: 0,
-        isOnline: this.isOnline,
-      };
-    }
+    // Offline queue persistence removed from DatabaseService; offlineQueueSize is 0.
+    return {
+      cacheSize: this.queryCache.size,
+      offlineQueueSize: 0,
+      isOnline: this.isOnline,
+    };
   }
 }
 

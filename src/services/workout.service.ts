@@ -10,6 +10,7 @@
 import { logger } from "../utils/logger";
 import { authService } from "./auth.service";
 import supabase from "@/lib/supabase";
+import { databaseService } from "./database.service";
 import type {
   WorkoutSession,
   ExerciseSet,
@@ -28,6 +29,7 @@ export interface WorkoutServiceConfig {
   enableOfflineMode: boolean;
   maxRetries: number;
   retryDelay: number; // in milliseconds
+  enableExerciseValidation?: boolean; // when true, validate exercise exists before inserting sets (default: true)
 }
 
 export interface CreateWorkoutOptions {
@@ -78,6 +80,7 @@ export class WorkoutService {
       enableOfflineMode: false,
       maxRetries: 3,
       retryDelay: 1000,
+      enableExerciseValidation: true,
       ...config,
     };
 
@@ -117,65 +120,21 @@ export class WorkoutService {
       // Attempt to create workout session on the server and let Supabase generate the ID.
       let workout: WorkoutSession;
       try {
-        const insertPayload: any = {
-          user_id: user.id,
-          plan_id: options.planId,
-          session_id: options.sessionId,
+        const payload: any = {
+          userId: user.id,
+          planId: options.planId,
+          sessionId: options.sessionId,
           name,
-          started_at: new Date().toISOString(),
-          sync_status: "synced",
-          offline_created: false,
-          created_at: new Date().toISOString(),
-          updated_at: new Date().toISOString(),
+          startedAt: new Date().toISOString(),
+          syncStatus: "synced",
+          offlineCreated: false,
         };
 
-        // Single attempt: let the database generate the ID. If it fails, fall back to a provisional local session.
-        const { data: inserted, error: insertError } = await this.supabase
-          .from("workout_sessions")
-          .insert(insertPayload)
-          .select()
-          .single();
-
-        if (insertError || !inserted) {
-          logger.warn(
-            "Failed to persist workout to Supabase, continuing with local session",
-            insertError,
-            "workout",
-            user.id
-          );
-
-          // Fall back to local provisional session (use temp prefix to avoid collision with DB UUIDs)
-          workout = {
-            id: `temp_workout_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
-            userId: user.id,
-            planId: options.planId,
-            sessionId: options.sessionId,
-            name,
-            startedAt: new Date().toISOString(),
-            syncStatus: "pending",
-            offlineCreated: true,
-            createdAt: new Date().toISOString(),
-            updatedAt: new Date().toISOString(),
-            sets: [],
-          };
-        } else {
-          // Normalize server response into WorkoutSession shape
-          workout = {
-            id: inserted.id,
-            userId: inserted.user_id,
-            planId: inserted.plan_id,
-            sessionId: inserted.session_id,
-            name: inserted.name,
-            startedAt: inserted.started_at,
-            syncStatus: inserted.sync_status,
-            offlineCreated: inserted.offline_created || false,
-            createdAt: inserted.created_at,
-            updatedAt: inserted.updated_at,
-            sets: [],
-          } as WorkoutSession;
-        }
+        // Delegate creation to DatabaseService which handles transforms and offline fallback
+        const inserted = await databaseService.insertWorkoutSession(payload);
+        workout = inserted;
       } catch (err) {
-        logger.warn("Unexpected error while persisting workout to Supabase", err, "workout", user.id);
+        logger.warn("Unexpected error while persisting workout to DatabaseService", err, "workout", user.id);
         workout = {
           id: `temp_workout_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
           userId: user.id,
@@ -239,39 +198,30 @@ export class WorkoutService {
         };
       }
 
-      // Validate exercise exists in DB to avoid FK violations.
-      // This prevents attempts to insert exercise_sets referencing missing exercises.
-      try {
-        const { data: existingExercise, error: exError } = await this.supabase
-          .from("exercises")
-          .select("id")
-          .eq("id", setData.exerciseId)
-          .maybeSingle();
+      // Optionally validate exercise exists via DatabaseService to avoid FK violations.
+      if (this.config.enableExerciseValidation) {
+        try {
+          const existingExercise = await databaseService.getExerciseById(setData.exerciseId);
+          if (!existingExercise) {
+            logger.warn(
+              "Attempted to add set for missing exercise id; aborting to avoid FK violation",
+              { exerciseId: setData.exerciseId },
+              "workout",
+              user.id
+            );
 
-        if (exError) {
-          logger.warn("Failed to validate exercise existence", exError, "workout", user.id);
-        }
-
-        if (!existingExercise) {
-          logger.warn(
-            "Attempted to add set for missing exercise id; aborting to avoid FK violation",
-            { exerciseId: setData.exerciseId },
-            "workout",
-            user.id
-          );
-
+            return {
+              success: false,
+              error: "Exercise not found",
+            };
+          }
+        } catch (err) {
+          logger.warn("Failed to validate exercise existence", err, "workout", user.id);
           return {
             success: false,
-            error: "Exercise not found",
+            error: "Failed to validate exercise existence",
           };
         }
-      } catch (err) {
-        logger.warn("Unexpected error while validating exercise existence", err, "workout", user.id);
-        // Proceed cautiously — if validation fails due to transient error, abort to be safe.
-        return {
-          success: false,
-          error: "Failed to validate exercise existence",
-        };
       }
 
       // Get current set number for this exercise
@@ -316,33 +266,31 @@ export class WorkoutService {
       this.currentSession.sets.push(provisionalSet);
       this.currentSession.updatedAt = new Date().toISOString();
 
-      // Persist the set to Supabase (best-effort). Replace provisional set with server row when available.
+      // Persist the set via DatabaseService (best-effort). Replace provisional set with server row when available.
       try {
-        const { data: insertedSet, error: setInsertError } = await this.supabase
-          .from("exercise_sets")
-          .insert(setPayload)
-          .select()
-          .single();
+        const dbSets = [
+          {
+            sessionId,
+            exerciseId: setData.exerciseId,
+            setNumber,
+            weightKg: setData.weightKg ?? undefined,
+            reps: setData.reps,
+            rpe: setData.rpe ?? undefined,
+            isWarmup: !!setData.isWarmup,
+            isFailure: false,
+            restSeconds: setData.restSeconds ?? undefined,
+            notes: setData.notes ?? undefined,
+          },
+        ];
 
-        if (setInsertError || !insertedSet) {
-          logger.warn("Failed to persist exercise set to Supabase", setInsertError, "workout", user.id);
+        const insertedSets = await databaseService.insertExerciseSets(dbSets);
+        const insertedSet = Array.isArray(insertedSets) && insertedSets.length > 0 ? insertedSets[0] : null;
+
+        if (!insertedSet) {
+          logger.warn("Failed to persist exercise set via DatabaseService", undefined, "workout", user.id);
           // keep provisional set as-is
         } else {
-          // Map inserted row to ExerciseSet and replace provisional entry
-          const mapped: ExerciseSet = {
-            id: insertedSet.id,
-            sessionId: insertedSet.session_id,
-            exerciseId: insertedSet.exercise_id,
-            setNumber: insertedSet.set_number,
-            weightKg: insertedSet.weight_kg ?? undefined,
-            reps: Number(insertedSet.reps),
-            rpe: insertedSet.rpe ?? undefined,
-            isWarmup: !!insertedSet.is_warmup,
-            isFailure: !!insertedSet.is_failure,
-            restSeconds: insertedSet.rest_seconds ?? undefined,
-            notes: insertedSet.notes ?? undefined,
-            createdAt: insertedSet.created_at,
-          };
+          const mapped: ExerciseSet = insertedSet;
 
           // Replace provisional set in currentSession.sets
           const idx = this.currentSession.sets.findIndex((s) => s.id === provisionalSet.id);
@@ -364,7 +312,7 @@ export class WorkoutService {
           }
         }
       } catch (err) {
-        logger.warn("Unexpected error while persisting exercise set to Supabase", err, "workout", user.id);
+        logger.warn("Unexpected error while persisting exercise set via DatabaseService", err, "workout", user.id);
       }
 
       // Determine final set (prefer server-mapped entry if available)
