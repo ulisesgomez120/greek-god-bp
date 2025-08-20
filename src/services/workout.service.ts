@@ -27,7 +27,6 @@ import type { Database } from "../types/database";
 // ============================================================================
 
 export interface WorkoutServiceConfig {
-  enableOfflineMode: boolean;
   maxRetries: number;
   retryDelay: number; // in milliseconds
   enableExerciseValidation?: boolean; // when true, validate exercise exists before inserting sets (default: true)
@@ -44,8 +43,6 @@ export interface WorkoutServiceResult<T = any> {
   success: boolean;
   data?: T;
   error?: string;
-  offline?: boolean;
-  syncPending?: boolean;
 }
 
 export interface WorkoutStats {
@@ -78,7 +75,6 @@ export class WorkoutService {
   private constructor(config?: Partial<WorkoutServiceConfig>) {
     // Minimal configuration for online-first flow.
     this.config = {
-      enableOfflineMode: false,
       maxRetries: 3,
       retryDelay: 1000,
       enableExerciseValidation: true,
@@ -127,8 +123,6 @@ export class WorkoutService {
           sessionId: options.sessionId,
           name,
           startedAt: new Date().toISOString(),
-          syncStatus: "synced",
-          offlineCreated: false,
         };
 
         // Delegate creation to DatabaseService which handles transforms and offline fallback
@@ -143,8 +137,6 @@ export class WorkoutService {
           sessionId: options.sessionId,
           name,
           startedAt: new Date().toISOString(),
-          syncStatus: "pending",
-          offlineCreated: true,
           createdAt: new Date().toISOString(),
           updatedAt: new Date().toISOString(),
           sets: [],
@@ -159,8 +151,6 @@ export class WorkoutService {
       return {
         success: true,
         data: workout,
-        offline: this.config.enableOfflineMode,
-        syncPending: false,
       };
     } catch (error) {
       logger.error("Failed to start workout", error, "workout");
@@ -325,8 +315,6 @@ export class WorkoutService {
       return {
         success: true,
         data: finalSet,
-        offline: this.config.enableOfflineMode,
-        syncPending: false,
       };
     } catch (error) {
       logger.error("Failed to add exercise set", error, "workout");
@@ -370,7 +358,6 @@ export class WorkoutService {
         notes,
         totalVolumeKg: stats.totalVolume,
         averageRpe: stats.averageRpe,
-        syncStatus: "synced",
         updatedAt: new Date().toISOString(),
       };
 
@@ -383,7 +370,6 @@ export class WorkoutService {
           notes: completedWorkout.notes,
           totalVolumeKg: completedWorkout.totalVolumeKg,
           averageRpe: completedWorkout.averageRpe,
-          syncStatus: "synced",
         });
       } catch (err) {
         logger.warn("Failed to persist completed workout via DatabaseService", err, "workout", user.id);
@@ -407,8 +393,6 @@ export class WorkoutService {
       return {
         success: true,
         data: completedWorkout,
-        offline: this.config.enableOfflineMode,
-        syncPending: false,
       };
     } catch (error) {
       logger.error("Failed to complete workout", error, "workout");
@@ -442,7 +426,6 @@ export class WorkoutService {
 
       return {
         success: true,
-        offline: this.config.enableOfflineMode,
       };
     } catch (error) {
       logger.error("Failed to cancel workout", error, "workout");
@@ -556,8 +539,6 @@ export class WorkoutService {
       return {
         success: true,
         data: recoveredWorkout,
-        offline: this.config.enableOfflineMode,
-        syncPending: false,
       };
     } catch (error) {
       logger.error("Failed to recover workout session", error, "workout");

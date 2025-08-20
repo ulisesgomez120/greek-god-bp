@@ -34,7 +34,7 @@ const persistConfig = {
   key: "root",
   version: 1,
   storage: AsyncStorage,
-  // Only persist essential data for offline functionality
+  // Persist only essential slices
   whitelist: ["auth", "workout", "ui"],
   // Exclude API cache and temporary states
   blacklist: ["api"],
@@ -48,7 +48,7 @@ const authPersistConfig = {
   blacklist: ["session", "tokens"],
 };
 
-// Workout slice persistence - include offline queue
+// Workout slice persistence - persist current workout state and essential lists
 const workoutPersistConfig = {
   key: "workout",
   storage: AsyncStorage,
@@ -242,10 +242,6 @@ store.subscribe(() => {
     logger.error("Critical auth error detected:", state.auth.error);
     // Could trigger app-wide error boundary or force logout
   }
-
-  if (state.workout?.offline?.syncStatus === "error") {
-    logger.warn("Workout sync error detected, will retry automatically");
-  }
 });
 
 // ============================================================================
@@ -262,7 +258,6 @@ if (DEV_CONSTANTS.enableDebugMode) {
     "RTK Query",
     "Redux Persist",
     "Auth Middleware",
-    "Offline Middleware",
     ...(DEV_CONSTANTS.enableDebugMode ? ["Redux Logger"] : []),
     ...(DEV_CONSTANTS.enableFlipper ? ["Flipper Debugger"] : []),
   ]);

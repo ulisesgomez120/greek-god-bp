@@ -170,22 +170,9 @@ const baseQueryWithAuth: BaseQueryFn<CustomBaseQueryArgs, unknown, FetchBaseQuer
     }
   }
 
-  // Handle network errors for offline queue
+  // Handle network errors: log and let caller handle retries (no client-side offline queue)
   if (result.error && !navigator.onLine) {
-    logger.warn("Network request failed while offline", result.error, "api", userId);
-
-    // Add to offline queue if it's a mutation
-    if (fetchArgs.method && ["POST", "PUT", "PATCH", "DELETE"].includes(fetchArgs.method)) {
-      api.dispatch({
-        type: "offline/addToQueue",
-        payload: {
-          id: `offline_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
-          request: fetchArgs,
-          timestamp: Date.now(),
-          retryCount: 0,
-        },
-      });
-    }
+    logger.warn("Network request failed while offline; client-side offline queue removed", result.error, "api", userId);
   }
 
   return result;

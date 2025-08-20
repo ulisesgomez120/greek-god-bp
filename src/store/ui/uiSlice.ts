@@ -285,68 +285,6 @@ const uiSlice = createSlice({
       );
     },
 
-    // Sync notifications
-    showSyncStartedNotification: (state) => {
-      const notification: Notification = {
-        id: `sync_started_${Date.now()}`,
-        type: "info",
-        title: "Syncing Data",
-        message: "Uploading your workouts to the cloud...",
-        duration: 0, // Persistent until sync completes
-        createdAt: new Date().toISOString(),
-      };
-
-      state.notifications.push(notification);
-      logger.info("Sync started notification shown", undefined, "ui");
-    },
-
-    showSyncCompletedNotification: (state, action: PayloadAction<{ syncedCount: number }>) => {
-      const { syncedCount } = action.payload;
-
-      // Remove any existing sync notifications
-      state.notifications = state.notifications.filter((n) => !n.id.startsWith("sync_"));
-
-      const notification: Notification = {
-        id: `sync_completed_${Date.now()}`,
-        type: "success",
-        title: "Sync Complete",
-        message: `${syncedCount} workout${syncedCount !== 1 ? "s" : ""} synced successfully.`,
-        duration: 3000,
-        createdAt: new Date().toISOString(),
-      };
-
-      state.notifications.push(notification);
-      logger.info("Sync completed notification shown", { syncedCount }, "ui");
-    },
-
-    showSyncFailedNotification: (state, action: PayloadAction<{ error: string }>) => {
-      const { error } = action.payload;
-
-      // Remove any existing sync notifications
-      state.notifications = state.notifications.filter((n) => !n.id.startsWith("sync_"));
-
-      const notification: Notification = {
-        id: `sync_failed_${Date.now()}`,
-        type: "error",
-        title: "Sync Failed",
-        message: `Unable to sync workouts: ${error}`,
-        duration: 8000,
-        actions: [
-          {
-            label: "Retry",
-            action: () => {
-              // This would be handled by the component
-              logger.info("Sync retry requested from notification", undefined, "ui");
-            },
-          },
-        ],
-        createdAt: new Date().toISOString(),
-      };
-
-      state.notifications.push(notification);
-      logger.error("Sync failed notification shown", { error }, "ui");
-    },
-
     // Subscription notifications
     showSubscriptionExpiredNotification: (state, action: PayloadAction<{ planName: string }>) => {
       const { planName } = action.payload;
@@ -431,9 +369,6 @@ export const {
   showWorkoutCompletedNotification,
   showPersonalRecordNotification,
   showProgressionRecommendationNotification,
-  showSyncStartedNotification,
-  showSyncCompletedNotification,
-  showSyncFailedNotification,
   showSubscriptionExpiredNotification,
   showPaymentFailedNotification,
   clearUIData,
@@ -473,9 +408,6 @@ export const selectRecentNotifications =
 export const selectIsDarkMode = (state: { ui: UIState }) => state.ui.theme === "dark";
 
 export const selectHasError = (state: { ui: UIState }) => !!state.ui.error;
-
-export const selectSyncNotifications = (state: { ui: UIState }) =>
-  state.ui.notifications.filter((n) => n.id.startsWith("sync_"));
 
 export const selectWorkoutNotifications = (state: { ui: UIState }) =>
   state.ui.notifications.filter(

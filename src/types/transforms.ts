@@ -18,7 +18,6 @@ import type {
   ExperienceLevel as DbExperienceLevel,
   MuscleGroup as DbMuscleGroup,
   Equipment as DbEquipment,
-  SyncStatus as DbSyncStatus,
 } from "./database";
 
 import type {
@@ -73,8 +72,6 @@ export function transformWorkoutSession(dbSession: DbWorkoutSession): WorkoutSes
     notes: dbSession.notes || undefined,
     totalVolumeKg: dbSession.total_volume_kg || undefined,
     averageRpe: dbSession.average_rpe || undefined,
-    syncStatus: (dbSession.sync_status || "synced") as "pending" | "synced" | "error",
-    offlineCreated: dbSession.offline_created || false,
     createdAt: dbSession.created_at,
     updatedAt: dbSession.updated_at,
   };
@@ -94,8 +91,6 @@ export function transformWorkoutSessionToDb(session: Partial<WorkoutSession>): P
   if (session.notes) dbSession.notes = session.notes;
   if (session.totalVolumeKg) dbSession.total_volume_kg = session.totalVolumeKg;
   if (session.averageRpe) dbSession.average_rpe = session.averageRpe;
-  if (session.syncStatus) dbSession.sync_status = session.syncStatus as DbSyncStatus;
-  if (session.offlineCreated !== undefined) dbSession.offline_created = session.offlineCreated;
   if (session.createdAt) dbSession.created_at = session.createdAt;
   if (session.updatedAt) dbSession.updated_at = session.updatedAt;
 

@@ -1,7 +1,7 @@
 // ============================================================================
 // DATABASE SERVICE WITH CONNECTION POOLING AND ERROR HANDLING
 // ============================================================================
-// Provides optimized database operations with offline sync capabilities
+// Provides optimized database operations (online-first)
 
 import { supabase } from "@/lib/supabase";
 import { ERROR_MESSAGES } from "@/config/constants";
@@ -149,8 +149,8 @@ export class DatabaseService {
   // ============================================================================
   // OFFLINE QUEUE MANAGEMENT
   // ============================================================================
-
-  // Offline queue is handled by OfflineService. DatabaseService no longer persists its own queue.
+  // Note: client-side offline queue persistence/processing has been removed.
+  // Any server-side or centralized sync processing should be handled externally.
 
   // ============================================================================
   // ERROR HANDLING
@@ -1265,37 +1265,6 @@ export class DatabaseService {
     }
     // Fallback to Epley
     return weight * (1 + reps / 30);
-  }
-
-  // ============================================================================
-  // SYNC OPERATIONS
-  // ============================================================================
-
-  async syncAllData(userId: string): Promise<SyncResult> {
-    const result: SyncResult = {
-      success: true,
-      synced: [],
-      conflicts: [],
-      errors: [],
-    };
-
-    try {
-      // Legacy offline queue processing removed — rely on centralized sync functions
-      console.log("DatabaseService.syncAllData: offline queue processing is handled elsewhere");
-
-      // Clear cache to ensure fresh data
-      this.clearCache();
-
-      result.synced.push("offline_queue");
-    } catch (error) {
-      result.success = false;
-      result.errors.push({
-        id: "sync_operation",
-        error: error instanceof Error ? error.message : "Unknown sync error",
-      });
-    }
-
-    return result;
   }
 
   // ============================================================================

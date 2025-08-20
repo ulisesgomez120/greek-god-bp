@@ -75,10 +75,6 @@ export interface WorkoutState {
   currentExercise: number;
   currentSet: number;
   restTimer?: number;
-  offline: {
-    pendingSessions: WorkoutSession[];
-    syncStatus: "idle" | "syncing" | "error";
-  };
   plans: WorkoutPlan[];
   exercises: Exercise[];
   progressMetrics: Record<string, ExerciseProgressMetrics>;
@@ -97,8 +93,6 @@ export interface WorkoutSession {
   totalVolumeKg?: number;
   averageRpe?: number;
   sets?: ExerciseSet[];
-  syncStatus: "pending" | "synced" | "error";
-  offlineCreated?: boolean;
   createdAt: string;
   updatedAt: string;
 }

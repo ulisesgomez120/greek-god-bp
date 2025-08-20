@@ -390,7 +390,6 @@ export const STORAGE_KEYS = {
   async: {
     userPreferences: "user_preferences",
     workoutCache: "workout_cache",
-    offlineWorkouts: "offline_workouts",
     aiPersonality: "ai_personality",
     onboardingComplete: "onboarding_complete",
     lastSyncTime: "last_sync_time",
@@ -457,7 +456,7 @@ export const ERROR_MESSAGES = {
     invalidRpe: "RPE must be between 1 and 10.",
     invalidWeight: "Weight must be a positive number.",
     invalidReps: "Reps must be a positive number.",
-    syncFailed: "Failed to sync workout data. Your data is saved locally.",
+    syncFailed: "Failed to update workout data. Please try again.",
   },
 
   ai: {
@@ -483,7 +482,7 @@ export const SUCCESS_MESSAGES = {
 
   workout: {
     sessionCompleted: "Great workout! Your progress has been saved.",
-    syncCompleted: "All workout data has been synced successfully.",
+    syncCompleted: "Workout data updated successfully.",
     progressionUnlocked: "Congratulations! You're ready to increase the weight.",
   },
 
@@ -504,7 +503,7 @@ export const FEATURE_FLAGS = {
   enableAICoaching: true,
   enableCustomWorkouts: true,
   enableCoachDashboard: false, // Coming soon
-  enableOfflineSync: true,
+  enableOfflineSync: false,
   enableProgressiveOverload: true,
   enableRealTimeUpdates: true,
   enableSocialFeatures: false, // Future phase

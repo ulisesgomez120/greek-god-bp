@@ -25,11 +25,6 @@ const initialState: WorkoutState = {
   isActive: false,
   currentExercise: 0,
   currentSet: 0,
-  // Keep a minimal offline shape to satisfy existing types while offline behavior is phased out.
-  offline: {
-    pendingSessions: [],
-    syncStatus: "idle",
-  },
   plans: [],
   exercises: [],
   progressMetrics: {},
@@ -68,8 +63,6 @@ export const startWorkout = createAsyncThunk(
         sessionId: workoutData.sessionId,
         name: workoutData.name,
         startedAt: new Date().toISOString(),
-        syncStatus: "pending",
-        offlineCreated: true,
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString(),
       };
@@ -118,7 +111,6 @@ export const completeWorkout = createAsyncThunk(
         notes: completionData.notes,
         totalVolumeKg: completionData.totalVolumeKg,
         averageRpe: completionData.averageRpe,
-        syncStatus: "pending",
         updatedAt: new Date().toISOString(),
       };
 
@@ -454,7 +446,7 @@ const workoutSlice = createSlice({
     },
 
     // Clear data (for logout)
-    clearOfflineData: (state) => {
+    clearWorkoutData: (state) => {
       state.currentWorkout = null;
       state.isActive = false;
       state.currentExercise = 0;
@@ -541,7 +533,7 @@ const workoutSlice = createSlice({
 // ACTIONS AND SELECTORS
 // ============================================================================
 
-export const { setCurrentExercise, setCurrentSet, setWorkoutPlans, setExercises, cancelWorkout, clearOfflineData } =
+export const { setCurrentExercise, setCurrentSet, setWorkoutPlans, setExercises, cancelWorkout, clearWorkoutData } =
   workoutSlice.actions;
 
 // Selectors
@@ -550,8 +542,6 @@ export const selectCurrentWorkout = (state: { workout: WorkoutState }) => state.
 export const selectIsWorkoutActive = (state: { workout: WorkoutState }) => state.workout.isActive;
 export const selectCurrentExercise = (state: { workout: WorkoutState }) => state.workout.currentExercise;
 export const selectCurrentSet = (state: { workout: WorkoutState }) => state.workout.currentSet;
-export const selectOfflineQueue = (state: { workout: WorkoutState }) => [];
-export const selectSyncStatus = (state: { workout: WorkoutState }) => "idle";
 export const selectWorkoutPlans = (state: { workout: WorkoutState }) => state.workout.plans;
 export const selectExercises = (state: { workout: WorkoutState }) => state.workout.exercises;
 export const selectProgressMetrics = (state: { workout: WorkoutState }) => state.workout.progressMetrics;

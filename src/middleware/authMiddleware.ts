@@ -95,7 +95,7 @@ export const authMiddleware: Middleware = (store) => (next) => (action: any) => 
       clearTokenRefreshSchedule();
 
       // Clear other store data
-      store.dispatch({ type: "workout/clearOfflineData" });
+      store.dispatch({ type: "workout/clearWorkoutData" });
       store.dispatch({ type: "progress/clearProgressData" });
       store.dispatch({ type: "subscription/clearSubscriptionData" });
       store.dispatch({ type: "ui/clearUIData" });
