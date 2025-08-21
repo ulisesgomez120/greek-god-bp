@@ -51,6 +51,7 @@ interface ExerciseHistorySession {
     reps: number;
     rpe?: number;
     isWarmup: boolean;
+    notes?: string;
   }[];
 }
 
@@ -418,7 +419,7 @@ export const ExerciseDetailScreen: React.FC<ExerciseDetailScreenProps> = ({ navi
         </View>
       );
     }
-
+    console.log("state.exerciseHistory", state.exerciseHistory[0]);
     return (
       <View style={styles.historySection}>
         <Text variant='h3' color='primary' style={styles.sectionTitle}>
@@ -432,10 +433,23 @@ export const ExerciseDetailScreen: React.FC<ExerciseDetailScreenProps> = ({ navi
             </Text>
             <View style={styles.historySets}>
               {session.sets.map((set, setIndex) => (
-                <Text key={setIndex} variant='body' color='primary' style={styles.historySetItem}>
-                  • Set {setIndex + 1}: {set.weight ? `${set.weight}kg` : "BW"} × {set.reps}
-                  {set.rpe ? ` @ RPE ${set.rpe}` : ""}
-                </Text>
+                <View key={setIndex} style={{ marginBottom: 6 }}>
+                  <Text variant='body' color='primary' style={styles.historySetItem}>
+                    • Set {setIndex + 1}: {set.weight ? `${set.weight}kg` : "BW"} × {set.reps}
+                    {set.rpe ? ` @ RPE ${set.rpe}` : ""}
+                    {set.isWarmup && (
+                      <Text variant='bodySmall' color='secondary'>
+                        {" "}
+                        - Warmup
+                      </Text>
+                    )}
+                  </Text>
+                  {set.notes ? (
+                    <Text variant='bodySmall' color='secondary' style={{ marginLeft: 12 }}>
+                      Notes: {set.notes}
+                    </Text>
+                  ) : null}
+                </View>
               ))}
             </View>
           </View>

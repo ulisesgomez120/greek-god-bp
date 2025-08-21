@@ -604,7 +604,7 @@ export class WorkoutService {
       const { data, error } = await this.supabase
         .from("exercise_sets")
         .select(
-          "id, weight_kg, reps, rpe, is_warmup, created_at, session_id, workout_sessions(id, started_at, user_id)"
+          "id, weight_kg, reps, rpe, notes, is_warmup, created_at, session_id, workout_sessions (id, started_at, user_id)"
         )
         .eq("exercise_id", exerciseId)
         .order("created_at", { ascending: false })
@@ -641,6 +641,7 @@ export class WorkoutService {
           reps: row.reps,
           rpe: row.rpe,
           isWarmup: !!row.is_warmup,
+          notes: row.notes,
         });
       }
 
