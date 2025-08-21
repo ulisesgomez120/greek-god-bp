@@ -269,10 +269,6 @@ export const ExerciseDetailScreen: React.FC<ExerciseDetailScreenProps> = ({ navi
   // NAVIGATION HANDLERS
   // ============================================================================
 
-  const handleBack = useCallback(() => {
-    navigation.goBack();
-  }, [navigation]);
-
   const handleNextExercise = useCallback(() => {
     if (state.nextExercise) {
       navigation.replace("ExerciseDetail", {
@@ -418,12 +414,6 @@ export const ExerciseDetailScreen: React.FC<ExerciseDetailScreenProps> = ({ navi
 
   const renderNavigationFooter = () => (
     <View style={styles.navigationFooter}>
-      <TouchableOpacity style={styles.backButton} onPress={handleBack}>
-        <Text variant='button' style={styles.backButtonText}>
-          ← Back
-        </Text>
-      </TouchableOpacity>
-
       {state.nextExercise ? (
         <TouchableOpacity style={styles.nextButton} onPress={handleNextExercise}>
           <Text variant='button' style={styles.nextButtonText}>
