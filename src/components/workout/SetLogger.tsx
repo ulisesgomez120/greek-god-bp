@@ -5,6 +5,7 @@
 
 import React, { useState, useCallback, useRef, useEffect } from "react";
 import { View, Text, TextInput, StyleSheet, TouchableOpacity, Alert, ViewStyle } from "react-native";
+import Icon from "react-native-vector-icons/MaterialIcons";
 import { useHapticFeedback } from "../../hooks/useHapticFeedback";
 import RPESelector from "./RPESelector";
 import { Button } from "../ui/Button";
@@ -114,15 +115,18 @@ export const SetLogger: React.FC<SetLoggerProps> = ({
   // EFFECTS
   // ============================================================================
 
-  // Update suggested values when they change
+  // Update suggested values when they change (apply only when the input is empty;
+  // do not override user edits while they are typing or when there is already a value)
   useEffect(() => {
-    if (suggestedWeight && !state.weight) {
+    if (typeof suggestedWeight !== "undefined" && state.weight === "") {
       setState((prev) => ({ ...prev, weight: suggestedWeight.toString() }));
     }
-    if (suggestedReps && !state.reps) {
+    if (typeof suggestedReps !== "undefined" && state.reps === "") {
       setState((prev) => ({ ...prev, reps: suggestedReps.toString() }));
     }
-  }, [suggestedWeight, suggestedReps, state.weight, state.reps]);
+    // Only depend on suggestions; avoid re-running due to state changes that happen while typing.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [suggestedWeight, suggestedReps]);
 
   // Auto-focus weight input on first set
   useEffect(() => {
@@ -139,7 +143,7 @@ export const SetLogger: React.FC<SetLoggerProps> = ({
 
   const handleWeightChange = useCallback(
     (value: string) => {
-      // Allow decimal numbers
+      // Allow decimal numbers and allow empty string so deletion works
       const numericValue = value.replace(/[^0-9.]/g, "");
       setState((prev) => ({ ...prev, weight: numericValue }));
 
@@ -153,7 +157,7 @@ export const SetLogger: React.FC<SetLoggerProps> = ({
 
   const handleRepsChange = useCallback(
     (value: string) => {
-      // Allow only integers
+      // Allow only integers and allow empty string so deletion works
       const numericValue = value.replace(/[^0-9]/g, "");
       setState((prev) => ({ ...prev, reps: numericValue }));
 
@@ -167,7 +171,7 @@ export const SetLogger: React.FC<SetLoggerProps> = ({
 
   const handleRPEChange = useCallback(
     (value: string) => {
-      // Allow only numbers 1-10
+      // Allow only numbers 1-10 or empty string
       const numericValue = value.replace(/[^0-9]/g, "");
       const rpeNumber = parseInt(numericValue);
 
@@ -175,7 +179,7 @@ export const SetLogger: React.FC<SetLoggerProps> = ({
         setState((prev) => ({ ...prev, rpe: numericValue }));
 
         // Auto-adjust rest time based on RPE
-        if (rpeNumber) {
+        if (!isNaN(rpeNumber)) {
           let restTime: number = DEFAULT_REST_TIMES.working;
           if (rpeNumber >= 9) {
             restTime = DEFAULT_REST_TIMES.heavy; // Longer rest for high RPE
@@ -348,7 +352,7 @@ export const SetLogger: React.FC<SetLoggerProps> = ({
 
   const renderHeader = () => (
     <View style={styles.header}>
-      <Text style={styles.setTitle}>Set {setNumber}</Text>
+      <Text style={styles.setTitle}>Log</Text>
       <TouchableOpacity
         style={[styles.warmupBadge, state.isWarmup && styles.warmupBadgeActive]}
         onPress={handleWarmupToggle}
@@ -402,7 +406,7 @@ export const SetLogger: React.FC<SetLoggerProps> = ({
         <View style={styles.rpeHeader}>
           <Text style={LABEL_STYLES.base}>RPE {!state.isWarmup && <Text style={LABEL_STYLES.required}>*</Text>}</Text>
           <TouchableOpacity style={styles.infoButton} onPress={handleRPEInfoPress} accessibilityLabel='RPE information'>
-            <Text style={styles.infoButtonText}>ℹ️</Text>
+            <Icon name='info' size={16} color={COLORS.textSecondary} />
           </TouchableOpacity>
         </View>
         <TextInput
@@ -453,8 +457,8 @@ export const SetLogger: React.FC<SetLoggerProps> = ({
         onPress={handleSubmit}
         disabled={submitting}
         style={styles.logButton}
-        accessibilityLabel={`Log set ${setNumber}`}>
-        <Text style={styles.logButtonText}>{submitting ? "Logging..." : `Log Set ${setNumber}`}</Text>
+        accessibilityLabel={`Log set`}>
+        <Text style={styles.logButtonText}>{submitting ? "Logging..." : `Log Set`}</Text>
       </Button>
 
       {showRPESelector && (

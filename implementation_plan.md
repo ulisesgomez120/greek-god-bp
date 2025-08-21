@@ -2,143 +2,102 @@
 
 ## Overview
 
-Fix exercise set logging failures and clean up database/service layer redundancies while maintaining a simple, reliable online-first workout tracking system.
+Fix UI bugs in the ExerciseDetailScreen workout logging interface to improve user experience and data consistency.
 
-The core issue is a foreign key constraint violation where exercise IDs used in the app don't exist in the database, combined with redundant service layers and premature ID generation causing duplicate key errors. This plan addresses the immediate logging failure while streamlining the architecture for better maintainability.
+The ExerciseDetailScreen allows users to log exercise sets during workouts, but currently has several UI issues that affect usability. The fixes involve updating exercise data display when navigating between exercises, fixing input field clearing behavior, updating the RPE emoji to use vector icons, removing confusing set number displays, and adding notes to exercise history display. These changes will improve the workout logging flow and make the interface more intuitive and consistent.
 
 ## Types
 
-Update and consolidate type definitions to ensure consistency between database and application layers.
+No new type definitions required for these UI fixes.
 
-**Database Types (src/types/database.ts):**
+The existing types in `src/types/index.ts` already support all the required data structures:
 
-- Ensure all exercise set fields are properly typed
-- Add proper null handling for optional fields
-- Standardize UUID vs string types
-
-**Application Types (src/types/index.ts):**
-
-- Consolidate ExerciseSet interface with proper optional fields
-- Remove redundant offline-related types
-- Ensure WorkoutSession type matches actual usage patterns
-
-**Transform Types (src/types/transforms.ts):**
-
-- Fix transformExerciseSetToDb to handle undefined/null values properly
-- Add validation for required fields before database operations
-- Remove transformation complexity for unused fields
+- `ExerciseSet` interface includes the `notes` field needed for history display
+- `ExerciseSetFormData` interface supports all form data requirements
+- Navigation types in `WorkoutStackParamList` support the exercise data passing
 
 ## Files
 
-Consolidate and fix database operations while removing redundant code paths.
+Modifications to existing components to fix UI bugs and improve user experience.
 
-**Files to Modify:**
+**Files to be modified:**
 
-- `src/services/database.service.ts` - Remove redundant workout operations, keep only data fetching
-- `src/services/workout.service.ts` - Fix duplicate insertion logic, remove premature ID generation
-- `src/store/workout/workoutSlice.ts` - Simplify state management, remove offline queue remnants
-- `src/types/transforms.ts` - Fix null/undefined handling in transformations
-- `supabase/seed.sql` - Verify all referenced exercise IDs are properly seeded
+- `src/screens/workout/ExerciseDetailScreen.tsx` - Fix exercise data updates, remove set number displays, add notes to history
+- `src/components/workout/SetLogger.tsx` - Fix input clearing behavior, remove set number from header/button
+- `src/components/workout/RPESelector.tsx` - Replace emoji with react-native-vector-icons
 
-**Files to Create:**
+**Files to be examined:**
 
-- `src/services/exercise.service.ts` - Dedicated service for exercise data management
-- `src/utils/exerciseValidation.ts` - Validation utilities for exercise IDs and data
-
-**Configuration Updates:**
-
-- Update any hardcoded exercise IDs to match seeded data
-- Ensure database constraints are properly handled in application logic
+- `src/types/react-native-vector-icons.d.ts` - Verify icon type definitions
+- `src/components/workout/CompactRestTimer.tsx` - Reference for vector icon usage patterns
 
 ## Functions
 
-Streamline database operations and fix the core insertion logic issues.
+Targeted function modifications to fix specific UI behaviors.
 
-**New Functions:**
+**ExerciseDetailScreen.tsx modifications:**
 
-- `validateExerciseExists(exerciseId: string): Promise<boolean>` - Validate exercise ID before set creation
-- `getExerciseIdMapping(): Promise<Map<string, string>>` - Map exercise names to valid IDs
-- `sanitizeSetData(setData: Partial<ExerciseSet>): DbExerciseSet` - Clean data before database insertion
+- `handleNextExercise()` - Fix to properly update exercise data when navigating to next exercise
+- `renderExerciseHistory()` - Add notes display to history items
+- `renderNavigationFooter()` - Remove set number references from navigation buttons
 
-**Modified Functions:**
+**SetLogger.tsx modifications:**
 
-- `WorkoutService.startWorkout()` - Remove duplicate insertion logic, let database generate IDs
-- `WorkoutService.addExerciseSet()` - Add exercise validation, fix transformation issues
-- `DatabaseService.insertExerciseSets()` - Simplify to single insertion path, remove offline fallbacks
-- `transformExerciseSetToDb()` - Fix null/undefined handling for optional fields
+- `renderHeader()` - Remove set number display from header
+- `handleSubmit()` - Fix input clearing behavior to allow proper deletion
+- Input change handlers - Ensure proper text input clearing functionality
 
-**Removed Functions:**
+**RPESelector.tsx modifications:**
 
-- All offline queue management functions
-- Duplicate workout session creation methods
-- Complex sync status management functions
+- `renderFooter()` - Replace emoji with vector icon in footer text
+- Import statements - Add react-native-vector-icons import
 
 ## Classes
 
-Consolidate service responsibilities and remove architectural complexity.
+No new classes required - modifications to existing React functional components.
 
-**Modified Classes:**
+**Component modifications:**
 
-- `WorkoutService` - Focus on workout session lifecycle, remove offline complexity
-- `DatabaseService` - Focus on data fetching and caching, remove workout creation logic
-
-**New Classes:**
-
-- `ExerciseService` - Handle exercise data validation and management
-- `ValidationService` - Centralized data validation before database operations
-
-**Removed Classes:**
-
-- Any offline sync related classes
-- Redundant data transformation classes
+- ExerciseDetailScreen - Fix state management for exercise navigation and history display
+- SetLogger - Fix form input behavior and remove set number displays
+- RPESelector - Update icon usage to use vector icons
 
 ## Dependencies
 
-No new external dependencies required - focus on better utilizing existing Supabase client.
+No new dependencies required - using existing react-native-vector-icons.
 
-**Existing Dependencies to Better Utilize:**
+The project already has react-native-vector-icons configured with MaterialIcons, as evidenced by:
 
-- Supabase client for proper error handling and constraint validation
-- Redux Toolkit for simplified state management
-- React Native AsyncStorage for minimal local caching only
-
-**Remove Dependencies On:**
-
-- Complex offline sync mechanisms
-- Redundant data transformation libraries
-- Unused analytics and materialized view dependencies
+- Type definitions in `src/types/react-native-vector-icons.d.ts`
+- Usage in `src/components/workout/CompactRestTimer.tsx`
+- Import pattern: `import Icon from "react-native-vector-icons/MaterialIcons"`
 
 ## Testing
 
-Comprehensive testing strategy focusing on data integrity and error handling.
+Manual testing approach to verify UI fixes work correctly.
 
-**Unit Tests:**
+**Test scenarios:**
 
-- Exercise ID validation functions
-- Data transformation with null/undefined values
-- Database constraint error handling
+1. Exercise navigation - Verify exercise details update when clicking "Next: Exercise" button
+2. Input clearing - Test that weight/reps inputs can be fully cleared and new values entered
+3. Set number removal - Confirm set numbers no longer appear in headers/buttons
+4. RPE icon - Verify vector icon displays correctly in RPE selector
+5. History notes - Check that notes appear in exercise history when present
 
-**Integration Tests:**
+**Validation steps:**
 
-- Complete workout session creation and set logging flow
-- Exercise data fetching and validation
-- Error scenarios with proper user feedback
-
-**Database Tests:**
-
-- Verify all seeded exercises have valid IDs
-- Test foreign key constraints work as expected
-- Validate data transformation accuracy
+- Navigate between exercises and verify all data updates correctly
+- Log multiple sets and test input field behavior
+- Check exercise history display includes notes
+- Verify rest timer updates correctly with exercise changes
 
 ## Implementation Order
 
-Logical sequence to fix immediate issues while maintaining system stability.
+Sequential implementation to minimize conflicts and ensure proper testing.
 
-1. **Fix Exercise Data Consistency** - Verify and fix exercise IDs in database vs app
-2. **Consolidate Workout Service** - Remove duplicate insertion logic and fix ID generation
-3. **Add Exercise Validation** - Implement validation before database operations
-4. **Clean Up Database Service** - Remove redundant workout operations
-5. **Update Type Transformations** - Fix null/undefined handling
-6. **Remove Offline Remnants** - Clean up unused offline sync code
-7. **Add Comprehensive Error Handling** - Proper user feedback for constraint violations
-8. **Test Complete Flow** - Verify exercise set logging works end-to-end
+1. **Fix ExerciseDetailScreen exercise navigation** - Update `handleNextExercise` to properly pass exercise data and fix state updates
+2. **Fix SetLogger input clearing behavior** - Modify input handlers to allow proper text deletion and clearing
+3. **Remove set number displays** - Remove set number from SetLogger header and button text, and navigation footer
+4. **Update RPE selector icon** - Replace emoji with react-native-vector-icons MaterialIcons
+5. **Add notes to exercise history** - Modify history rendering to display notes when available
+6. **Test complete workflow** - Verify all fixes work together correctly in the full exercise logging flow

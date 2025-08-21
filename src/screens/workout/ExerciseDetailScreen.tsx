@@ -270,22 +270,54 @@ export const ExerciseDetailScreen: React.FC<ExerciseDetailScreenProps> = ({ navi
   // ============================================================================
 
   const handleNextExercise = useCallback(() => {
-    if (state.nextExercise) {
-      navigation.replace("ExerciseDetail", {
-        exerciseId: state.nextExercise.id,
-        exerciseIndex: state.nextExercise.index,
-        workoutContext,
-        exerciseData: {
-          // Would need to get this from the session data
-          name: state.nextExercise.name,
-          targetSets: exerciseData.targetSets,
-          targetReps: exerciseData.targetReps,
-          targetRpe: exerciseData.targetRpe,
-          restSeconds: exerciseData.restSeconds,
-          notes: "",
-        },
-      });
-    }
+    if (!state.nextExercise) return;
+
+    const nextIndex = state.nextExercise.index;
+
+    // Prefer the cached session payload to avoid additional network/db calls.
+    const cachedSession = workoutPlanService.getCachedWorkoutSession(
+      workoutContext.programId,
+      workoutContext.phaseId,
+      workoutContext.dayId
+    );
+
+    const nextExercisePayload =
+      cachedSession && cachedSession.exercises && cachedSession.exercises[nextIndex]
+        ? {
+            name: cachedSession.exercises[nextIndex].name,
+            targetSets: (cachedSession.exercises[nextIndex] as any).targetSets ?? exerciseData.targetSets,
+            targetReps: (() => {
+              const ex = cachedSession.exercises[nextIndex] as any;
+              if (ex && ex.targetRepsMin !== undefined && ex.targetRepsMax !== undefined) {
+                return ex.targetRepsMin === ex.targetRepsMax
+                  ? String(ex.targetRepsMin)
+                  : `${ex.targetRepsMin}-${ex.targetRepsMax}`;
+              }
+              if (ex && ex.targetRepsMin !== undefined) {
+                return String(ex.targetRepsMin);
+              }
+              return exerciseData.targetReps;
+            })(),
+            targetRpe: (cachedSession.exercises[nextIndex] as any).targetRpe ?? exerciseData.targetRpe,
+            restSeconds: (cachedSession.exercises[nextIndex] as any).restSeconds ?? exerciseData.restSeconds,
+            notes: (cachedSession.exercises[nextIndex] as any).notes ?? "",
+          }
+        : {
+            // Fallback: use minimal info we already have in state/params without making a network call
+            name: state.nextExercise.name,
+            targetSets: exerciseData.targetSets,
+            targetReps: exerciseData.targetReps,
+            targetRpe: exerciseData.targetRpe,
+            restSeconds: exerciseData.restSeconds,
+            notes: "",
+          };
+
+    navigation.replace("ExerciseDetail", {
+      exerciseId: state.nextExercise.id,
+      exerciseIndex: state.nextExercise.index,
+      workoutContext,
+      exerciseData: nextExercisePayload,
+    });
   }, [state.nextExercise, navigation, workoutContext, exerciseData]);
 
   const handleCompleteWorkout = useCallback(() => {

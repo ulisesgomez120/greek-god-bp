@@ -275,6 +275,36 @@ export class WorkoutPlanService {
     }
   }
 
+  /**
+   * Get a workout session synchronously from the service cache without triggering any
+   * database/network calls. Returns null if the plan/session is not present in cache.
+   */
+  getCachedWorkoutSession(planId: string, phaseId: string, sessionId: string): WorkoutSessionSummary | null {
+    try {
+      const plan = this.cachedPlans.get(planId);
+      if (!plan) return null;
+
+      const sessionsRaw = (plan as any).workout_plan_sessions ?? (plan as any).sessions ?? [];
+
+      const sessions: WorkoutSessionSummary[] = sessionsRaw.map((session: any) => {
+        return {
+          id: session.id,
+          name: session.name,
+          dayNumber: session.day_number,
+          weekNumber: session.week_number || 1,
+          estimatedDurationMinutes: session.estimated_duration_minutes || 60,
+          exerciseCount: session.planned_exercises?.length || 0,
+          exercises: normalizePlannedExercises(session.planned_exercises) || [],
+        } as WorkoutSessionSummary;
+      });
+
+      return sessions.find((s) => s.id === sessionId) || null;
+    } catch (error) {
+      logger.error("Failed to get cached workout session", error, "workoutPlan");
+      return null;
+    }
+  }
+
   // ============================================================================
   // UTILITY METHODS
   // ============================================================================

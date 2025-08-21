@@ -6,6 +6,7 @@
 import React, { useCallback } from "react";
 import { View, Text, StyleSheet, TouchableOpacity, Modal, ScrollView, Dimensions } from "react-native";
 import { useHapticFeedback } from "../../hooks/useHapticFeedback";
+import Icon from "react-native-vector-icons/MaterialIcons";
 import { Button } from "../ui/Button";
 
 // ============================================================================
@@ -170,9 +171,10 @@ export const RPESelector: React.FC<RPESelectorProps> = ({ onSelect, onClose, sel
 
   const renderFooter = () => (
     <View style={styles.footer}>
-      <Text style={styles.footerText}>
-        💡 RPE helps track your training intensity and guides progression decisions.
-      </Text>
+      <View style={styles.footerHint}>
+        <Icon name='lightbulb' size={16} color={COLORS.primary} style={{ marginRight: 8 }} />
+        <Text style={styles.footerText}>RPE helps track your training intensity and guides progression decisions.</Text>
+      </View>
       <Button
         variant='secondary'
         onPress={handleClose}
@@ -339,12 +341,18 @@ const styles = StyleSheet.create({
     borderTopColor: COLORS.backgroundLight,
   },
 
+  footerHint: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    marginBottom: 12,
+  },
+
   footerText: {
     fontSize: 14,
     color: COLORS.textSecondary,
-    textAlign: "center",
     lineHeight: 20,
-    marginBottom: 16,
+    textAlign: "center",
   },
 
   closeButton: {
