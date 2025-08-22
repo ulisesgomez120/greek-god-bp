@@ -7,6 +7,7 @@
 import { z } from "zod";
 import { REGEX_PATTERNS, AUTH_CONFIG } from "@/constants/auth";
 import type { ExperienceLevel } from "@/types/auth";
+import { parseDisplayWeightToKg, parseDisplayHeightToCm, kgToLbs, roundToNearest } from "@/utils/unitConversions";
 
 // ============================================================================
 // VALIDATION SCHEMAS
@@ -352,4 +353,74 @@ export const getPasswordStrengthColor = (strength: "weak" | "fair" | "good" | "s
   };
 
   return strengthColors[strength];
+};
+
+// ============================================================================
+// UNIT-AWARE VALIDATION HELPERS
+// ============================================================================
+
+/**
+ * Validate a weight input string (could be lbs or kg depending on context).
+ * If inputIsImperial is true, input is treated as lbs and converted to kg.
+ * Returns: { isValid, valueKg?, error? }
+ */
+export const validateWeightInput = (
+  input: string,
+  inputIsImperial: boolean
+): { isValid: boolean; valueKg?: number; error?: string } => {
+  if (!input || input.trim() === "") {
+    return { isValid: true }; // optional field
+  }
+
+  let kgValue: number | null = null;
+  if (inputIsImperial) {
+    kgValue = parseDisplayWeightToKg(input);
+    if (kgValue == null) return { isValid: false, error: "Invalid weight format" };
+  } else {
+    const parsed = Number(input);
+    if (!isFinite(parsed)) return { isValid: false, error: "Invalid weight format" };
+    kgValue = parsed;
+  }
+
+  if (kgValue < 30 || kgValue > 300) {
+    // convert to display-friendly message
+    if (inputIsImperial) {
+      const minLbs = roundToNearest(kgToLbs(30), 0.5);
+      const maxLbs = roundToNearest(kgToLbs(300), 0.5);
+      return { isValid: false, error: `Weight must be between ${minLbs} and ${maxLbs} lbs` };
+    }
+    return { isValid: false, error: "Weight must be between 30kg and 300kg" };
+  }
+
+  return { isValid: true, valueKg: kgValue };
+};
+
+/**
+ * Validate a height input string (ft/in or cm).
+ * If inputIsImperial is true, parse ft/in string and convert to cm.
+ * Returns: { isValid, valueCm?, error? }
+ */
+export const validateHeightInput = (
+  input: string,
+  inputIsImperial: boolean
+): { isValid: boolean; valueCm?: number; error?: string } => {
+  if (!input || input.trim() === "") {
+    return { isValid: true };
+  }
+
+  let cmValue: number | null = null;
+  if (inputIsImperial) {
+    cmValue = parseDisplayHeightToCm(input);
+    if (cmValue == null) return { isValid: false, error: "Invalid height format" };
+  } else {
+    const parsed = Number(input);
+    if (!isFinite(parsed)) return { isValid: false, error: "Invalid height format" };
+    cmValue = parsed;
+  }
+
+  if (cmValue < 100 || cmValue > 250) {
+    return { isValid: false, error: "Height must be between 100cm and 250cm" };
+  }
+
+  return { isValid: true, valueCm: cmValue };
 };

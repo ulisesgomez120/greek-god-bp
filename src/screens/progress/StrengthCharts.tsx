@@ -12,6 +12,8 @@ import { Text } from "../../components/ui/Text";
 import { Button } from "../../components/ui/Button";
 import SkeletonLoader from "../../components/ui/SkeletonLoader";
 import { logger } from "../../utils/logger";
+import useUnitPreferences from "../../hooks/useUnitPreferences";
+import { formatKgToLbsDisplay } from "../../utils/unitConversions";
 import type { StrengthDataPoint } from "../../types";
 
 // ============================================================================
@@ -42,13 +44,23 @@ interface ExerciseCardProps {
 // HELPER FUNCTIONS
 // ============================================================================
 
-function formatWeight(weight: number): string {
-  return `${Math.round(weight)}kg`;
+function formatWeight(weight: number, isImperial: boolean): string {
+  if (isImperial) {
+    return formatKgToLbsDisplay(weight);
+  }
+  return `${Math.round(weight)} kg`;
 }
 
-function formatImprovement(improvement: number, percentage: number): string {
+function formatImprovement(improvement: number, percentage: number, isImperial: boolean): string {
   const sign = improvement >= 0 ? "+" : "";
-  return `${sign}${Math.round(improvement)}kg (${sign}${percentage.toFixed(1)}%)`;
+  if (isImperial) {
+    // improvement is in kg; convert to lbs for display and round to 0.5
+    const lbsImprovement = Math.round(improvement * 2.20462 * 10) / 10; // keep one decimal before formatting
+    return `${sign}${lbsImprovement.toFixed(Number.isInteger(lbsImprovement) ? 0 : 1)} lbs (${sign}${percentage.toFixed(
+      1
+    )}%)`;
+  }
+  return `${sign}${Math.round(improvement)} kg (${sign}${percentage.toFixed(1)}%)`;
 }
 
 function getImprovementColor(improvement: number): string {
@@ -93,8 +105,15 @@ const ExerciseCard: React.FC<ExerciseCardProps> = ({ exercise, onPress, timefram
     onPress(exercise);
   };
 
+  const { isImperialWeight } = useUnitPreferences();
   const improvementColor = getImprovementColor(exercise.improvement);
   const improvementIcon = getImprovementIcon(exercise.improvement);
+  const displayCurrentMax = formatWeight(exercise.currentMax, isImperialWeight());
+  const displayImprovement = formatImprovement(
+    exercise.improvement,
+    exercise.improvementPercentage,
+    isImperialWeight()
+  );
 
   return (
     <TouchableOpacity style={styles.exerciseCard} onPress={handlePress} activeOpacity={0.7}>
@@ -108,16 +127,14 @@ const ExerciseCard: React.FC<ExerciseCardProps> = ({ exercise, onPress, timefram
       <View style={styles.exerciseStats}>
         <View style={styles.statItem}>
           <Text style={styles.statLabel}>Current 1RM</Text>
-          <Text style={styles.statValue}>{formatWeight(exercise.currentMax)}</Text>
+          <Text style={styles.statValue}>{displayCurrentMax}</Text>
         </View>
 
         <View style={styles.statItem}>
           <Text style={styles.statLabel}>Progress</Text>
           <View style={styles.improvementContainer}>
             <Text style={styles.improvementIcon}>{improvementIcon}</Text>
-            <Text style={[styles.improvementText, { color: improvementColor }]}>
-              {formatImprovement(exercise.improvement, exercise.improvementPercentage)}
-            </Text>
+            <Text style={[styles.improvementText, { color: improvementColor }]}>{displayImprovement}</Text>
           </View>
         </View>
       </View>

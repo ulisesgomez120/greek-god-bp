@@ -12,6 +12,8 @@ import { Text } from "../../components/ui/Text";
 import { Button } from "../../components/ui/Button";
 import SkeletonLoader from "../../components/ui/SkeletonLoader";
 import { logger } from "../../utils/logger";
+import useUnitPreferences from "../../hooks/useUnitPreferences";
+import { formatKgToLbsDisplay } from "../../utils/unitConversions";
 import type { WorkoutSession } from "../../types";
 
 // ============================================================================
@@ -90,6 +92,8 @@ const WorkoutItem: React.FC<WorkoutItemProps> = ({ workout, onPress }) => {
     onPress(workout);
   };
 
+  const { isImperialWeight } = useUnitPreferences();
+
   return (
     <TouchableOpacity style={styles.workoutItem} onPress={handlePress} activeOpacity={0.7}>
       <View style={styles.workoutHeader}>
@@ -105,7 +109,11 @@ const WorkoutItem: React.FC<WorkoutItemProps> = ({ workout, onPress }) => {
       <View style={styles.workoutDetails}>
         <Text style={styles.workoutSummary}>{getWorkoutSummary(workout)}</Text>
         {workout.totalVolumeKg && (
-          <Text style={styles.workoutVolume}>{Math.round(workout.totalVolumeKg)}kg total volume</Text>
+          <Text style={styles.workoutVolume}>
+            {isImperialWeight()
+              ? `${formatKgToLbsDisplay(workout.totalVolumeKg)} total volume`
+              : `${Math.round(workout.totalVolumeKg)} kg total volume`}
+          </Text>
         )}
         {workout.averageRpe && <Text style={styles.workoutRpe}>Avg RPE: {workout.averageRpe.toFixed(1)}</Text>}
       </View>

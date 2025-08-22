@@ -1,5 +1,7 @@
 import React, { useEffect, useState } from "react";
 import { View, ScrollView, StyleSheet, ActivityIndicator, Alert } from "react-native";
+import useUnitPreferences from "../../hooks/useUnitPreferences";
+import { formatKgToLbsDisplay } from "../../utils/unitConversions";
 import { StackNavigationProp } from "@react-navigation/stack";
 import { RouteProp } from "@react-navigation/native";
 
@@ -119,6 +121,12 @@ export const WorkoutSummaryScreen: React.FC<WorkoutSummaryScreenProps> = ({ rout
   }
 
   const sets = session.sets || [];
+  const { isImperialWeight } = useUnitPreferences();
+  const weightDisplay = (kg?: number | null) => {
+    if (!kg) return "Bodyweight";
+    if (isImperialWeight()) return formatKgToLbsDisplay(kg);
+    return `${kg} kg`;
+  };
 
   return (
     <View style={styles.container}>
@@ -141,7 +149,12 @@ export const WorkoutSummaryScreen: React.FC<WorkoutSummaryScreenProps> = ({ rout
             Sets logged: {sets.length}
           </Text>
           <Text variant='body' color='secondary'>
-            Total volume: {session.totalVolumeKg ?? "—"} kg
+            Total volume:{" "}
+            {session.totalVolumeKg
+              ? isImperialWeight()
+                ? formatKgToLbsDisplay(session.totalVolumeKg)
+                : `${session.totalVolumeKg} kg`
+              : "—"}
           </Text>
           <Text variant='body' color='secondary'>
             Avg RPE: {session.averageRpe ?? "—"}
@@ -161,7 +174,7 @@ export const WorkoutSummaryScreen: React.FC<WorkoutSummaryScreenProps> = ({ rout
             sets.map((s, idx) => (
               <View key={s.id ?? idx} style={styles.setItem}>
                 <Text variant='body' color='primary'>
-                  Set {s.setNumber}: {s.weightKg ? `${s.weightKg}kg` : "Bodyweight"} × {s.reps}
+                  Set {s.setNumber}: {s.weightKg ? `${weightDisplay(s.weightKg)}` : "Bodyweight"} × {s.reps}
                 </Text>
                 {s.rpe ? (
                   <Text variant='bodySmall' color='secondary'>

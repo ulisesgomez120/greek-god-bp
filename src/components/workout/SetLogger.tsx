@@ -7,9 +7,11 @@ import React, { useState, useCallback, useRef, useEffect } from "react";
 import { View, Text, TextInput, StyleSheet, TouchableOpacity, Alert, ViewStyle } from "react-native";
 import Icon from "react-native-vector-icons/MaterialIcons";
 import { useHapticFeedback } from "../../hooks/useHapticFeedback";
+import useUnitPreferences from "../../hooks/useUnitPreferences";
 import RPESelector from "./RPESelector";
 import { Button } from "../ui/Button";
 import { logger } from "../../utils/logger";
+import { formatKgToLbsDisplay, parseDisplayWeightToKg, kgToLbs, roundToNearest } from "../../utils/unitConversions";
 import {
   getInputStyle,
   getInputState,
@@ -87,9 +89,10 @@ export const SetLogger: React.FC<SetLoggerProps> = ({
   // ============================================================================
 
   const { triggerHaptic, triggerSetCompleteHaptic } = useHapticFeedback();
+  const { isImperialWeight } = useUnitPreferences();
 
   const [state, setState] = useState<SetLoggerState>({
-    weight: suggestedWeight ? suggestedWeight.toString() : "",
+    weight: "",
     reps: suggestedReps ? suggestedReps.toString() : "",
     rpe: "",
     isWarmup: false,
@@ -119,14 +122,19 @@ export const SetLogger: React.FC<SetLoggerProps> = ({
   // do not override user edits while they are typing or when there is already a value)
   useEffect(() => {
     if (typeof suggestedWeight !== "undefined" && state.weight === "") {
-      setState((prev) => ({ ...prev, weight: suggestedWeight.toString() }));
+      // Show suggested weight in user's preferred units (kg or lbs)
+      const displayWeight =
+        isImperialWeight() && typeof suggestedWeight === "number"
+          ? String(roundToNearest(kgToLbs(suggestedWeight), 0.5))
+          : suggestedWeight.toString();
+      setState((prev) => ({ ...prev, weight: displayWeight }));
     }
     if (typeof suggestedReps !== "undefined" && state.reps === "") {
       setState((prev) => ({ ...prev, reps: suggestedReps.toString() }));
     }
     // Only depend on suggestions; avoid re-running due to state changes that happen while typing.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [suggestedWeight, suggestedReps]);
+  }, [suggestedWeight, suggestedReps, isImperialWeight]);
 
   // Auto-focus weight input on first set
   useEffect(() => {
@@ -242,6 +250,10 @@ export const SetLogger: React.FC<SetLoggerProps> = ({
   const validateForm = useCallback((): boolean => {
     const newErrors: { [key: string]: string } = {};
 
+    // ============================================================================
+    // Validate weight with unit-awareness
+    // ============================================================================
+
     // Validate reps (required)
     if (!state.reps || parseInt(state.reps) <= 0) {
       newErrors.reps = "Reps are required";
@@ -250,8 +262,23 @@ export const SetLogger: React.FC<SetLoggerProps> = ({
     }
 
     // Validate weight (optional but if provided, must be valid)
-    if (state.weight && (parseFloat(state.weight) < 0 || parseFloat(state.weight) > 1000)) {
-      newErrors.weight = "Weight must be between 0-1000kg";
+    if (state.weight) {
+      let weightKgVal: number | null = null;
+      if (isImperialWeight()) {
+        weightKgVal = parseDisplayWeightToKg(state.weight);
+      } else {
+        weightKgVal = parseFloat(state.weight);
+      }
+
+      const maxKg = 1000;
+      if (weightKgVal == null || isNaN(weightKgVal) || weightKgVal < 0 || weightKgVal > maxKg) {
+        if (isImperialWeight()) {
+          const maxLbs = roundToNearest(kgToLbs(maxKg), 0.5);
+          newErrors.weight = `Weight must be between 0 and ${maxLbs} lbs`;
+        } else {
+          newErrors.weight = `Weight must be between 0 and ${maxKg}kg`;
+        }
+      }
     }
 
     // Validate RPE for working sets
@@ -280,9 +307,20 @@ export const SetLogger: React.FC<SetLoggerProps> = ({
 
       await triggerSetCompleteHaptic();
 
+      // Convert displayed weight to kg for storage (metric source-of-truth)
+      let weightKgValue: number | undefined = undefined;
+      if (state.weight) {
+        if (isImperialWeight()) {
+          const parsedKg = parseDisplayWeightToKg(state.weight);
+          weightKgValue = parsedKg ?? undefined;
+        } else {
+          weightKgValue = parseFloat(state.weight);
+        }
+      }
+
       const setData: ExerciseSetFormData = {
         exerciseId,
-        weightKg: state.weight ? parseFloat(state.weight) : undefined,
+        weightKg: typeof weightKgValue === "number" && !isNaN(weightKgValue) ? weightKgValue : undefined,
         reps: parseInt(state.reps),
         rpe: state.rpe ? parseInt(state.rpe) : undefined,
         isWarmup: state.isWarmup,
@@ -350,6 +388,8 @@ export const SetLogger: React.FC<SetLoggerProps> = ({
   // RENDER HELPERS
   // ============================================================================
 
+  const weightLabel = isImperialWeight() ? "Weight (lbs)" : "Weight (kg)";
+
   const renderHeader = () => (
     <View style={styles.header}>
       <Text style={styles.setTitle}>Log</Text>
@@ -369,7 +409,7 @@ export const SetLogger: React.FC<SetLoggerProps> = ({
       {/* Weight and Reps Row */}
       <View style={styles.inputRow}>
         <View style={[FIELD_STYLES.container, styles.inputColumn]}>
-          <Text style={LABEL_STYLES.base}>Weight (kg)</Text>
+          <Text style={LABEL_STYLES.base}>{weightLabel}</Text>
           <TextInput
             ref={weightInputRef}
             style={getInputStyle(undefined, getInputState(focusedField === "weight", !!errors.weight))}
@@ -379,7 +419,7 @@ export const SetLogger: React.FC<SetLoggerProps> = ({
             onBlur={() => setFocusedField(null)}
             placeholder='0'
             {...getInputProps("number")}
-            accessibilityLabel='Exercise weight in kilograms'
+            accessibilityLabel={`Exercise weight in ${isImperialWeight() ? "pounds" : "kilograms"}`}
           />
           {errors.weight && <Text style={ERROR_STYLES.text}>{errors.weight}</Text>}
         </View>

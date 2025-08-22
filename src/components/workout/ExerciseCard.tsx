@@ -18,6 +18,8 @@ import {
 import { useSelector } from "react-redux";
 import { logger } from "../../utils/logger";
 import { useHapticFeedback } from "../../hooks/useHapticFeedback";
+import useUnitPreferences from "../../hooks/useUnitPreferences";
+import { formatKgToLbsDisplay } from "../../utils/unitConversions";
 import { SetLogger } from "./SetLogger";
 import { Button } from "../ui/Button";
 import { selectUser } from "../../store/auth/authSlice";
@@ -87,6 +89,14 @@ export const ExerciseCard: React.FC<ExerciseCardProps> = ({
 
   const nextSetNumber = currentSets.length + 1;
   const isFirstSet = currentSets.length === 0;
+
+  // Unit display helper
+  const { isImperialWeight } = useUnitPreferences();
+  const weightDisplay = (kg?: number | null) => {
+    if (!kg) return "BW";
+    if (isImperialWeight()) return formatKgToLbsDisplay(kg);
+    return `${kg} kg`;
+  };
 
   // Calculate suggested weight based on previous workout
   const suggestedWeight = useMemo(() => {
@@ -273,7 +283,10 @@ export const ExerciseCard: React.FC<ExerciseCardProps> = ({
         </Text>
         <Text style={styles.progressionTipText}>{progressionRecommendation.reason}</Text>
         {progressionRecommendation.shouldIncrease && (
-          <Text style={styles.progressionTipSuggestion}>Try {progressionRecommendation.suggestedWeight}kg</Text>
+          <Text style={styles.progressionTipSuggestion}>
+            Try{" "}
+            {progressionRecommendation.suggestedWeight ? weightDisplay(progressionRecommendation.suggestedWeight) : ""}
+          </Text>
         )}
       </View>
     );
@@ -290,7 +303,7 @@ export const ExerciseCard: React.FC<ExerciseCardProps> = ({
             <View key={index} style={styles.previousSetCard}>
               <Text style={styles.previousSetNumber}>Set {set.setNumber}</Text>
               <Text style={styles.previousSetData}>
-                {set.weightKg ? `${set.weightKg}kg` : "BW"} × {set.reps}
+                {set.weightKg ? weightDisplay(set.weightKg) : "BW"} × {set.reps}
               </Text>
               {set.rpe && <Text style={styles.previousSetRpe}>RPE {set.rpe}</Text>}
             </View>
@@ -314,7 +327,7 @@ export const ExerciseCard: React.FC<ExerciseCardProps> = ({
               <View key={set.id} style={styles.completedSetRow}>
                 <Text style={styles.completedSetNumber}>W{index + 1}</Text>
                 <Text style={styles.completedSetData}>
-                  {set.weightKg ? `${set.weightKg}kg` : "BW"} × {set.reps}
+                  {set.weightKg ? weightDisplay(set.weightKg) : "BW"} × {set.reps}
                 </Text>
                 {set.rpe && <Text style={styles.completedSetRpe}>RPE {set.rpe}</Text>}
               </View>
@@ -329,7 +342,7 @@ export const ExerciseCard: React.FC<ExerciseCardProps> = ({
               <View key={set.id} style={styles.completedSetRow}>
                 <Text style={styles.completedSetNumber}>{index + 1}</Text>
                 <Text style={styles.completedSetData}>
-                  {set.weightKg ? `${set.weightKg}kg` : "BW"} × {set.reps}
+                  {set.weightKg ? weightDisplay(set.weightKg) : "BW"} × {set.reps}
                 </Text>
                 {set.rpe && <Text style={styles.completedSetRpe}>RPE {set.rpe}</Text>}
                 <Text style={styles.completedSetCheck}>✓</Text>

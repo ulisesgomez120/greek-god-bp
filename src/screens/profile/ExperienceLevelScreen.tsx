@@ -21,6 +21,13 @@ import {
 } from "@/styles/inputStyles";
 import { useProfile } from "@/hooks/useProfile";
 import { logger } from "@/utils/logger";
+import useUnitPreferences from "@/hooks/useUnitPreferences";
+import {
+  formatKgToLbsDisplay,
+  parseDisplayWeightToKg,
+  formatCmToFtIn,
+  parseDisplayHeightToCm,
+} from "@/utils/unitConversions";
 import type { ExperienceLevelAssessment, ExperienceLevelRecommendation, ExperienceLevelInfo } from "@/types/profile";
 import type { ExperienceLevel } from "@/types/database";
 import { EXPERIENCE_LEVELS, getExperienceLevelInfo } from "@/types/profile";
@@ -91,6 +98,19 @@ interface StepProps {
 const TrainingHistoryStep: React.FC<StepProps> = ({ assessment, onUpdate, onNext, canGoNext }) => {
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [focusedField, setFocusedField] = useState<string | null>(null);
+
+  // Unit-aware helpers
+  const { isImperialWeight, isImperialHeight } = useUnitPreferences();
+
+  const handleWeightInput = (key: keyof ExperienceLevelAssessment, text: string) => {
+    if (isImperialWeight()) {
+      const kg = parseDisplayWeightToKg(text);
+      onUpdate({ [key]: kg != null ? Number(kg.toFixed(2)) : undefined } as any);
+    } else {
+      onUpdate({ [key]: text ? parseFloat(text) : undefined } as any);
+    }
+    setFocusedField(null);
+  };
 
   const validateAndNext = () => {
     const newErrors: Record<string, string> = {};
@@ -193,6 +213,18 @@ const TrainingHistoryStep: React.FC<StepProps> = ({ assessment, onUpdate, onNext
 const StrengthStandardsStep: React.FC<StepProps> = ({ assessment, onUpdate, onNext, canGoNext }) => {
   const [focusedField, setFocusedField] = useState<string | null>(null);
 
+  // Unit-aware helpers
+  const { isImperialWeight, isImperialHeight } = useUnitPreferences();
+
+  const handleWeightInput = (key: keyof ExperienceLevelAssessment, text: string) => {
+    if (isImperialWeight()) {
+      const kg = parseDisplayWeightToKg(text);
+      onUpdate({ [key]: kg != null ? Number(kg.toFixed(2)) : undefined } as any);
+    } else {
+      onUpdate({ [key]: text ? parseFloat(text) : undefined } as any);
+    }
+  };
+
   return (
     <View style={styles.stepContainer}>
       <Text style={styles.stepTitle}>Strength Assessment</Text>
@@ -203,57 +235,89 @@ const StrengthStandardsStep: React.FC<StepProps> = ({ assessment, onUpdate, onNe
       <View style={styles.formContainer}>
         {/* Body Weight Field */}
         <View style={FIELD_STYLES.container}>
-          <Text style={LABEL_STYLES.base}>Current body weight (kg)</Text>
+          <Text style={LABEL_STYLES.base}>
+            {isImperialWeight() ? "Current body weight (lbs)" : "Current body weight (kg)"}
+          </Text>
           <TextInput
             style={getInputStyle(undefined, getInputState(focusedField === "bodyWeight", false))}
-            value={assessment.bodyWeight?.toString() || ""}
-            onChangeText={(text: string) => onUpdate({ bodyWeight: text ? parseFloat(text) : undefined })}
+            value={
+              isImperialWeight()
+                ? assessment.bodyWeight
+                  ? formatKgToLbsDisplay(assessment.bodyWeight).replace(" lbs", "")
+                  : ""
+                : assessment.bodyWeight?.toString() || ""
+            }
+            onChangeText={(text: string) => handleWeightInput("bodyWeight", text)}
             onFocus={() => setFocusedField("bodyWeight")}
             onBlur={() => setFocusedField(null)}
-            {...getInputProps("number")}
-            placeholder='70'
+            {...getInputProps(isImperialWeight() ? undefined : "number")}
+            placeholder={isImperialWeight() ? "180" : "70"}
           />
         </View>
 
         {/* Bench Press Weight Field */}
         <View style={FIELD_STYLES.container}>
-          <Text style={LABEL_STYLES.base}>Bench Press working weight (kg)</Text>
+          <Text style={LABEL_STYLES.base}>
+            {isImperialWeight() ? "Bench Press working weight (lbs)" : "Bench Press working weight (kg)"}
+          </Text>
           <TextInput
             style={getInputStyle(undefined, getInputState(focusedField === "benchPressWeight", false))}
-            value={assessment.benchPressWeight?.toString() || ""}
-            onChangeText={(text: string) => onUpdate({ benchPressWeight: text ? parseFloat(text) : undefined })}
+            value={
+              isImperialWeight()
+                ? assessment.benchPressWeight
+                  ? formatKgToLbsDisplay(assessment.benchPressWeight).replace(" lbs", "")
+                  : ""
+                : assessment.benchPressWeight?.toString() || ""
+            }
+            onChangeText={(text: string) => handleWeightInput("benchPressWeight", text)}
             onFocus={() => setFocusedField("benchPressWeight")}
             onBlur={() => setFocusedField(null)}
-            {...getInputProps("number")}
-            placeholder='60'
+            {...getInputProps(isImperialWeight() ? undefined : "number")}
+            placeholder={isImperialWeight() ? "135" : "60"}
           />
         </View>
 
         {/* Squat Weight Field */}
         <View style={FIELD_STYLES.container}>
-          <Text style={LABEL_STYLES.base}>Squat working weight (kg)</Text>
+          <Text style={LABEL_STYLES.base}>
+            {isImperialWeight() ? "Squat working weight (lbs)" : "Squat working weight (kg)"}
+          </Text>
           <TextInput
             style={getInputStyle(undefined, getInputState(focusedField === "squatWeight", false))}
-            value={assessment.squatWeight?.toString() || ""}
-            onChangeText={(text: string) => onUpdate({ squatWeight: text ? parseFloat(text) : undefined })}
+            value={
+              isImperialWeight()
+                ? assessment.squatWeight
+                  ? formatKgToLbsDisplay(assessment.squatWeight).replace(" lbs", "")
+                  : ""
+                : assessment.squatWeight?.toString() || ""
+            }
+            onChangeText={(text: string) => handleWeightInput("squatWeight", text)}
             onFocus={() => setFocusedField("squatWeight")}
             onBlur={() => setFocusedField(null)}
-            {...getInputProps("number")}
-            placeholder='80'
+            {...getInputProps(isImperialWeight() ? undefined : "number")}
+            placeholder={isImperialWeight() ? "176" : "80"}
           />
         </View>
 
         {/* Deadlift Weight Field */}
         <View style={FIELD_STYLES.container}>
-          <Text style={LABEL_STYLES.base}>Deadlift working weight (kg)</Text>
+          <Text style={LABEL_STYLES.base}>
+            {isImperialWeight() ? "Deadlift working weight (lbs)" : "Deadlift working weight (kg)"}
+          </Text>
           <TextInput
             style={getInputStyle(undefined, getInputState(focusedField === "deadliftWeight", false))}
-            value={assessment.deadliftWeight?.toString() || ""}
-            onChangeText={(text: string) => onUpdate({ deadliftWeight: text ? parseFloat(text) : undefined })}
+            value={
+              isImperialWeight()
+                ? assessment.deadliftWeight
+                  ? formatKgToLbsDisplay(assessment.deadliftWeight).replace(" lbs", "")
+                  : ""
+                : assessment.deadliftWeight?.toString() || ""
+            }
+            onChangeText={(text: string) => handleWeightInput("deadliftWeight", text)}
             onFocus={() => setFocusedField("deadliftWeight")}
             onBlur={() => setFocusedField(null)}
-            {...getInputProps("number")}
-            placeholder='100'
+            {...getInputProps(isImperialWeight() ? undefined : "number")}
+            placeholder={isImperialWeight() ? "220" : "100"}
           />
         </View>
 

@@ -336,6 +336,40 @@ export function getExperienceMessage(
   return EXPERIENCE_MESSAGES[experienceLevel][messageType];
 }
 
+// ============================================================================
+// PROGRESSION DISPLAY HELPERS (KG -> IMPERIAL)
+// ============================================================================
+
+import { kgToLbs, roundToNearest } from "../utils/unitConversions";
+
+/**
+ * Map a kg increment to a practical lb increment for display.
+ * Rules:
+ * - For very small increments (<5lbs) round to nearest 0.5 lb
+ * - For moderate increments (5-12lbs) round to nearest 2.5 lb
+ * - For larger increments (>=12lbs) round to nearest 5 lb
+ */
+export function mapKgIncrementToPracticalLb(incrementKg: number): number {
+  const lbs = kgToLbs(incrementKg);
+  let step = 2.5;
+  if (lbs < 5) step = 0.5;
+  else if (lbs >= 12) step = 5;
+  return roundToNearest(lbs, step);
+}
+
+/**
+ * Format a progression increment (kg) for display according to desired units.
+ * units: "kg" | "lbs"
+ */
+export function formatProgressionIncrement(incrementKg: number, units: "kg" | "lbs" = "kg"): string {
+  if (units === "kg") {
+    return `${incrementKg}kg`;
+  }
+  const lbs = mapKgIncrementToPracticalLb(incrementKg);
+  const display = Number.isInteger(lbs) ? String(lbs) : lbs.toFixed(1);
+  return `${display} lbs`;
+}
+
 export default {
   PROGRESSION_RULES,
   PLATEAU_DETECTION_CONFIG,
@@ -344,4 +378,6 @@ export default {
   getDefaultRPETarget,
   getPlateauWindow,
   getExperienceMessage,
+  mapKgIncrementToPracticalLb,
+  formatProgressionIncrement,
 };

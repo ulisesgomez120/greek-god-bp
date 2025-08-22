@@ -17,6 +17,8 @@ import Toast from "../../components/ui/Toast";
 import ProgressChart from "../../components/progress/ProgressChart";
 import PersonalRecords from "../../components/progress/PersonalRecords";
 import { logger } from "../../utils/logger";
+import useUnitPreferences from "../../hooks/useUnitPreferences";
+import { formatKgToLbsDisplay } from "../../utils/unitConversions";
 import type { PersonalRecord } from "../../types";
 
 // ============================================================================
@@ -227,6 +229,15 @@ export const ProgressDashboard: React.FC<ProgressDashboardProps> = ({ navigation
   const renderProgressSummary = () => {
     if (!analytics) return null;
 
+    // Unit-aware volume display
+    const { isImperialWeight } = useUnitPreferences();
+    const volumeDisplay =
+      typeof analytics.totalVolumeLifted === "number"
+        ? isImperialWeight()
+          ? formatKgToLbsDisplay(analytics.totalVolumeLifted)
+          : `${Math.round(analytics.totalVolumeLifted)} kg`
+        : "—";
+
     return (
       <View style={styles.summaryContainer}>
         <Text style={styles.sectionTitle}>Progress Summary</Text>
@@ -238,12 +249,7 @@ export const ProgressDashboard: React.FC<ProgressDashboardProps> = ({ navigation
             trend='up'
             onPress={handleViewWorkoutHistory}
           />
-          <ProgressSummaryCard
-            title='Volume Lifted'
-            value={`${Math.round(analytics.totalVolumeLifted)}kg`}
-            subtitle='Total weight moved'
-            trend='up'
-          />
+          <ProgressSummaryCard title='Volume Lifted' value={volumeDisplay} subtitle='Total weight moved' trend='up' />
           <ProgressSummaryCard
             title='Avg Duration'
             value={`${Math.round(analytics.averageWorkoutDuration)}min`}

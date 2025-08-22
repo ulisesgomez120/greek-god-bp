@@ -6,6 +6,8 @@
 import React, { useEffect, useRef } from "react";
 import { View, StyleSheet, TouchableOpacity, Animated } from "react-native";
 import { Text } from "../ui/Text";
+import useUnitPreferences from "../../hooks/useUnitPreferences";
+import { formatKgToLbsDisplay } from "../../utils/unitConversions";
 import type { PersonalRecord } from "../../types";
 
 // ============================================================================
@@ -57,12 +59,12 @@ function getRecordTypeIcon(type: string): string {
   }
 }
 
-function formatRecordValue(record: PersonalRecord): string {
+function formatRecordValue(record: PersonalRecord, isImperial?: boolean): string {
   switch (record.type) {
     case "weight":
-      return `${Math.round(record.value)}kg`;
+      return isImperial ? formatKgToLbsDisplay(record.value) : `${Math.round(record.value)}kg`;
     case "volume":
-      return `${Math.round(record.value)}kg`;
+      return isImperial ? formatKgToLbsDisplay(record.value) : `${Math.round(record.value)}kg`;
     case "reps":
       return `${record.value} reps`;
     default:
@@ -106,6 +108,7 @@ const PersonalRecordItem: React.FC<PersonalRecordItemProps> = ({ record, onPress
   const scaleAnim = useRef(new Animated.Value(0)).current;
   const glowAnim = useRef(new Animated.Value(0)).current;
   const isRecent = isRecentRecord(record.achievedAt);
+  const { isImperialWeight } = useUnitPreferences();
 
   useEffect(() => {
     // Staggered entrance animation
@@ -175,7 +178,7 @@ const PersonalRecordItem: React.FC<PersonalRecordItemProps> = ({ record, onPress
               </View>
             )}
           </View>
-          <Text style={styles.recordValue}>{formatRecordValue(record)}</Text>
+          <Text style={styles.recordValue}>{formatRecordValue(record, isImperialWeight())}</Text>
           <Text style={styles.recordDate}>{formatRecordDate(record.achievedAt)}</Text>
         </View>
 
@@ -214,6 +217,8 @@ export const PersonalRecords: React.FC<PersonalRecordsProps> = ({
   maxRecords = 10,
   title = "Personal Records",
 }) => {
+  const { isImperialWeight } = useUnitPreferences();
+
   // Limit records and sort by date (most recent first)
   const displayRecords = records
     .sort((a, b) => new Date(b.achievedAt).getTime() - new Date(a.achievedAt).getTime())

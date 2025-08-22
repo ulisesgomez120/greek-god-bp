@@ -22,6 +22,13 @@ import { useProfile } from "@/hooks/useProfile";
 import { useAuth } from "@/hooks/useAuth";
 import { logger } from "@/utils/logger";
 import { ExperienceLevelSelector } from "@/components/profile/ExperienceLevelSelector";
+import useUnitPreferences from "@/hooks/useUnitPreferences";
+import {
+  parseDisplayWeightToKg,
+  parseDisplayHeightToCm,
+  formatKgToLbsDisplay,
+  formatCmToFtIn,
+} from "@/utils/unitConversions";
 import type { ProfileSetupData, FitnessGoal, OnboardingStep, OnboardingProgress } from "@/types/profile";
 import type { ExperienceLevel } from "@/types/database";
 import { DEFAULT_FITNESS_GOALS, EXPERIENCE_LEVELS, getExperienceLevelInfo } from "@/types/profile";
@@ -118,6 +125,43 @@ const BasicInfoStep: React.FC<StepComponentProps> = ({ data, onUpdate, onNext, c
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [focusedField, setFocusedField] = useState<string | null>(null);
 
+  // Unit-aware helpers
+  const { isImperialWeight, isImperialHeight } = useUnitPreferences();
+
+  const handleHeightChange = (text: string) => {
+    if (isImperialHeight()) {
+      const cm = parseDisplayHeightToCm(text);
+      onUpdate({ heightCm: cm != null ? Math.round(cm) : undefined });
+    } else {
+      onUpdate({ heightCm: text ? parseInt(text) : undefined });
+    }
+
+    if (errors.heightCm) {
+      setErrors((prev) => {
+        const newErrors = { ...prev };
+        delete newErrors.heightCm;
+        return newErrors;
+      });
+    }
+  };
+
+  const handleWeightChange = (text: string) => {
+    if (isImperialWeight()) {
+      const kg = parseDisplayWeightToKg(text);
+      onUpdate({ weightKg: kg != null ? Number(kg.toFixed(2)) : undefined });
+    } else {
+      onUpdate({ weightKg: text ? parseFloat(text) : undefined });
+    }
+
+    if (errors.weightKg) {
+      setErrors((prev) => {
+        const newErrors = { ...prev };
+        delete newErrors.weightKg;
+        return newErrors;
+      });
+    }
+  };
+
   const validateAndNext = () => {
     const newErrors: Record<string, string> = {};
 
@@ -183,48 +227,42 @@ const BasicInfoStep: React.FC<StepComponentProps> = ({ data, onUpdate, onNext, c
 
         {/* Height Field */}
         <View style={FIELD_STYLES.container}>
-          <Text style={LABEL_STYLES.base}>Height (cm)</Text>
+          <Text style={LABEL_STYLES.base}>{isImperialHeight() ? "Height (ft/in)" : "Height (cm)"}</Text>
           <TextInput
             style={getInputStyle(undefined, getInputState(focusedField === "heightCm", !!errors.heightCm))}
-            value={data.heightCm?.toString() || ""}
-            onChangeText={(text: string) => {
-              onUpdate({ heightCm: text ? parseInt(text) : undefined });
-              if (errors.heightCm) {
-                setErrors((prev) => {
-                  const newErrors = { ...prev };
-                  delete newErrors.heightCm;
-                  return newErrors;
-                });
-              }
-            }}
+            value={
+              isImperialHeight()
+                ? data.heightCm
+                  ? formatCmToFtIn(data.heightCm)
+                  : ""
+                : data.heightCm?.toString() || ""
+            }
+            onChangeText={(text: string) => handleHeightChange(text)}
             onFocus={() => setFocusedField("heightCm")}
             onBlur={() => setFocusedField(null)}
-            {...getInputProps("number")}
-            placeholder='170'
+            {...getInputProps(isImperialHeight() ? undefined : "number")}
+            placeholder={isImperialHeight() ? "5'10\"" : "170"}
           />
           {errors.heightCm && <Text style={ERROR_STYLES.text}>{errors.heightCm}</Text>}
         </View>
 
         {/* Weight Field */}
         <View style={FIELD_STYLES.container}>
-          <Text style={LABEL_STYLES.base}>Weight (kg)</Text>
+          <Text style={LABEL_STYLES.base}>{isImperialWeight() ? "Weight (lbs)" : "Weight (kg)"}</Text>
           <TextInput
             style={getInputStyle(undefined, getInputState(focusedField === "weightKg", !!errors.weightKg))}
-            value={data.weightKg?.toString() || ""}
-            onChangeText={(text: string) => {
-              onUpdate({ weightKg: text ? parseFloat(text) : undefined });
-              if (errors.weightKg) {
-                setErrors((prev) => {
-                  const newErrors = { ...prev };
-                  delete newErrors.weightKg;
-                  return newErrors;
-                });
-              }
-            }}
+            value={
+              isImperialWeight()
+                ? data.weightKg
+                  ? formatKgToLbsDisplay(data.weightKg).replace(" lbs", "")
+                  : ""
+                : data.weightKg?.toString() || ""
+            }
+            onChangeText={(text: string) => handleWeightChange(text)}
             onFocus={() => setFocusedField("weightKg")}
             onBlur={() => setFocusedField(null)}
-            {...getInputProps("number")}
-            placeholder='70'
+            {...getInputProps(isImperialWeight() ? undefined : "number")}
+            placeholder={isImperialWeight() ? "180" : "70"}
           />
           {errors.weightKg && <Text style={ERROR_STYLES.text}>{errors.weightKg}</Text>}
         </View>

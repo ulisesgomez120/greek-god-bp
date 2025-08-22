@@ -425,13 +425,25 @@ export const VALIDATION = {
       minLength: 2,
       maxLength: 50,
     },
+    // Height ranges are stored/referenced in cm (metric source-of-truth).
+    // For UI validation we also provide approximate imperial bounds for convenience.
     height: {
       min: 100, // cm
       max: 250, // cm
+      // Imperial approximate bounds (for display/validation helpers)
+      // 4'0" = 121.92 cm, 8'2" = 249.92 cm
+      minFtIn: { ft: 4, in: 0 },
+      maxFtIn: { ft: 8, in: 2 },
     },
+    // Weight ranges are stored in kg (metric source-of-truth).
+    // Imperial approximate bounds are provided for UI validation helpers.
     weight: {
       min: 30, // kg
       max: 300, // kg
+      // Imperial approximate bounds (for display/validation helpers)
+      // 30 kg ≈ 66.1 lbs, 300 kg ≈ 661.4 lbs
+      minLbs: 66,
+      maxLbs: 661,
     },
   },
 } as const;

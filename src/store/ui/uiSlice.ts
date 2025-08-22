@@ -215,7 +215,8 @@ const uiSlice = createSlice({
 
       let message = `Great job! You completed ${workoutName} in ${duration} minutes.`;
       if (volume) {
-        message += ` Total volume: ${volume}kg.`;
+        // Unit suffix omitted here; callers should provide properly formatted values when needed.
+        message += ` Total volume: ${volume}`;
       }
 
       const notification: Notification = {
@@ -245,7 +246,8 @@ const uiSlice = createSlice({
         id: `pr_${Date.now()}`,
         type: "success",
         title: "New Personal Record! 🏆",
-        message: `${exerciseName}: ${recordType} - ${value}${recordType === "1rm" ? "kg" : ""}`,
+        // Value is stored without unit suffix here; display layer should format units based on preferences.
+        message: `${exerciseName}: ${recordType} - ${value}`,
         duration: 8000,
         createdAt: new Date().toISOString(),
       };

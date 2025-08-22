@@ -6,6 +6,8 @@
 import React, { useMemo } from "react";
 import { View, StyleSheet, Dimensions, Platform } from "react-native";
 import { Text } from "../ui/Text";
+import useUnitPreferences from "../../hooks/useUnitPreferences";
+import { formatKgToLbsDisplay } from "../../utils/unitConversions";
 import type { VolumeDataPoint, StrengthDataPoint } from "../../types";
 
 // Victory Native imports (native only)
@@ -47,9 +49,9 @@ export interface ProgressChartProps {
 function getYAxisLabel(type: string): string {
   switch (type) {
     case "volume":
-      return "Volume (kg)";
+      return "Volume";
     case "strength":
-      return "1RM (kg)";
+      return "1RM";
     case "rpe":
       return "Average RPE";
     default:
@@ -123,6 +125,7 @@ function transformDataForChart(data: VolumeDataPoint[] | StrengthDataPoint[], ty
 export const ProgressChart: React.FC<ProgressChartProps> = ({ type, data, timeframe, height = 200, title }) => {
   const stats = useMemo(() => calculateStats(data, type), [data, type]);
   const chartData = useMemo(() => transformDataForChart(data || [], type), [data, type]);
+  const { isImperialWeight } = useUnitPreferences();
 
   // Handle empty data
   if (!data || data.length === 0) {
@@ -237,8 +240,11 @@ export const ProgressChart: React.FC<ProgressChartProps> = ({ type, data, timefr
         <View style={styles.statItem}>
           <Text style={styles.statLabel}>Current</Text>
           <Text style={styles.statValue}>
-            {formatValue(stats.current)}
-            {type === "volume" || type === "strength" ? "kg" : ""}
+            {type === "volume" || type === "strength"
+              ? isImperialWeight()
+                ? formatKgToLbsDisplay(stats.current)
+                : `${Math.round(stats.current)} kg`
+              : formatValue(stats.current)}
           </Text>
         </View>
 
@@ -254,7 +260,10 @@ export const ProgressChart: React.FC<ProgressChartProps> = ({ type, data, timefr
       </View>
 
       <View style={styles.chartInfo}>
-        <Text style={styles.chartInfoLabel}>{getYAxisLabel(type)}</Text>
+        <Text style={styles.chartInfoLabel}>
+          {getYAxisLabel(type)}
+          {(type === "volume" || type === "strength") && (isImperialWeight() ? " (lbs)" : " (kg)")}
+        </Text>
         <Text style={styles.chartInfoValue}>
           {data.length} data point{data.length !== 1 ? "s" : ""} • {timeframe}
         </Text>

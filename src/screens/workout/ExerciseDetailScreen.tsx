@@ -5,6 +5,8 @@
 
 import React, { useState, useEffect, useCallback } from "react";
 import { View, ScrollView, StyleSheet, TouchableOpacity, Alert, ActivityIndicator } from "react-native";
+import useUnitPreferences from "../../hooks/useUnitPreferences";
+import { formatKgToLbsDisplay } from "../../utils/unitConversions";
 import { StackNavigationProp } from "@react-navigation/stack";
 import { RouteProp } from "@react-navigation/native";
 
@@ -379,6 +381,14 @@ export const ExerciseDetailScreen: React.FC<ExerciseDetailScreenProps> = ({ navi
     </View>
   );
 
+  const { isImperialWeight } = useUnitPreferences();
+
+  const weightDisplay = (kg?: number | null) => {
+    if (!kg) return "Bodyweight";
+    if (isImperialWeight()) return formatKgToLbsDisplay(kg);
+    return `${kg}kg`;
+  };
+
   const renderCompletedSets = () => {
     if (state.completedSets.length === 0) return null;
 
@@ -391,7 +401,7 @@ export const ExerciseDetailScreen: React.FC<ExerciseDetailScreenProps> = ({ navi
         {state.completedSets.map((set, index) => (
           <View key={set.id} style={styles.completedSetItem}>
             <Text variant='body' color='primary'>
-              Set {set.setNumber}: {set.weightKg ? `${set.weightKg}kg` : "Bodyweight"} × {set.reps}
+              Set {set.setNumber}: {set.weightKg ? `${weightDisplay(set.weightKg)}` : "Bodyweight"} × {set.reps}
               {set.rpe && ` @ RPE ${set.rpe}`}
               {set.isWarmup && (
                 <Text variant='bodySmall' color='secondary'>
@@ -434,7 +444,7 @@ export const ExerciseDetailScreen: React.FC<ExerciseDetailScreenProps> = ({ navi
               {session.sets.map((set, setIndex) => (
                 <View key={setIndex} style={{ marginBottom: 6 }}>
                   <Text variant='body' color='primary' style={styles.historySetItem}>
-                    • Set {setIndex + 1}: {set.weight ? `${set.weight}kg` : "BW"} × {set.reps}
+                    • Set {setIndex + 1}: {set.weight ? `${weightDisplay(set.weight)}` : "BW"} × {set.reps}
                     {set.rpe ? ` @ RPE ${set.rpe}` : ""}
                     {set.isWarmup && (
                       <Text variant='bodySmall' color='secondary'>

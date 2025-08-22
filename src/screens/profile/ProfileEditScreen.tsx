@@ -23,6 +23,13 @@ import { Button } from "@/components/ui/Button";
 import { LoadingButton } from "@/components/ui/LoadingButton";
 import { useProfile } from "@/hooks/useProfile";
 import { logger } from "@/utils/logger";
+import useUnitPreferences from "@/hooks/useUnitPreferences";
+import {
+  parseDisplayWeightToKg,
+  parseDisplayHeightToCm,
+  formatKgToLbsDisplay,
+  formatCmToFtIn,
+} from "@/utils/unitConversions";
 import type { UserProfile, ProfileEditData, PrivacySettings, FitnessGoal } from "@/types/profile";
 import { DEFAULT_FITNESS_GOALS, EXPERIENCE_LEVELS, getExperienceLevelInfo } from "@/types/profile";
 import {
@@ -94,6 +101,29 @@ export const ProfileEditScreen: React.FC<ProfileEditScreenProps> = () => {
     },
     [errors]
   );
+
+  // ============================================================================
+  // INPUT HANDLERS FOR UNIT-AWARE INPUTS
+  // ============================================================================
+  const { isImperialWeight, isImperialHeight } = useUnitPreferences();
+
+  const handleHeightInput = (text: string) => {
+    if (isImperialHeight()) {
+      const cm = parseDisplayHeightToCm(text);
+      updateFormData({ heightCm: cm != null ? Math.round(cm) : undefined });
+    } else {
+      updateFormData({ heightCm: text ? parseInt(text) : undefined });
+    }
+  };
+
+  const handleWeightInput = (text: string) => {
+    if (isImperialWeight()) {
+      const kg = parseDisplayWeightToKg(text);
+      updateFormData({ weightKg: kg != null ? Number(kg.toFixed(2)) : undefined });
+    } else {
+      updateFormData({ weightKg: text ? parseFloat(text) : undefined });
+    }
+  };
 
   const validateForm = useCallback((): boolean => {
     const newErrors: FormErrors = {};
@@ -231,30 +261,42 @@ export const ProfileEditScreen: React.FC<ProfileEditScreenProps> = () => {
 
       {/* Height Field */}
       <View style={FIELD_STYLES.container}>
-        <Text style={LABEL_STYLES.base}>Height (cm)</Text>
+        <Text style={LABEL_STYLES.base}>{isImperialHeight() ? "Height (ft/in)" : "Height (cm)"}</Text>
         <TextInput
           style={getInputStyle(undefined, getInputState(focusedField === "heightCm", !!errors.heightCm))}
-          value={formData.heightCm?.toString() || ""}
-          onChangeText={(text: string) => updateFormData({ heightCm: text ? parseInt(text) : undefined })}
+          value={
+            isImperialHeight()
+              ? formData.heightCm
+                ? formatCmToFtIn(formData.heightCm)
+                : ""
+              : formData.heightCm?.toString() || ""
+          }
+          onChangeText={(text: string) => handleHeightInput(text)}
           onFocus={() => setFocusedField("heightCm")}
           onBlur={() => setFocusedField(null)}
-          {...getInputProps("number")}
-          placeholder='170'
+          {...getInputProps(isImperialHeight() ? undefined : "number")}
+          placeholder={isImperialHeight() ? "5'10\"" : "170"}
         />
         {errors.heightCm && <Text style={ERROR_STYLES.text}>{errors.heightCm}</Text>}
       </View>
 
       {/* Weight Field */}
       <View style={FIELD_STYLES.container}>
-        <Text style={LABEL_STYLES.base}>Weight (kg)</Text>
+        <Text style={LABEL_STYLES.base}>{isImperialWeight() ? "Weight (lbs)" : "Weight (kg)"}</Text>
         <TextInput
           style={getInputStyle(undefined, getInputState(focusedField === "weightKg", !!errors.weightKg))}
-          value={formData.weightKg?.toString() || ""}
-          onChangeText={(text: string) => updateFormData({ weightKg: text ? parseFloat(text) : undefined })}
+          value={
+            isImperialWeight()
+              ? formData.weightKg
+                ? formatKgToLbsDisplay(formData.weightKg).replace(" lbs", "")
+                : ""
+              : formData.weightKg?.toString() || ""
+          }
+          onChangeText={(text: string) => handleWeightInput(text)}
           onFocus={() => setFocusedField("weightKg")}
           onBlur={() => setFocusedField(null)}
-          {...getInputProps("number")}
-          placeholder='70'
+          {...getInputProps(isImperialWeight() ? undefined : "number")}
+          placeholder={isImperialWeight() ? "180" : "70"}
         />
         {errors.weightKg && <Text style={ERROR_STYLES.text}>{errors.weightKg}</Text>}
       </View>
