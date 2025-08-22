@@ -419,7 +419,6 @@ export const ExerciseDetailScreen: React.FC<ExerciseDetailScreenProps> = ({ navi
         </View>
       );
     }
-    console.log("state.exerciseHistory", state.exerciseHistory[0]);
     return (
       <View style={styles.historySection}>
         <Text variant='h3' color='primary' style={styles.sectionTitle}>

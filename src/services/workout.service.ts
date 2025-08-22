@@ -636,12 +636,14 @@ export class WorkoutService {
         }
 
         const sess = sessionsMap.get(sessionKey)!;
+        // Include created_at so we can sort sets into chronological order below
         sess.sets.push({
           weight: row.weight_kg,
           reps: row.reps,
           rpe: row.rpe,
           isWarmup: !!row.is_warmup,
           notes: row.notes,
+          createdAt: row.created_at,
         });
       }
 
@@ -649,10 +651,22 @@ export class WorkoutService {
       const sessions = Array.from(sessionsMap.values())
         .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
         .slice(0, limit)
-        .map((s) => ({
-          date: typeof s.date === "string" ? s.date : new Date(s.date).toISOString(),
-          sets: s.sets,
-        }));
+        .map((s) => {
+          // Sort sets into chronological order (oldest first) so numbering is natural
+          s.sets.sort((a: any, b: any) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime());
+          // Map to the public-facing shape (omit internal createdAt)
+          const sets = s.sets.map((st: any) => ({
+            weight: st.weight,
+            reps: st.reps,
+            rpe: st.rpe,
+            isWarmup: st.isWarmup,
+            notes: st.notes,
+          }));
+          return {
+            date: typeof s.date === "string" ? s.date : new Date(s.date).toISOString(),
+            sets,
+          };
+        });
 
       return sessions;
     } catch (err) {
