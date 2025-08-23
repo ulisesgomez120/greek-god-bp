@@ -6,14 +6,16 @@
 import React from "react";
 import { View, StyleSheet } from "react-native";
 import Text from "../components/ui/Text";
+import useTheme from "@/hooks/useTheme";
 
 // ============================================================================
 // MAIN APP NAVIGATOR COMPONENT
 // ============================================================================
 
 const MainAppNavigator: React.FC = () => {
+  const { colors } = useTheme();
   return (
-    <View style={styles.container}>
+    <View style={[styles.container, { backgroundColor: colors.background }]}>
       <Text variant='h1' color='primary' align='center'>
         Welcome to TrainSmart!
       </Text>
@@ -34,7 +36,6 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     alignItems: "center",
     paddingHorizontal: 24,
-    backgroundColor: "#FFFFFF",
   },
   subtitle: {
     marginTop: 16,

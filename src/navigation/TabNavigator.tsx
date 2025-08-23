@@ -15,6 +15,7 @@ import ProfileNavigator from "./ProfileNavigator";
 
 // Hooks
 import { useFeatureAccess } from "../hooks/useFeatureAccess";
+import useTheme from "@/hooks/useTheme";
 
 // Icons (using system icons for now - can be replaced with custom icons)
 import { Ionicons } from "@expo/vector-icons";
@@ -42,6 +43,7 @@ const Tab = createBottomTabNavigator<TabParamList>();
 
 const TabNavigator: React.FC = () => {
   const { hasAccess } = useFeatureAccess();
+  const { colors } = useTheme();
 
   return (
     <Tab.Navigator
@@ -70,11 +72,11 @@ const TabNavigator: React.FC = () => {
 
           return <Ionicons name={iconName} size={size} color={color} />;
         },
-        tabBarActiveTintColor: "#B5CFF8", // Primary Blue
-        tabBarInactiveTintColor: "#8E8E93", // Neutral Gray
+        tabBarActiveTintColor: colors.primary,
+        tabBarInactiveTintColor: colors.subtext,
         tabBarStyle: {
-          backgroundColor: "#FFFFFF", // Background White
-          borderTopColor: "#F2F2F7", // Secondary Gray
+          backgroundColor: colors.background,
+          borderTopColor: colors.border ?? colors.surface,
           borderTopWidth: 1,
           paddingTop: 8,
           paddingBottom: Platform.OS === "ios" ? 20 : 8,

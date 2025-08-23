@@ -16,6 +16,7 @@ import {
 } from "react-native";
 import * as Haptics from "expo-haptics";
 import Text from "./Text";
+import useTheme from "@/hooks/useTheme";
 
 // ============================================================================
 // TYPES
@@ -41,61 +42,13 @@ export interface ButtonProps extends Omit<TouchableOpacityProps, "style"> {
 // DESIGN SYSTEM CONSTANTS
 // ============================================================================
 
-const BUTTON_STYLES = {
-  primary: {
-    backgroundColor: "#B5CFF8",
-    borderColor: "transparent",
-    borderWidth: 0,
-  },
-  secondary: {
-    backgroundColor: "transparent",
-    borderColor: "#B5CFF8",
-    borderWidth: 2,
-  },
-  text: {
-    backgroundColor: "transparent",
-    borderColor: "transparent",
-    borderWidth: 0,
-  },
-  danger: {
-    backgroundColor: "#FF3B30",
-    borderColor: "transparent",
-    borderWidth: 0,
-  },
-};
+/* BUTTON_STYLES derived from theme at runtime */
 
-const TEXT_COLORS = {
-  primary: "#1C1C1E",
-  secondary: "#B5CFF8",
-  text: "#B5CFF8",
-  danger: "#FFFFFF",
-};
+/* TEXT_COLORS derived from theme at runtime */
 
-const DISABLED_STYLES = {
-  primary: {
-    backgroundColor: "rgba(181, 207, 248, 0.4)",
-    borderColor: "transparent",
-  },
-  secondary: {
-    backgroundColor: "transparent",
-    borderColor: "rgba(181, 207, 248, 0.4)",
-  },
-  text: {
-    backgroundColor: "transparent",
-    borderColor: "transparent",
-  },
-  danger: {
-    backgroundColor: "rgba(255, 59, 48, 0.4)",
-    borderColor: "transparent",
-  },
-};
+/* DISABLED_STYLES derived from theme at runtime */
 
-const DISABLED_TEXT_COLORS = {
-  primary: "rgba(28, 28, 30, 0.4)",
-  secondary: "rgba(181, 207, 248, 0.4)",
-  text: "rgba(181, 207, 248, 0.4)",
-  danger: "rgba(255, 255, 255, 0.4)",
-};
+/* DISABLED_TEXT_COLORS derived from theme at runtime */
 
 const SIZE_STYLES = {
   small: {
@@ -149,10 +102,73 @@ export const Button: React.FC<ButtonProps> = ({
     onPress(event);
   };
 
-  // Get styles based on state
-  const buttonStyle = isDisabled ? DISABLED_STYLES[variant] : BUTTON_STYLES[variant];
-  const textColor = isDisabled ? DISABLED_TEXT_COLORS[variant] : TEXT_COLORS[variant];
+  // Get styles based on theme and state
+  const { colors } = useTheme();
+
   const sizeStyle = SIZE_STYLES[size];
+
+  const variantStyles: Record<ButtonVariant, ViewStyle> = {
+    primary: {
+      backgroundColor: colors.primary,
+      borderColor: "transparent",
+      borderWidth: 0,
+    } as ViewStyle,
+    secondary: {
+      backgroundColor: "transparent",
+      borderColor: colors.primary,
+      borderWidth: 2,
+    } as ViewStyle,
+    text: {
+      backgroundColor: "transparent",
+      borderColor: "transparent",
+      borderWidth: 0,
+    } as ViewStyle,
+    danger: {
+      backgroundColor: colors.error,
+      borderColor: "transparent",
+      borderWidth: 0,
+    } as ViewStyle,
+  };
+
+  const disabledVariantStyles: Record<ButtonVariant, ViewStyle> = {
+    primary: {
+      backgroundColor: `${colors.primary}66`, // 40% alpha with 8-digit hex
+      borderColor: "transparent",
+      borderWidth: 0,
+    } as ViewStyle,
+    secondary: {
+      backgroundColor: "transparent",
+      borderColor: `${colors.primary}66`,
+      borderWidth: 2,
+    } as ViewStyle,
+    text: {
+      backgroundColor: "transparent",
+      borderColor: "transparent",
+      borderWidth: 0,
+    } as ViewStyle,
+    danger: {
+      backgroundColor: `${colors.error}66`,
+      borderColor: "transparent",
+      borderWidth: 0,
+    } as ViewStyle,
+  };
+
+  const textColorMap: Record<ButtonVariant, string> = {
+    primary: colors.text,
+    secondary: colors.primary,
+    text: colors.primary,
+    danger: colors.surface || "#FFFFFF",
+  };
+
+  const disabledTextColorMap: Record<ButtonVariant, string> = {
+    primary: `${colors.text}66`,
+    secondary: `${colors.primary}66`,
+    text: `${colors.primary}66`,
+    danger: `${(colors.surface || "#FFFFFF") + "66"}`,
+  };
+
+  const buttonStyle = isDisabled ? disabledVariantStyles[variant] : variantStyles[variant];
+  const textColor = isDisabled ? disabledTextColorMap[variant] : textColorMap[variant];
 
   const containerStyle = [styles.base, sizeStyle, buttonStyle, fullWidth && styles.fullWidth, style].filter(
     Boolean

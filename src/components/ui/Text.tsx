@@ -6,6 +6,7 @@
 
 import React from "react";
 import { Text as RNText, TextProps as RNTextProps, StyleSheet } from "react-native";
+import useTheme from "@/hooks/useTheme";
 
 // ============================================================================
 // TYPES
@@ -85,16 +86,7 @@ const TYPOGRAPHY_STYLES = {
   },
 };
 
-const COLORS = {
-  primary: "#1C1C1E",
-  secondary: "#8E8E93",
-  tertiary: "rgba(142, 142, 147, 0.6)",
-  success: "#34C759",
-  warning: "#FF9500",
-  error: "#FF3B30",
-  coach: "#B5CFF8",
-  white: "#FFFFFF",
-};
+/* color tokens are derived from the active theme via useTheme */
 
 const FONT_WEIGHTS = {
   regular: "400" as const,
@@ -117,7 +109,19 @@ export const Text: React.FC<TextProps> = ({
   ...props
 }) => {
   const typographyStyle = TYPOGRAPHY_STYLES[variant];
-  const textColor = COLORS[color];
+  // derive color from theme tokens to support light/dark modes
+  const { colors } = useTheme();
+  const colorMap: Record<TextColor, string> = {
+    primary: colors.text,
+    secondary: colors.subtext,
+    tertiary: colors.subtext,
+    success: colors.success,
+    warning: colors.warning,
+    error: colors.error,
+    coach: colors.primary,
+    white: "#FFFFFF",
+  };
+  const textColor = colorMap[color] ?? colors.text;
 
   // Use weight from variant if not explicitly provided
   const fontWeight = weight ? FONT_WEIGHTS[weight] : typographyStyle.fontWeight;

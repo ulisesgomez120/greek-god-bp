@@ -5,6 +5,7 @@
 
 import React from "react";
 import { createStackNavigator } from "@react-navigation/stack";
+import useTheme from "@/hooks/useTheme";
 
 // Screens
 import ProfileEditScreen from "../screens/profile/ProfileEditScreen";
@@ -32,23 +33,24 @@ const ProfileStack = createStackNavigator<ProfileStackParamList>();
 // ============================================================================
 
 const ProfileNavigator: React.FC = () => {
+  const { colors } = useTheme();
   return (
     <ProfileStack.Navigator
       initialRouteName='Profile'
       screenOptions={{
         headerShown: true,
         headerStyle: {
-          backgroundColor: "#FFFFFF",
-          borderBottomColor: "#F2F2F7",
+          backgroundColor: colors.background,
+          borderBottomColor: colors.border ?? colors.surface,
           borderBottomWidth: 1,
         },
         headerTitleStyle: {
           fontSize: 17,
           fontWeight: "600",
-          color: "#1C1C1E",
+          color: colors.text,
         },
         headerBackTitleVisible: false,
-        headerTintColor: "#B5CFF8",
+        headerTintColor: colors.primary,
         gestureEnabled: true,
         cardStyleInterpolator: ({ current, layouts }) => {
           return {

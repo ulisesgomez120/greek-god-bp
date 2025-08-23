@@ -7,6 +7,7 @@ import React, { useEffect, useRef } from "react";
 import { View, StyleSheet, Animated, Dimensions, TouchableOpacity } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import Text from "./Text";
+import useTheme from "@/hooks/useTheme";
 import type { Notification } from "../../types";
 
 // ============================================================================
@@ -32,40 +33,42 @@ const Toast: React.FC<ToastProps> = ({ notification, onDismiss, position = "top"
 
   const { id, type, title, message, duration = 4000, actions } = notification;
 
-  // Get toast styling based on type
+  const { colors } = useTheme();
+
+  // Get toast styling based on type (derives colors from active theme)
   const getToastStyle = () => {
     switch (type) {
       case "success":
         return {
-          backgroundColor: "#34C759",
-          borderColor: "#30D158",
-          iconColor: "#FFFFFF",
-          textColor: "#FFFFFF",
+          backgroundColor: colors.success,
+          borderColor: colors.success,
+          iconColor: colors.surface || "#FFFFFF",
+          textColor: colors.surface || "#FFFFFF",
           icon: "✓",
         };
       case "error":
         return {
-          backgroundColor: "#FF3B30",
-          borderColor: "#FF453A",
-          iconColor: "#FFFFFF",
-          textColor: "#FFFFFF",
+          backgroundColor: colors.error,
+          borderColor: colors.error,
+          iconColor: colors.surface || "#FFFFFF",
+          textColor: colors.surface || "#FFFFFF",
           icon: "✕",
         };
       case "warning":
         return {
-          backgroundColor: "#FF9500",
-          borderColor: "#FF9F0A",
-          iconColor: "#FFFFFF",
-          textColor: "#FFFFFF",
+          backgroundColor: colors.warning,
+          borderColor: colors.warning,
+          iconColor: colors.surface || "#FFFFFF",
+          textColor: colors.surface || "#FFFFFF",
           icon: "⚠",
         };
       case "info":
       default:
         return {
-          backgroundColor: "#B5CFF8",
-          borderColor: "#87B1F3",
-          iconColor: "#1C1C1E",
-          textColor: "#1C1C1E",
+          backgroundColor: colors.primary,
+          borderColor: colors.primaryVariant || colors.primary,
+          iconColor: colors.text,
+          textColor: colors.text,
           icon: "ℹ",
         };
     }

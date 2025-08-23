@@ -17,6 +17,7 @@ import {
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useAuth } from "@/hooks/useAuth";
 import Text from "@/components/ui/Text";
+import useTheme from "@/hooks/useTheme";
 import {
   getInputStyle,
   getInputState,
@@ -41,6 +42,7 @@ export interface RegisterScreenProps {
 
 const RegisterScreenComponent: React.FC<RegisterScreenProps> = ({ navigation, onRegistrationSuccess }) => {
   const { signup, loading, error, clearError } = useAuth();
+  const { colors } = useTheme();
 
   // Basic state management
   const [email, setEmail] = useState("");
@@ -127,7 +129,7 @@ const RegisterScreenComponent: React.FC<RegisterScreenProps> = ({ navigation, on
   // ============================================================================
 
   return (
-    <SafeAreaView style={styles.safeArea}>
+    <SafeAreaView style={[styles.safeArea, { backgroundColor: colors.background }]}>
       <KeyboardAvoidingView style={styles.keyboardAvoidingView} behavior={Platform.OS === "ios" ? "padding" : "height"}>
         <ScrollView
           style={styles.scrollView}
@@ -212,15 +214,23 @@ const RegisterScreenComponent: React.FC<RegisterScreenProps> = ({ navigation, on
 
             {/* Submit Button */}
             <TouchableOpacity
-              style={[styles.submitButton, loading.signup && styles.submitButtonDisabled]}
+              style={[
+                styles.submitButton,
+                { backgroundColor: colors.primary },
+                loading.signup && styles.submitButtonDisabled,
+              ]}
               onPress={handleSubmit}
               disabled={loading.signup}>
-              <Text style={styles.submitButtonText}>{loading.signup ? "Creating Account..." : "Create Account"}</Text>
+              <Text style={[styles.submitButtonText, { color: colors.text }]}>
+                {loading.signup ? "Creating Account..." : "Create Account"}
+              </Text>
             </TouchableOpacity>
 
             {/* Secondary Action */}
             <TouchableOpacity style={styles.secondaryButton} onPress={navigateToLogin}>
-              <Text style={styles.secondaryButtonText}>Already have an account? Sign In</Text>
+              <Text style={[styles.secondaryButtonText, { color: colors.primary }]}>
+                Already have an account? Sign In
+              </Text>
             </TouchableOpacity>
 
             {/* Global Error */}

@@ -10,6 +10,8 @@ import { View, StyleSheet } from "react-native";
 import { SafeAreaProvider } from "react-native-safe-area-context";
 import { Provider } from "react-redux";
 import { PersistGate } from "redux-persist/integration/react";
+import { ThemeProvider } from "@/contexts/ThemeContext";
+import useTheme from "@/hooks/useTheme";
 
 // Store and persistence
 import { store, persistor, waitForRehydration } from "./src/store";
@@ -28,6 +30,7 @@ import { logger } from "./src/utils/logger";
 
 const AppContent: React.FC = () => {
   const [isRehydrated, setIsRehydrated] = useState(false);
+  const { theme, statusBarStyle } = useTheme();
 
   useEffect(() => {
     const initializeApp = async () => {
@@ -51,13 +54,16 @@ const AppContent: React.FC = () => {
     return <SplashScreen />;
   }
 
+  const expoStatusBarStyle =
+    statusBarStyle === "dark-content" ? "dark" : statusBarStyle === "light-content" ? "light" : "auto";
+
   return (
-    <View style={styles.container}>
+    <View style={[styles.container, { backgroundColor: theme.colors.background }]}>
       {/* Main Navigation */}
       <AppNavigator />
 
       {/* Status Bar */}
-      <StatusBar style='auto' />
+      <StatusBar style={expoStatusBarStyle} />
     </View>
   );
 };
@@ -68,15 +74,17 @@ const AppContent: React.FC = () => {
 
 export default function App() {
   return (
-    <ErrorBoundary>
-      <Provider store={store}>
-        <PersistGate loading={<SplashScreen />} persistor={persistor}>
-          <SafeAreaProvider>
-            <AppContent />
-          </SafeAreaProvider>
-        </PersistGate>
-      </Provider>
-    </ErrorBoundary>
+    <ThemeProvider>
+      <ErrorBoundary>
+        <Provider store={store}>
+          <PersistGate loading={<SplashScreen />} persistor={persistor}>
+            <SafeAreaProvider>
+              <AppContent />
+            </SafeAreaProvider>
+          </PersistGate>
+        </Provider>
+      </ErrorBoundary>
+    </ThemeProvider>
   );
 }
 
@@ -87,6 +95,5 @@ export default function App() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: "#FFFFFF",
   },
 });

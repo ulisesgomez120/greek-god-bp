@@ -4,8 +4,9 @@
 // Branded splash screen with loading animation for app initialization
 
 import React, { useEffect, useRef } from "react";
-import { View, StyleSheet, Animated, Dimensions } from "react-native";
+import { View, StyleSheet, Animated, Dimensions, Image } from "react-native";
 import Text from "./Text";
+import useTheme from "@/hooks/useTheme";
 
 // ============================================================================
 // TYPES
@@ -23,6 +24,9 @@ const SplashScreen: React.FC<SplashScreenProps> = ({ message = "Loading TrainSma
   const fadeAnim = useRef(new Animated.Value(0)).current;
   const scaleAnim = useRef(new Animated.Value(0.8)).current;
   const pulseAnim = useRef(new Animated.Value(1)).current;
+
+  // Consume theme (works when component is rendered inside ThemeProvider)
+  const { colors } = useTheme();
 
   useEffect(() => {
     // Initial fade in and scale animation
@@ -64,7 +68,7 @@ const SplashScreen: React.FC<SplashScreenProps> = ({ message = "Loading TrainSma
   }, [fadeAnim, scaleAnim, pulseAnim]);
 
   return (
-    <View style={styles.container}>
+    <View style={[styles.container, { backgroundColor: colors?.background || "#B5CFF8" }]}>
       <Animated.View
         style={[
           styles.content,
@@ -81,10 +85,8 @@ const SplashScreen: React.FC<SplashScreenProps> = ({ message = "Loading TrainSma
               transform: [{ scale: pulseAnim }],
             },
           ]}>
-          <View style={styles.logo}>
-            <Text variant='h1' style={styles.logoText}>
-              💪
-            </Text>
+          <View style={[styles.logo, { backgroundColor: colors?.surface || "#F8FAFD" }]}>
+            <Image source={require("../../../assets/splash-icon.png")} style={styles.logoImage} resizeMode='contain' />
           </View>
         </Animated.View>
 
@@ -117,6 +119,7 @@ const SplashScreen: React.FC<SplashScreenProps> = ({ message = "Loading TrainSma
                       outputRange: [0.3, 1],
                       extrapolate: "clamp",
                     }),
+                    backgroundColor: colors?.primary || "#B5CFF8",
                     transform: [
                       {
                         scale: pulseAnim.interpolate({
@@ -146,7 +149,7 @@ const { width, height } = Dimensions.get("window");
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: "#FFFFFF",
+    backgroundColor: "#B5CFF8",
     justifyContent: "center",
     alignItems: "center",
   },
@@ -176,6 +179,10 @@ const styles = StyleSheet.create({
   },
   logoText: {
     fontSize: 40,
+  },
+  logoImage: {
+    width: 48,
+    height: 48,
   },
   appName: {
     marginBottom: 8,

@@ -12,6 +12,7 @@ import * as Linking from "expo-linking";
 
 // Hooks
 import { useAuth } from "../hooks/useAuth";
+import useTheme from "@/hooks/useTheme";
 
 // Navigators
 import AuthNavigator from "./AuthNavigator";
@@ -29,22 +30,7 @@ export type RootStackParamList = {
   Main: undefined;
 };
 
-// ============================================================================
-// NAVIGATION THEME
-// ============================================================================
-
-const NavigationTheme = {
-  ...DefaultTheme,
-  colors: {
-    ...DefaultTheme.colors,
-    primary: "#B5CFF8", // Primary Blue
-    background: "#FFFFFF", // Background White
-    card: "#FFFFFF", // Card backgrounds
-    text: "#1C1C1E", // Primary Dark text
-    border: "#F2F2F7", // Secondary Gray borders
-    notification: "#FF3B30", // Error Red for badges
-  },
-};
+/* Navigation theme is derived from the active app theme at runtime (see inside component) */
 
 // ============================================================================
 // DEEP LINKING CONFIGURATION
@@ -86,6 +72,8 @@ const AppNavigator: React.FC = () => {
     updateProfile,
   } = useAuth();
 
+  const { colors } = useTheme();
+
   // Check if user has completed onboarding
   const isOnboardingComplete = user?.user_metadata?.onboarding_complete === true;
 
@@ -105,7 +93,20 @@ const AppNavigator: React.FC = () => {
   return (
     <>
       <StatusBar style='auto' />
-      <NavigationContainer theme={NavigationTheme} linking={linking}>
+      <NavigationContainer
+        theme={{
+          ...DefaultTheme,
+          colors: {
+            ...DefaultTheme.colors,
+            primary: colors.primary,
+            background: colors.background,
+            card: colors.card ?? colors.surface,
+            text: colors.text,
+            border: colors.border ?? colors.surface,
+            notification: colors.error,
+          },
+        }}
+        linking={linking}>
         <RootStack.Navigator
           screenOptions={{
             headerShown: false,

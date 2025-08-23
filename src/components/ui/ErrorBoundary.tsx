@@ -8,6 +8,7 @@ import { View, StyleSheet } from "react-native";
 import Text from "./Text";
 import Button from "./Button";
 import { logger } from "../../utils/logger";
+import ThemeContext from "@/contexts/ThemeContext";
 
 // ============================================================================
 // TYPES
@@ -29,6 +30,7 @@ interface State {
 // ============================================================================
 
 class ErrorBoundary extends Component<Props, State> {
+  static contextType = ThemeContext;
   constructor(props: Props) {
     super(props);
     this.state = { hasError: false };
@@ -70,7 +72,11 @@ class ErrorBoundary extends Component<Props, State> {
       }
 
       return (
-        <View style={styles.container}>
+        <View
+          style={[
+            styles.container,
+            { backgroundColor: (this.context as any)?.theme?.colors?.background || "#FFFFFF" },
+          ]}>
           <View style={styles.content}>
             {/* Error Icon */}
             <View style={styles.iconContainer}>
