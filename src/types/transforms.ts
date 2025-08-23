@@ -49,12 +49,40 @@ export function transformUserProfile(dbProfile: DbUserProfile): UserProfile {
 export function transformUserProfileToDb(profile: Partial<UserProfile>): Partial<DbUserProfile> {
   const dbProfile: Partial<DbUserProfile> = {};
 
+  // Basic / identity fields
   if (profile.id) dbProfile.id = profile.id;
   if (profile.email) dbProfile.email = profile.email;
   if (profile.displayName) dbProfile.display_name = profile.displayName;
   if (profile.experienceLevel) dbProfile.experience_level = profile.experienceLevel;
   if (profile.createdAt) dbProfile.created_at = profile.createdAt;
   if (profile.updatedAt) dbProfile.updated_at = profile.updatedAt;
+
+  // Profile fields used by ProfileEditScreen
+  if ((profile as any).heightCm !== undefined) (dbProfile as any).height_cm = (profile as any).heightCm;
+  if ((profile as any).weightKg !== undefined) (dbProfile as any).weight_kg = (profile as any).weightKg;
+  if ((profile as any).birthDate !== undefined) (dbProfile as any).birth_date = (profile as any).birthDate;
+  if ((profile as any).gender !== undefined) (dbProfile as any).gender = (profile as any).gender;
+  if ((profile as any).fitnessGoals !== undefined) (dbProfile as any).fitness_goals = (profile as any).fitnessGoals;
+
+  // Preferences (map canonical preference fields)
+  if ((profile as any).preferences !== undefined) {
+    const prefs = (profile as any).preferences;
+    if (prefs && typeof prefs.useMetric !== "undefined") {
+      (dbProfile as any).use_metric = Boolean(prefs.useMetric);
+    }
+  }
+
+  // Privacy settings - map nested privacySettings object to normalized DB columns
+  if ((profile as any).privacySettings !== undefined) {
+    const ps = (profile as any).privacySettings;
+    if (ps && typeof ps.dataSharing !== "undefined") (dbProfile as any).privacy_data_sharing = Boolean(ps.dataSharing);
+    if (ps && typeof ps.analytics !== "undefined") (dbProfile as any).privacy_analytics = Boolean(ps.analytics);
+    if (ps && typeof ps.aiCoaching !== "undefined") (dbProfile as any).privacy_ai_coaching = Boolean(ps.aiCoaching);
+    if (ps && typeof ps.workoutSharing !== "undefined")
+      (dbProfile as any).privacy_workout_sharing = Boolean(ps.workoutSharing);
+    if (ps && typeof ps.progressSharing !== "undefined")
+      (dbProfile as any).privacy_progress_sharing = Boolean(ps.progressSharing);
+  }
 
   return dbProfile;
 }
