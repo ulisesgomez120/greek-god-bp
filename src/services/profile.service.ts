@@ -215,8 +215,12 @@ export class ProfileService {
         gender: profileData.gender ?? null,
         fitness_goals: profileData.fitnessGoals || [],
         available_equipment: [], // Default empty array since we're not collecting equipment
-        privacy_settings: DEFAULT_PRIVACY_SETTINGS as any, // Cast to Json type
-        preferences: DEFAULT_PROFILE_PREFERENCES as any,
+        // Persist normalized privacy columns instead of the (dropped) privacy_settings JSONB.
+        privacy_data_sharing: DEFAULT_PRIVACY_SETTINGS.dataSharing,
+        privacy_analytics: DEFAULT_PRIVACY_SETTINGS.analytics,
+        privacy_ai_coaching: DEFAULT_PRIVACY_SETTINGS.aiCoaching,
+        privacy_workout_sharing: DEFAULT_PRIVACY_SETTINGS.workoutSharing,
+        privacy_progress_sharing: DEFAULT_PRIVACY_SETTINGS.progressSharing,
         use_metric: DEFAULT_PROFILE_PREFERENCES.useMetric,
         onboarding_completed: true,
         // ensure display_name is present
@@ -359,24 +363,15 @@ export class ProfileService {
       const updateData: any = { ...dbUpdatesFromTransforms };
 
       if (updates.preferences !== undefined) {
-        updateData.preferences = updates.preferences as any;
+        // Do not write the dropped `preferences` JSONB column.
+        // Persist only the `use_metric` boolean which is the canonical DB column.
         if (typeof updates.preferences.useMetric !== "undefined") {
           updateData.use_metric = updates.preferences.useMetric;
         }
       }
 
       if (updates.privacySettings !== undefined) {
-        const currentProfile = await this.getProfile(userId);
-        if (currentProfile.success && currentProfile.data) {
-          updateData.privacy_settings = {
-            ...currentProfile.data.privacySettings,
-            ...updates.privacySettings,
-          } as any;
-        } else {
-          updateData.privacy_settings = updates.privacySettings as any;
-        }
-
-        // Also set normalized privacy boolean columns when privacySettings provided
+        // Persist normalized privacy boolean columns only (avoid writing dropped JSONB column).
         const ps = updates.privacySettings as PrivacySettings;
         if (ps.dataSharing !== undefined) updateData.privacy_data_sharing = ps.dataSharing;
         if (ps.analytics !== undefined) updateData.privacy_analytics = ps.analytics;
@@ -469,7 +464,10 @@ export class ProfileService {
         experienceLevel: row.experience_level,
         fitnessGoals: row.fitness_goals || [],
         availableEquipment: row.available_equipment || [],
-        preferences: (row.preferences as unknown as ProfilePreferences) || DEFAULT_PROFILE_PREFERENCES,
+        preferences:
+          row.use_metric !== undefined
+            ? { ...DEFAULT_PROFILE_PREFERENCES, useMetric: Boolean(row.use_metric) }
+            : (row.preferences as unknown as ProfilePreferences) || DEFAULT_PROFILE_PREFERENCES,
         privacySettings: privacySettingsFromRow,
         role: row.role || "user",
         stripeCustomerId: row.stripe_customer_id || undefined,

@@ -69,6 +69,9 @@ export const ProfileEditScreen: React.FC<ProfileEditScreenProps> = () => {
   const [hasChanges, setHasChanges] = useState(false);
   const [activeSection, setActiveSection] = useState<string>("basic");
   const [focusedField, setFocusedField] = useState<string | null>(null);
+  // Local controlled inputs to avoid formatting interfering with typing
+  const [heightInput, setHeightInput] = useState<string>("");
+  const [weightInput, setWeightInput] = useState<string>("");
 
   // ============================================================================
   // INITIALIZATION
@@ -84,6 +87,8 @@ export const ProfileEditScreen: React.FC<ProfileEditScreenProps> = () => {
         gender: profile.gender,
         fitnessGoals: profile.fitnessGoals,
         privacySettings: profile.privacySettings,
+        // include preferences so form saves use_metric when present
+        preferences: profile.preferences || undefined,
       });
     }
   }, [profile]);
@@ -278,15 +283,45 @@ export const ProfileEditScreen: React.FC<ProfileEditScreenProps> = () => {
         <TextInput
           style={getInputStyle(undefined, getInputState(focusedField === "heightCm", !!errors.heightCm))}
           value={
-            isImperial()
+            // while editing, use local input to avoid aggressive formatting
+            focusedField === "heightCm"
+              ? heightInput
+              : isImperial()
               ? formData.heightCm
                 ? formatCmToFtIn(formData.heightCm)
                 : ""
               : formData.heightCm?.toString() || ""
           }
-          onChangeText={(text: string) => handleHeightInput(text)}
-          onFocus={() => setFocusedField("heightCm")}
-          onBlur={() => setFocusedField(null)}
+          onChangeText={(text: string) => {
+            // update local controlled input only while typing
+            setHeightInput(text);
+          }}
+          onFocus={() => {
+            setFocusedField("heightCm");
+            // seed local input with formatted value
+            setHeightInput(
+              isImperial()
+                ? formData.heightCm
+                  ? formatCmToFtIn(formData.heightCm)
+                  : ""
+                : formData.heightCm?.toString() || ""
+            );
+          }}
+          onBlur={() => {
+            setFocusedField(null);
+            // parse the local input and commit to formData
+            if (heightInput) {
+              if (isImperial()) {
+                const cm = parseDisplayHeightToCm(heightInput);
+                updateFormData({ heightCm: cm != null ? Math.round(cm) : undefined });
+              } else {
+                updateFormData({ heightCm: heightInput ? parseInt(heightInput) : undefined });
+              }
+            } else {
+              updateFormData({ heightCm: undefined });
+            }
+            setHeightInput("");
+          }}
           {...getInputProps(isImperial() ? undefined : "number")}
           placeholder={isImperial() ? "5'10\"" : "170"}
         />
@@ -299,15 +334,41 @@ export const ProfileEditScreen: React.FC<ProfileEditScreenProps> = () => {
         <TextInput
           style={getInputStyle(undefined, getInputState(focusedField === "weightKg", !!errors.weightKg))}
           value={
-            isImperial()
+            focusedField === "weightKg"
+              ? weightInput
+              : isImperial()
               ? formData.weightKg
                 ? formatKgToLbsDisplay(formData.weightKg).replace(" lbs", "")
                 : ""
               : formData.weightKg?.toString() || ""
           }
-          onChangeText={(text: string) => handleWeightInput(text)}
-          onFocus={() => setFocusedField("weightKg")}
-          onBlur={() => setFocusedField(null)}
+          onChangeText={(text: string) => {
+            setWeightInput(text);
+          }}
+          onFocus={() => {
+            setFocusedField("weightKg");
+            setWeightInput(
+              isImperial()
+                ? formData.weightKg
+                  ? formatKgToLbsDisplay(formData.weightKg).replace(" lbs", "")
+                  : ""
+                : formData.weightKg?.toString() || ""
+            );
+          }}
+          onBlur={() => {
+            setFocusedField(null);
+            if (weightInput) {
+              if (isImperial()) {
+                const kg = parseDisplayWeightToKg(weightInput);
+                updateFormData({ weightKg: kg != null ? Number(kg.toFixed(2)) : undefined });
+              } else {
+                updateFormData({ weightKg: weightInput ? parseFloat(weightInput) : undefined });
+              }
+            } else {
+              updateFormData({ weightKg: undefined });
+            }
+            setWeightInput("");
+          }}
           {...getInputProps(isImperial() ? undefined : "number")}
           placeholder={isImperial() ? "180" : "70"}
         />
@@ -396,18 +457,17 @@ export const ProfileEditScreen: React.FC<ProfileEditScreenProps> = () => {
         <View style={{ marginTop: 8, flexDirection: "row", alignItems: "center", justifyContent: "space-between" }}>
           <Text style={LABEL_STYLES.base}>Use Metric Units</Text>
           <Switch
-            value={Boolean(preferences?.useMetric)}
-            onValueChange={async (val) => {
-              // Update local hook + persist locally
-              await setUseMetric(val);
-              // Ensure the form data includes the updated preferences so handleSave (updateProfile)
-              // will persist the `use_metric` column server-side via profileService.updateProfile.
+            value={Boolean(formData.preferences?.useMetric ?? preferences?.useMetric)}
+            onValueChange={(val) => {
+              // Update form state immediately so UI reflects change.
               updateFormData({
                 preferences: {
                   ...(formData.preferences || preferences),
                   useMetric: val,
                 } as any,
               });
+              // Also persist locally via the hook (no await) so local storage/redux are updated.
+              void setUseMetric(val);
             }}
             accessibilityLabel='Toggle metric units'
             trackColor={{ false: "#F2F2F7", true: "#B5CFF8" }}
@@ -556,7 +616,7 @@ export const ProfileEditScreen: React.FC<ProfileEditScreenProps> = () => {
         </View>
 
         {/* Section Tabs */}
-        <View style={styles.tabsContainer}>
+        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.tabsScrollContent}>
           {[
             { id: "basic", title: "Basic" },
             { id: "goals", title: "Goals" },
@@ -566,13 +626,17 @@ export const ProfileEditScreen: React.FC<ProfileEditScreenProps> = () => {
             <TouchableOpacity
               key={tab.id}
               onPress={() => setActiveSection(tab.id)}
-              style={[styles.tabButton, activeSection === tab.id && styles.tabButtonActive]}>
-              <Text style={[styles.tabButtonText, activeSection === tab.id && styles.tabButtonTextActive]}>
+              style={[styles.tabButtonScrollable, activeSection === tab.id && styles.tabButtonActiveScrollable]}>
+              <Text
+                style={[
+                  styles.tabButtonTextScrollable,
+                  activeSection === tab.id && styles.tabButtonTextActiveScrollable,
+                ]}>
                 {tab.title}
               </Text>
             </TouchableOpacity>
           ))}
-        </View>
+        </ScrollView>
 
         {/* Content */}
         <ScrollView
@@ -681,6 +745,36 @@ const styles = StyleSheet.create({
     color: "#8E8E93",
   },
   tabButtonTextActive: {
+    color: "#B5CFF8",
+    fontWeight: "600",
+  },
+  // Scrollable tabs content container style
+  tabsScrollContent: {
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    alignItems: "center",
+  },
+  // Scrollable tab button styles
+  tabButtonScrollable: {
+    paddingVertical: 10,
+    paddingHorizontal: 14,
+    borderRadius: 12,
+    borderWidth: 2,
+    borderColor: "#F2F2F7",
+    backgroundColor: "#FFFFFF",
+    marginRight: 8,
+    alignItems: "center",
+  },
+  tabButtonActiveScrollable: {
+    borderColor: "#B5CFF8",
+    backgroundColor: "#F8FAFD",
+  },
+  tabButtonTextScrollable: {
+    fontSize: 15,
+    fontWeight: "500",
+    color: "#8E8E93",
+  },
+  tabButtonTextActiveScrollable: {
     color: "#B5CFF8",
     fontWeight: "600",
   },
