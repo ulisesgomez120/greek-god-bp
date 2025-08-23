@@ -381,11 +381,11 @@ export const ExerciseDetailScreen: React.FC<ExerciseDetailScreenProps> = ({ navi
     </View>
   );
 
-  const { isImperialWeight } = useUnitPreferences();
+  const { isImperial } = useUnitPreferences();
 
   const weightDisplay = (kg?: number | null) => {
     if (!kg) return "Bodyweight";
-    if (isImperialWeight()) return formatKgToLbsDisplay(kg);
+    if (isImperial()) return formatKgToLbsDisplay(kg);
     return `${kg}kg`;
   };
 

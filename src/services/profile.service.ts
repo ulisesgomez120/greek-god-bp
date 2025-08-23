@@ -100,19 +100,58 @@ export class ProfileService {
       // Transform database row to UserProfile using canonical transform for core fields
       // and augment with additional profile-specific fields not yet covered by the transform.
       const profileCore = transformUserProfile(data as any);
+      const row = data as any;
+
+      const privacySettingsFromRow: PrivacySettings = {
+        dataSharing:
+          row.privacy_data_sharing !== undefined
+            ? row.privacy_data_sharing
+            : row.privacy_settings
+            ? (row.privacy_settings.data_sharing as boolean)
+            : DEFAULT_PRIVACY_SETTINGS.dataSharing,
+        analytics:
+          row.privacy_analytics !== undefined
+            ? row.privacy_analytics
+            : row.privacy_settings
+            ? (row.privacy_settings.analytics as boolean)
+            : DEFAULT_PRIVACY_SETTINGS.analytics,
+        aiCoaching:
+          row.privacy_ai_coaching !== undefined
+            ? row.privacy_ai_coaching
+            : row.privacy_settings
+            ? (row.privacy_settings.ai_coaching as boolean)
+            : DEFAULT_PRIVACY_SETTINGS.aiCoaching,
+        workoutSharing:
+          row.privacy_workout_sharing !== undefined
+            ? row.privacy_workout_sharing
+            : row.privacy_settings
+            ? (row.privacy_settings.workout_sharing as boolean)
+            : DEFAULT_PRIVACY_SETTINGS.workoutSharing,
+        progressSharing:
+          row.privacy_progress_sharing !== undefined
+            ? row.privacy_progress_sharing
+            : row.privacy_settings
+            ? (row.privacy_settings.progress_sharing as boolean)
+            : DEFAULT_PRIVACY_SETTINGS.progressSharing,
+      };
+
       const profile: UserProfile = {
         ...profileCore,
-        avatarUrl: data.avatar_url || undefined,
-        heightCm: data.height_cm || undefined,
-        weightKg: data.weight_kg ? Number(data.weight_kg) : undefined,
-        birthDate: data.birth_date || undefined,
-        gender: data.gender || undefined,
-        fitnessGoals: data.fitness_goals || [],
-        availableEquipment: data.available_equipment || [],
-        privacySettings: (data.privacy_settings as unknown as PrivacySettings) || DEFAULT_PRIVACY_SETTINGS,
-        role: data.role || "user",
-        stripeCustomerId: data.stripe_customer_id || undefined,
-        onboardingCompleted: data.onboarding_completed || false,
+        avatarUrl: row.avatar_url || undefined,
+        heightCm: row.height_cm || undefined,
+        weightKg: row.weight_kg ? Number(row.weight_kg) : undefined,
+        birthDate: row.birth_date || undefined,
+        gender: row.gender || undefined,
+        fitnessGoals: row.fitness_goals || [],
+        availableEquipment: row.available_equipment || [],
+        preferences:
+          row.use_metric !== undefined
+            ? { ...DEFAULT_PROFILE_PREFERENCES, useMetric: Boolean(row.use_metric) }
+            : (row.preferences as unknown as ProfilePreferences) || DEFAULT_PROFILE_PREFERENCES,
+        privacySettings: privacySettingsFromRow,
+        role: row.role || "user",
+        stripeCustomerId: row.stripe_customer_id || undefined,
+        onboardingCompleted: row.onboarding_completed || false,
         // createdAt/updatedAt already provided by transformUserProfile
       };
 
@@ -177,6 +216,8 @@ export class ProfileService {
         fitness_goals: profileData.fitnessGoals || [],
         available_equipment: [], // Default empty array since we're not collecting equipment
         privacy_settings: DEFAULT_PRIVACY_SETTINGS as any, // Cast to Json type
+        preferences: DEFAULT_PROFILE_PREFERENCES as any,
+        use_metric: DEFAULT_PROFILE_PREFERENCES.useMetric,
         onboarding_completed: true,
         // ensure display_name is present
         display_name: (dbProfileCore as any).display_name ?? profileData.displayName,
@@ -199,24 +240,63 @@ export class ProfileService {
       }
 
       // Transform to UserProfile
+      const row = data as any;
+
+      const privacySettingsFromRow: PrivacySettings = {
+        dataSharing:
+          row.privacy_data_sharing !== undefined
+            ? row.privacy_data_sharing
+            : row.privacy_settings
+            ? (row.privacy_settings.data_sharing as boolean)
+            : DEFAULT_PRIVACY_SETTINGS.dataSharing,
+        analytics:
+          row.privacy_analytics !== undefined
+            ? row.privacy_analytics
+            : row.privacy_settings
+            ? (row.privacy_settings.analytics as boolean)
+            : DEFAULT_PRIVACY_SETTINGS.analytics,
+        aiCoaching:
+          row.privacy_ai_coaching !== undefined
+            ? row.privacy_ai_coaching
+            : row.privacy_settings
+            ? (row.privacy_settings.ai_coaching as boolean)
+            : DEFAULT_PRIVACY_SETTINGS.aiCoaching,
+        workoutSharing:
+          row.privacy_workout_sharing !== undefined
+            ? row.privacy_workout_sharing
+            : row.privacy_settings
+            ? (row.privacy_settings.workout_sharing as boolean)
+            : DEFAULT_PRIVACY_SETTINGS.workoutSharing,
+        progressSharing:
+          row.privacy_progress_sharing !== undefined
+            ? row.privacy_progress_sharing
+            : row.privacy_settings
+            ? (row.privacy_settings.progress_sharing as boolean)
+            : DEFAULT_PRIVACY_SETTINGS.progressSharing,
+      };
+
       const profile: UserProfile = {
-        id: data.id,
-        email: data.email,
-        displayName: data.display_name,
-        avatarUrl: data.avatar_url || undefined,
-        heightCm: data.height_cm || undefined,
-        weightKg: data.weight_kg ? Number(data.weight_kg) : undefined,
-        birthDate: data.birth_date || undefined,
-        gender: data.gender || undefined,
-        experienceLevel: data.experience_level,
-        fitnessGoals: data.fitness_goals || [],
-        availableEquipment: data.available_equipment || [],
-        privacySettings: (data.privacy_settings as unknown as PrivacySettings) || DEFAULT_PRIVACY_SETTINGS,
-        role: data.role || "user",
-        stripeCustomerId: data.stripe_customer_id || undefined,
-        onboardingCompleted: data.onboarding_completed || false,
-        createdAt: data.created_at,
-        updatedAt: data.updated_at,
+        id: row.id,
+        email: row.email,
+        displayName: row.display_name,
+        avatarUrl: row.avatar_url || undefined,
+        heightCm: row.height_cm || undefined,
+        weightKg: row.weight_kg ? Number(row.weight_kg) : undefined,
+        birthDate: row.birth_date || undefined,
+        gender: row.gender || undefined,
+        experienceLevel: row.experience_level,
+        fitnessGoals: row.fitness_goals || [],
+        availableEquipment: row.available_equipment || [],
+        preferences:
+          row.use_metric !== undefined
+            ? { ...DEFAULT_PROFILE_PREFERENCES, useMetric: Boolean(row.use_metric) }
+            : (row.preferences as unknown as ProfilePreferences) || DEFAULT_PROFILE_PREFERENCES,
+        privacySettings: privacySettingsFromRow,
+        role: row.role || "user",
+        stripeCustomerId: row.stripe_customer_id || undefined,
+        onboardingCompleted: row.onboarding_completed || false,
+        createdAt: row.created_at,
+        updatedAt: row.updated_at,
       };
 
       // Cache the profile
@@ -277,6 +357,14 @@ export class ProfileService {
 
       // Handle privacy settings merge separately
       const updateData: any = { ...dbUpdatesFromTransforms };
+
+      if (updates.preferences !== undefined) {
+        updateData.preferences = updates.preferences as any;
+        if (typeof updates.preferences.useMetric !== "undefined") {
+          updateData.use_metric = updates.preferences.useMetric;
+        }
+      }
+
       if (updates.privacySettings !== undefined) {
         const currentProfile = await this.getProfile(userId);
         if (currentProfile.success && currentProfile.data) {
@@ -287,6 +375,14 @@ export class ProfileService {
         } else {
           updateData.privacy_settings = updates.privacySettings as any;
         }
+
+        // Also set normalized privacy boolean columns when privacySettings provided
+        const ps = updates.privacySettings as PrivacySettings;
+        if (ps.dataSharing !== undefined) updateData.privacy_data_sharing = ps.dataSharing;
+        if (ps.analytics !== undefined) updateData.privacy_analytics = ps.analytics;
+        if (ps.aiCoaching !== undefined) updateData.privacy_ai_coaching = ps.aiCoaching;
+        if (ps.workoutSharing !== undefined) updateData.privacy_workout_sharing = ps.workoutSharing;
+        if (ps.progressSharing !== undefined) updateData.privacy_progress_sharing = ps.progressSharing;
       }
 
       // Optimistic update to cache
@@ -327,24 +423,59 @@ export class ProfileService {
       }
 
       // Transform to UserProfile
+      const row = data as any;
+      const privacySettingsFromRow: PrivacySettings = {
+        dataSharing:
+          row.privacy_data_sharing !== undefined
+            ? row.privacy_data_sharing
+            : row.privacy_settings
+            ? (row.privacy_settings.data_sharing as boolean)
+            : DEFAULT_PRIVACY_SETTINGS.dataSharing,
+        analytics:
+          row.privacy_analytics !== undefined
+            ? row.privacy_analytics
+            : row.privacy_settings
+            ? (row.privacy_settings.analytics as boolean)
+            : DEFAULT_PRIVACY_SETTINGS.analytics,
+        aiCoaching:
+          row.privacy_ai_coaching !== undefined
+            ? row.privacy_ai_coaching
+            : row.privacy_settings
+            ? (row.privacy_settings.ai_coaching as boolean)
+            : DEFAULT_PRIVACY_SETTINGS.aiCoaching,
+        workoutSharing:
+          row.privacy_workout_sharing !== undefined
+            ? row.privacy_workout_sharing
+            : row.privacy_settings
+            ? (row.privacy_settings.workout_sharing as boolean)
+            : DEFAULT_PRIVACY_SETTINGS.workoutSharing,
+        progressSharing:
+          row.privacy_progress_sharing !== undefined
+            ? row.privacy_progress_sharing
+            : row.privacy_settings
+            ? (row.privacy_settings.progress_sharing as boolean)
+            : DEFAULT_PRIVACY_SETTINGS.progressSharing,
+      };
+
       const profile: UserProfile = {
-        id: data.id,
-        email: data.email,
-        displayName: data.display_name,
-        avatarUrl: data.avatar_url || undefined,
-        heightCm: data.height_cm || undefined,
-        weightKg: data.weight_kg ? Number(data.weight_kg) : undefined,
-        birthDate: data.birth_date || undefined,
-        gender: data.gender || undefined,
-        experienceLevel: data.experience_level,
-        fitnessGoals: data.fitness_goals || [],
-        availableEquipment: data.available_equipment || [],
-        privacySettings: (data.privacy_settings as unknown as PrivacySettings) || DEFAULT_PRIVACY_SETTINGS,
-        role: data.role || "user",
-        stripeCustomerId: data.stripe_customer_id || undefined,
-        onboardingCompleted: data.onboarding_completed || false,
-        createdAt: data.created_at,
-        updatedAt: data.updated_at,
+        id: row.id,
+        email: row.email,
+        displayName: row.display_name,
+        avatarUrl: row.avatar_url || undefined,
+        heightCm: row.height_cm || undefined,
+        weightKg: row.weight_kg ? Number(row.weight_kg) : undefined,
+        birthDate: row.birth_date || undefined,
+        gender: row.gender || undefined,
+        experienceLevel: row.experience_level,
+        fitnessGoals: row.fitness_goals || [],
+        availableEquipment: row.available_equipment || [],
+        preferences: (row.preferences as unknown as ProfilePreferences) || DEFAULT_PROFILE_PREFERENCES,
+        privacySettings: privacySettingsFromRow,
+        role: row.role || "user",
+        stripeCustomerId: row.stripe_customer_id || undefined,
+        onboardingCompleted: row.onboarding_completed || false,
+        createdAt: row.created_at,
+        updatedAt: row.updated_at,
       };
 
       // Update cache

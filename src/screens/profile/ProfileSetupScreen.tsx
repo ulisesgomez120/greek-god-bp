@@ -126,10 +126,10 @@ const BasicInfoStep: React.FC<StepComponentProps> = ({ data, onUpdate, onNext, c
   const [focusedField, setFocusedField] = useState<string | null>(null);
 
   // Unit-aware helpers
-  const { isImperialWeight, isImperialHeight } = useUnitPreferences();
+  const { isImperial, isMetric } = useUnitPreferences();
 
   const handleHeightChange = (text: string) => {
-    if (isImperialHeight()) {
+    if (isImperial()) {
       const cm = parseDisplayHeightToCm(text);
       onUpdate({ heightCm: cm != null ? Math.round(cm) : undefined });
     } else {
@@ -146,7 +146,7 @@ const BasicInfoStep: React.FC<StepComponentProps> = ({ data, onUpdate, onNext, c
   };
 
   const handleWeightChange = (text: string) => {
-    if (isImperialWeight()) {
+    if (isImperial()) {
       const kg = parseDisplayWeightToKg(text);
       onUpdate({ weightKg: kg != null ? Number(kg.toFixed(2)) : undefined });
     } else {
@@ -227,32 +227,28 @@ const BasicInfoStep: React.FC<StepComponentProps> = ({ data, onUpdate, onNext, c
 
         {/* Height Field */}
         <View style={FIELD_STYLES.container}>
-          <Text style={LABEL_STYLES.base}>{isImperialHeight() ? "Height (ft/in)" : "Height (cm)"}</Text>
+          <Text style={LABEL_STYLES.base}>{isImperial() ? "Height (ft/in)" : "Height (cm)"}</Text>
           <TextInput
             style={getInputStyle(undefined, getInputState(focusedField === "heightCm", !!errors.heightCm))}
             value={
-              isImperialHeight()
-                ? data.heightCm
-                  ? formatCmToFtIn(data.heightCm)
-                  : ""
-                : data.heightCm?.toString() || ""
+              isImperial() ? (data.heightCm ? formatCmToFtIn(data.heightCm) : "") : data.heightCm?.toString() || ""
             }
             onChangeText={(text: string) => handleHeightChange(text)}
             onFocus={() => setFocusedField("heightCm")}
             onBlur={() => setFocusedField(null)}
-            {...getInputProps(isImperialHeight() ? undefined : "number")}
-            placeholder={isImperialHeight() ? "5'10\"" : "170"}
+            {...getInputProps(isImperial() ? undefined : "number")}
+            placeholder={isImperial() ? "5'10\"" : "170"}
           />
           {errors.heightCm && <Text style={ERROR_STYLES.text}>{errors.heightCm}</Text>}
         </View>
 
         {/* Weight Field */}
         <View style={FIELD_STYLES.container}>
-          <Text style={LABEL_STYLES.base}>{isImperialWeight() ? "Weight (lbs)" : "Weight (kg)"}</Text>
+          <Text style={LABEL_STYLES.base}>{isImperial() ? "Weight (lbs)" : "Weight (kg)"}</Text>
           <TextInput
             style={getInputStyle(undefined, getInputState(focusedField === "weightKg", !!errors.weightKg))}
             value={
-              isImperialWeight()
+              isImperial()
                 ? data.weightKg
                   ? formatKgToLbsDisplay(data.weightKg).replace(" lbs", "")
                   : ""
@@ -261,8 +257,8 @@ const BasicInfoStep: React.FC<StepComponentProps> = ({ data, onUpdate, onNext, c
             onChangeText={(text: string) => handleWeightChange(text)}
             onFocus={() => setFocusedField("weightKg")}
             onBlur={() => setFocusedField(null)}
-            {...getInputProps(isImperialWeight() ? undefined : "number")}
-            placeholder={isImperialWeight() ? "180" : "70"}
+            {...getInputProps(isImperial() ? undefined : "number")}
+            placeholder={isImperial() ? "180" : "70"}
           />
           {errors.weightKg && <Text style={ERROR_STYLES.text}>{errors.weightKg}</Text>}
         </View>

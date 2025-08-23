@@ -121,10 +121,10 @@ export const WorkoutSummaryScreen: React.FC<WorkoutSummaryScreenProps> = ({ rout
   }
 
   const sets = session.sets || [];
-  const { isImperialWeight } = useUnitPreferences();
+  const { isImperial } = useUnitPreferences();
   const weightDisplay = (kg?: number | null) => {
     if (!kg) return "Bodyweight";
-    if (isImperialWeight()) return formatKgToLbsDisplay(kg);
+    if (isImperial()) return formatKgToLbsDisplay(kg);
     return `${kg} kg`;
   };
 
@@ -151,7 +151,7 @@ export const WorkoutSummaryScreen: React.FC<WorkoutSummaryScreenProps> = ({ rout
           <Text variant='body' color='secondary'>
             Total volume:{" "}
             {session.totalVolumeKg
-              ? isImperialWeight()
+              ? isImperial()
                 ? formatKgToLbsDisplay(session.totalVolumeKg)
                 : `${session.totalVolumeKg} kg`
               : "—"}

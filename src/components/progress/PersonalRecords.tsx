@@ -108,7 +108,7 @@ const PersonalRecordItem: React.FC<PersonalRecordItemProps> = ({ record, onPress
   const scaleAnim = useRef(new Animated.Value(0)).current;
   const glowAnim = useRef(new Animated.Value(0)).current;
   const isRecent = isRecentRecord(record.achievedAt);
-  const { isImperialWeight } = useUnitPreferences();
+  const { isImperial } = useUnitPreferences();
 
   useEffect(() => {
     // Staggered entrance animation
@@ -178,7 +178,7 @@ const PersonalRecordItem: React.FC<PersonalRecordItemProps> = ({ record, onPress
               </View>
             )}
           </View>
-          <Text style={styles.recordValue}>{formatRecordValue(record, isImperialWeight())}</Text>
+          <Text style={styles.recordValue}>{formatRecordValue(record, isImperial())}</Text>
           <Text style={styles.recordDate}>{formatRecordDate(record.achievedAt)}</Text>
         </View>
 
@@ -217,7 +217,7 @@ export const PersonalRecords: React.FC<PersonalRecordsProps> = ({
   maxRecords = 10,
   title = "Personal Records",
 }) => {
-  const { isImperialWeight } = useUnitPreferences();
+  const { isImperial } = useUnitPreferences();
 
   // Limit records and sort by date (most recent first)
   const displayRecords = records

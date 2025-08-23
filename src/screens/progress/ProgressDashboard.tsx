@@ -230,10 +230,10 @@ export const ProgressDashboard: React.FC<ProgressDashboardProps> = ({ navigation
     if (!analytics) return null;
 
     // Unit-aware volume display
-    const { isImperialWeight } = useUnitPreferences();
+    const { isImperial } = useUnitPreferences();
     const volumeDisplay =
       typeof analytics.totalVolumeLifted === "number"
-        ? isImperialWeight()
+        ? isImperial()
           ? formatKgToLbsDisplay(analytics.totalVolumeLifted)
           : `${Math.round(analytics.totalVolumeLifted)} kg`
         : "—";

@@ -91,10 +91,10 @@ export const ExerciseCard: React.FC<ExerciseCardProps> = ({
   const isFirstSet = currentSets.length === 0;
 
   // Unit display helper
-  const { isImperialWeight } = useUnitPreferences();
+  const { isImperial } = useUnitPreferences();
   const weightDisplay = (kg?: number | null) => {
     if (!kg) return "BW";
-    if (isImperialWeight()) return formatKgToLbsDisplay(kg);
+    if (isImperial()) return formatKgToLbsDisplay(kg);
     return `${kg} kg`;
   };
 

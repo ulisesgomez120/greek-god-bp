@@ -92,7 +92,7 @@ const WorkoutItem: React.FC<WorkoutItemProps> = ({ workout, onPress }) => {
     onPress(workout);
   };
 
-  const { isImperialWeight } = useUnitPreferences();
+  const { isImperial } = useUnitPreferences();
 
   return (
     <TouchableOpacity style={styles.workoutItem} onPress={handlePress} activeOpacity={0.7}>
@@ -110,7 +110,7 @@ const WorkoutItem: React.FC<WorkoutItemProps> = ({ workout, onPress }) => {
         <Text style={styles.workoutSummary}>{getWorkoutSummary(workout)}</Text>
         {workout.totalVolumeKg && (
           <Text style={styles.workoutVolume}>
-            {isImperialWeight()
+            {isImperial()
               ? `${formatKgToLbsDisplay(workout.totalVolumeKg)} total volume`
               : `${Math.round(workout.totalVolumeKg)} kg total volume`}
           </Text>

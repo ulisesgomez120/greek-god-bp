@@ -31,7 +31,12 @@ import {
   formatCmToFtIn,
 } from "@/utils/unitConversions";
 import type { UserProfile, ProfileEditData, PrivacySettings, FitnessGoal } from "@/types/profile";
-import { DEFAULT_FITNESS_GOALS, EXPERIENCE_LEVELS, getExperienceLevelInfo } from "@/types/profile";
+import {
+  DEFAULT_FITNESS_GOALS,
+  EXPERIENCE_LEVELS,
+  getExperienceLevelInfo,
+  DEFAULT_PRIVACY_SETTINGS,
+} from "@/types/profile";
 import {
   getInputStyle,
   getInputState,
@@ -105,10 +110,10 @@ export const ProfileEditScreen: React.FC<ProfileEditScreenProps> = () => {
   // ============================================================================
   // INPUT HANDLERS FOR UNIT-AWARE INPUTS
   // ============================================================================
-  const { isImperialWeight, isImperialHeight } = useUnitPreferences();
+  const { preferences, setUseMetric, isImperial, isMetric, loading: prefsLoading } = useUnitPreferences();
 
   const handleHeightInput = (text: string) => {
-    if (isImperialHeight()) {
+    if (isImperial()) {
       const cm = parseDisplayHeightToCm(text);
       updateFormData({ heightCm: cm != null ? Math.round(cm) : undefined });
     } else {
@@ -117,7 +122,7 @@ export const ProfileEditScreen: React.FC<ProfileEditScreenProps> = () => {
   };
 
   const handleWeightInput = (text: string) => {
-    if (isImperialWeight()) {
+    if (isImperial()) {
       const kg = parseDisplayWeightToKg(text);
       updateFormData({ weightKg: kg != null ? Number(kg.toFixed(2)) : undefined });
     } else {
@@ -225,9 +230,17 @@ export const ProfileEditScreen: React.FC<ProfileEditScreenProps> = () => {
 
   const updatePrivacySetting = useCallback(
     (key: keyof PrivacySettings, value: boolean) => {
+      // Update both privacySettings object and normalized boolean fields on formData
       const currentSettings = formData.privacySettings || profile?.privacySettings || {};
       const newSettings = { ...currentSettings, [key]: value };
-      updateFormData({ privacySettings: newSettings });
+      const normalized: Partial<ProfileEditData> = {};
+      if (key === "dataSharing") normalized.privacyDataSharing = value;
+      if (key === "analytics") normalized.privacyAnalytics = value;
+      if (key === "aiCoaching") normalized.privacyAiCoaching = value;
+      if (key === "workoutSharing") normalized.privacyWorkoutSharing = value;
+      if (key === "progressSharing") normalized.privacyProgressSharing = value;
+
+      updateFormData({ privacySettings: newSettings, ...normalized } as any);
     },
     [formData.privacySettings, profile?.privacySettings, updateFormData]
   );
@@ -261,11 +274,11 @@ export const ProfileEditScreen: React.FC<ProfileEditScreenProps> = () => {
 
       {/* Height Field */}
       <View style={FIELD_STYLES.container}>
-        <Text style={LABEL_STYLES.base}>{isImperialHeight() ? "Height (ft/in)" : "Height (cm)"}</Text>
+        <Text style={LABEL_STYLES.base}>{isImperial() ? "Height (ft/in)" : "Height (cm)"}</Text>
         <TextInput
           style={getInputStyle(undefined, getInputState(focusedField === "heightCm", !!errors.heightCm))}
           value={
-            isImperialHeight()
+            isImperial()
               ? formData.heightCm
                 ? formatCmToFtIn(formData.heightCm)
                 : ""
@@ -274,19 +287,19 @@ export const ProfileEditScreen: React.FC<ProfileEditScreenProps> = () => {
           onChangeText={(text: string) => handleHeightInput(text)}
           onFocus={() => setFocusedField("heightCm")}
           onBlur={() => setFocusedField(null)}
-          {...getInputProps(isImperialHeight() ? undefined : "number")}
-          placeholder={isImperialHeight() ? "5'10\"" : "170"}
+          {...getInputProps(isImperial() ? undefined : "number")}
+          placeholder={isImperial() ? "5'10\"" : "170"}
         />
         {errors.heightCm && <Text style={ERROR_STYLES.text}>{errors.heightCm}</Text>}
       </View>
 
       {/* Weight Field */}
       <View style={FIELD_STYLES.container}>
-        <Text style={LABEL_STYLES.base}>{isImperialWeight() ? "Weight (lbs)" : "Weight (kg)"}</Text>
+        <Text style={LABEL_STYLES.base}>{isImperial() ? "Weight (lbs)" : "Weight (kg)"}</Text>
         <TextInput
           style={getInputStyle(undefined, getInputState(focusedField === "weightKg", !!errors.weightKg))}
           value={
-            isImperialWeight()
+            isImperial()
               ? formData.weightKg
                 ? formatKgToLbsDisplay(formData.weightKg).replace(" lbs", "")
                 : ""
@@ -295,8 +308,8 @@ export const ProfileEditScreen: React.FC<ProfileEditScreenProps> = () => {
           onChangeText={(text: string) => handleWeightInput(text)}
           onFocus={() => setFocusedField("weightKg")}
           onBlur={() => setFocusedField(null)}
-          {...getInputProps(isImperialWeight() ? undefined : "number")}
-          placeholder={isImperialWeight() ? "180" : "70"}
+          {...getInputProps(isImperial() ? undefined : "number")}
+          placeholder={isImperial() ? "180" : "70"}
         />
         {errors.weightKg && <Text style={ERROR_STYLES.text}>{errors.weightKg}</Text>}
       </View>
@@ -373,8 +386,64 @@ export const ProfileEditScreen: React.FC<ProfileEditScreenProps> = () => {
     </View>
   );
 
+  const renderPreferencesSection = () => (
+    <View style={styles.section}>
+      <Text style={styles.sectionTitle}>Preferences</Text>
+
+      <View style={FIELD_STYLES.container}>
+        <Text style={LABEL_STYLES.base}>Units</Text>
+
+        <View style={{ marginTop: 8, flexDirection: "row", alignItems: "center", justifyContent: "space-between" }}>
+          <Text style={LABEL_STYLES.base}>Use Metric Units</Text>
+          <Switch
+            value={Boolean(preferences?.useMetric)}
+            onValueChange={async (val) => {
+              // Update local hook + persist locally
+              await setUseMetric(val);
+              // Ensure the form data includes the updated preferences so handleSave (updateProfile)
+              // will persist the `use_metric` column server-side via profileService.updateProfile.
+              updateFormData({
+                preferences: {
+                  ...(formData.preferences || preferences),
+                  useMetric: val,
+                } as any,
+              });
+            }}
+            accessibilityLabel='Toggle metric units'
+            trackColor={{ false: "#F2F2F7", true: "#B5CFF8" }}
+            thumbColor='#FFFFFF'
+          />
+        </View>
+      </View>
+    </View>
+  );
+
   const renderPrivacySection = () => {
     const privacySettings = formData.privacySettings || profile?.privacySettings || {};
+
+    // Determine normalized values falling back to profile row values
+    const normalized = {
+      dataSharing:
+        typeof formData.privacyDataSharing !== "undefined"
+          ? formData.privacyDataSharing
+          : profile?.privacySettings?.dataSharing || DEFAULT_PRIVACY_SETTINGS.dataSharing,
+      analytics:
+        typeof formData.privacyAnalytics !== "undefined"
+          ? formData.privacyAnalytics
+          : profile?.privacySettings?.analytics || DEFAULT_PRIVACY_SETTINGS.analytics,
+      aiCoaching:
+        typeof formData.privacyAiCoaching !== "undefined"
+          ? formData.privacyAiCoaching
+          : profile?.privacySettings?.aiCoaching || DEFAULT_PRIVACY_SETTINGS.aiCoaching,
+      workoutSharing:
+        typeof formData.privacyWorkoutSharing !== "undefined"
+          ? formData.privacyWorkoutSharing
+          : profile?.privacySettings?.workoutSharing || DEFAULT_PRIVACY_SETTINGS.workoutSharing,
+      progressSharing:
+        typeof formData.privacyProgressSharing !== "undefined"
+          ? formData.privacyProgressSharing
+          : profile?.privacySettings?.progressSharing || DEFAULT_PRIVACY_SETTINGS.progressSharing,
+    };
 
     return (
       <View style={styles.section}>
@@ -390,7 +459,7 @@ export const ProfileEditScreen: React.FC<ProfileEditScreenProps> = () => {
               </Text>
             </View>
             <Switch
-              value={privacySettings.dataSharing || false}
+              value={normalized.dataSharing}
               onValueChange={(value) => updatePrivacySetting("dataSharing", value)}
               trackColor={{ false: "#F2F2F7", true: "#B5CFF8" }}
               thumbColor='#FFFFFF'
@@ -403,7 +472,7 @@ export const ProfileEditScreen: React.FC<ProfileEditScreenProps> = () => {
               <Text style={styles.privacyItemDescription}>Help us improve the app by sharing usage analytics</Text>
             </View>
             <Switch
-              value={privacySettings.analytics !== false}
+              value={normalized.analytics}
               onValueChange={(value) => updatePrivacySetting("analytics", value)}
               trackColor={{ false: "#F2F2F7", true: "#B5CFF8" }}
               thumbColor='#FFFFFF'
@@ -416,7 +485,7 @@ export const ProfileEditScreen: React.FC<ProfileEditScreenProps> = () => {
               <Text style={styles.privacyItemDescription}>Allow AI coaching features to access your workout data</Text>
             </View>
             <Switch
-              value={privacySettings.aiCoaching !== false}
+              value={normalized.aiCoaching}
               onValueChange={(value) => updatePrivacySetting("aiCoaching", value)}
               trackColor={{ false: "#F2F2F7", true: "#B5CFF8" }}
               thumbColor='#FFFFFF'
@@ -429,7 +498,7 @@ export const ProfileEditScreen: React.FC<ProfileEditScreenProps> = () => {
               <Text style={styles.privacyItemDescription}>Allow sharing of workout data with coaches or friends</Text>
             </View>
             <Switch
-              value={privacySettings.workoutSharing || false}
+              value={normalized.workoutSharing}
               onValueChange={(value) => updatePrivacySetting("workoutSharing", value)}
               trackColor={{ false: "#F2F2F7", true: "#B5CFF8" }}
               thumbColor='#FFFFFF'
@@ -442,7 +511,7 @@ export const ProfileEditScreen: React.FC<ProfileEditScreenProps> = () => {
               <Text style={styles.privacyItemDescription}>Allow sharing of progress data and achievements</Text>
             </View>
             <Switch
-              value={privacySettings.progressSharing || false}
+              value={normalized.progressSharing}
               onValueChange={(value) => updatePrivacySetting("progressSharing", value)}
               trackColor={{ false: "#F2F2F7", true: "#B5CFF8" }}
               thumbColor='#FFFFFF'
@@ -492,6 +561,7 @@ export const ProfileEditScreen: React.FC<ProfileEditScreenProps> = () => {
             { id: "basic", title: "Basic" },
             { id: "goals", title: "Goals" },
             { id: "privacy", title: "Privacy" },
+            { id: "preferences", title: "Preferences" },
           ].map((tab) => (
             <TouchableOpacity
               key={tab.id}
@@ -513,6 +583,7 @@ export const ProfileEditScreen: React.FC<ProfileEditScreenProps> = () => {
           {activeSection === "basic" && renderBasicInfoSection()}
           {activeSection === "goals" && renderFitnessGoalsSection()}
           {activeSection === "privacy" && renderPrivacySection()}
+          {activeSection === "preferences" && renderPreferencesSection()}
         </ScrollView>
 
         {/* Global Error Display */}

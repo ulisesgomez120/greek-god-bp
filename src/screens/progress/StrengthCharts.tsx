@@ -105,15 +105,11 @@ const ExerciseCard: React.FC<ExerciseCardProps> = ({ exercise, onPress, timefram
     onPress(exercise);
   };
 
-  const { isImperialWeight } = useUnitPreferences();
+  const { isImperial } = useUnitPreferences();
   const improvementColor = getImprovementColor(exercise.improvement);
   const improvementIcon = getImprovementIcon(exercise.improvement);
-  const displayCurrentMax = formatWeight(exercise.currentMax, isImperialWeight());
-  const displayImprovement = formatImprovement(
-    exercise.improvement,
-    exercise.improvementPercentage,
-    isImperialWeight()
-  );
+  const displayCurrentMax = formatWeight(exercise.currentMax, isImperial());
+  const displayImprovement = formatImprovement(exercise.improvement, exercise.improvementPercentage, isImperial());
 
   return (
     <TouchableOpacity style={styles.exerciseCard} onPress={handlePress} activeOpacity={0.7}>

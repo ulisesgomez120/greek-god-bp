@@ -89,7 +89,7 @@ export const SetLogger: React.FC<SetLoggerProps> = ({
   // ============================================================================
 
   const { triggerHaptic, triggerSetCompleteHaptic } = useHapticFeedback();
-  const { isImperialWeight } = useUnitPreferences();
+  const { isImperial } = useUnitPreferences();
 
   const [state, setState] = useState<SetLoggerState>({
     weight: "",
@@ -124,7 +124,7 @@ export const SetLogger: React.FC<SetLoggerProps> = ({
     if (typeof suggestedWeight !== "undefined" && state.weight === "") {
       // Show suggested weight in user's preferred units (kg or lbs)
       const displayWeight =
-        isImperialWeight() && typeof suggestedWeight === "number"
+        isImperial() && typeof suggestedWeight === "number"
           ? String(roundToNearest(kgToLbs(suggestedWeight), 0.5))
           : suggestedWeight.toString();
       setState((prev) => ({ ...prev, weight: displayWeight }));
@@ -134,7 +134,7 @@ export const SetLogger: React.FC<SetLoggerProps> = ({
     }
     // Only depend on suggestions; avoid re-running due to state changes that happen while typing.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [suggestedWeight, suggestedReps, isImperialWeight]);
+  }, [suggestedWeight, suggestedReps, isImperial]);
 
   // Auto-focus weight input on first set
   useEffect(() => {
@@ -264,7 +264,7 @@ export const SetLogger: React.FC<SetLoggerProps> = ({
     // Validate weight (optional but if provided, must be valid)
     if (state.weight) {
       let weightKgVal: number | null = null;
-      if (isImperialWeight()) {
+      if (isImperial()) {
         weightKgVal = parseDisplayWeightToKg(state.weight);
       } else {
         weightKgVal = parseFloat(state.weight);
@@ -272,7 +272,7 @@ export const SetLogger: React.FC<SetLoggerProps> = ({
 
       const maxKg = 1000;
       if (weightKgVal == null || isNaN(weightKgVal) || weightKgVal < 0 || weightKgVal > maxKg) {
-        if (isImperialWeight()) {
+        if (isImperial()) {
           const maxLbs = roundToNearest(kgToLbs(maxKg), 0.5);
           newErrors.weight = `Weight must be between 0 and ${maxLbs} lbs`;
         } else {
@@ -310,7 +310,7 @@ export const SetLogger: React.FC<SetLoggerProps> = ({
       // Convert displayed weight to kg for storage (metric source-of-truth)
       let weightKgValue: number | undefined = undefined;
       if (state.weight) {
-        if (isImperialWeight()) {
+        if (isImperial()) {
           const parsedKg = parseDisplayWeightToKg(state.weight);
           weightKgValue = parsedKg ?? undefined;
         } else {
@@ -388,7 +388,7 @@ export const SetLogger: React.FC<SetLoggerProps> = ({
   // RENDER HELPERS
   // ============================================================================
 
-  const weightLabel = isImperialWeight() ? "Weight (lbs)" : "Weight (kg)";
+  const weightLabel = isImperial() ? "Weight (lbs)" : "Weight (kg)";
 
   const renderHeader = () => (
     <View style={styles.header}>
@@ -419,7 +419,7 @@ export const SetLogger: React.FC<SetLoggerProps> = ({
             onBlur={() => setFocusedField(null)}
             placeholder='0'
             {...getInputProps("number")}
-            accessibilityLabel={`Exercise weight in ${isImperialWeight() ? "pounds" : "kilograms"}`}
+            accessibilityLabel={`Exercise weight in ${isImperial() ? "pounds" : "kilograms"}`}
           />
           {errors.weight && <Text style={ERROR_STYLES.text}>{errors.weight}</Text>}
         </View>

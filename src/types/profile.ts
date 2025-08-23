@@ -23,6 +23,7 @@ export interface UserProfile {
   fitnessGoals: string[];
   availableEquipment: string[];
   privacySettings: PrivacySettings;
+  preferences?: ProfilePreferences;
   role?: "user" | "premium" | "coach" | "admin";
   stripeCustomerId?: string;
   onboardingCompleted: boolean;
@@ -34,7 +35,7 @@ export interface PrivacySettings {
   dataSharing: boolean;
   analytics: boolean;
   aiCoaching: boolean;
-  profileVisibility: "private" | "friends" | "public";
+  profileVisibility?: "private" | "friends" | "public";
   workoutSharing: boolean;
   progressSharing: boolean;
 }
@@ -63,6 +64,14 @@ export interface ProfileEditData {
   fitnessGoals?: string[];
   privacySettings?: Partial<PrivacySettings>;
   experienceLevel?: ExperienceLevel;
+  preferences?: ProfilePreferences;
+
+  // Normalized privacy fields (frontend will use these when editing privacy)
+  privacyDataSharing?: boolean;
+  privacyAnalytics?: boolean;
+  privacyAiCoaching?: boolean;
+  privacyWorkoutSharing?: boolean;
+  privacyProgressSharing?: boolean;
 }
 
 export interface ExperienceLevelAssessment {
@@ -261,11 +270,10 @@ export interface OnboardingState {
 // ============================================================================
 
 export interface ProfilePreferences {
-  units: {
-    weight: "kg" | "lbs";
-    height: "cm" | "ft_in";
-    distance: "km" | "miles";
-  };
+  // Simplified unit preference: true = metric (kg/cm/km), false = imperial (lbs/ft_in/miles)
+  useMetric: boolean;
+
+  // Keep other non-unit preferences
   notifications: {
     workoutReminders: boolean;
     progressUpdates: boolean;
@@ -282,6 +290,13 @@ export interface ProfilePreferences {
     personality: "gentle" | "balanced" | "challenging";
     frequency: "minimal" | "moderate" | "frequent";
     focusAreas: string[];
+  };
+
+  // Backwards-compat optional legacy units object (will be removed after migration)
+  units?: {
+    weight?: "kg" | "lbs";
+    height?: "cm" | "ft_in";
+    distance?: "km" | "miles";
   };
 }
 
@@ -508,11 +523,8 @@ export const DEFAULT_PRIVACY_SETTINGS: PrivacySettings = {
 };
 
 export const DEFAULT_PROFILE_PREFERENCES: ProfilePreferences = {
-  units: {
-    weight: "lbs",
-    height: "ft_in",
-    distance: "miles",
-  },
+  useMetric: false, // default to imperial during development as previously set
+
   notifications: {
     workoutReminders: true,
     progressUpdates: true,

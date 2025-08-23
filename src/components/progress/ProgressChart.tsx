@@ -125,7 +125,7 @@ function transformDataForChart(data: VolumeDataPoint[] | StrengthDataPoint[], ty
 export const ProgressChart: React.FC<ProgressChartProps> = ({ type, data, timeframe, height = 200, title }) => {
   const stats = useMemo(() => calculateStats(data, type), [data, type]);
   const chartData = useMemo(() => transformDataForChart(data || [], type), [data, type]);
-  const { isImperialWeight } = useUnitPreferences();
+  const { isImperial } = useUnitPreferences();
 
   // Handle empty data
   if (!data || data.length === 0) {
@@ -241,7 +241,7 @@ export const ProgressChart: React.FC<ProgressChartProps> = ({ type, data, timefr
           <Text style={styles.statLabel}>Current</Text>
           <Text style={styles.statValue}>
             {type === "volume" || type === "strength"
-              ? isImperialWeight()
+              ? isImperial()
                 ? formatKgToLbsDisplay(stats.current)
                 : `${Math.round(stats.current)} kg`
               : formatValue(stats.current)}
@@ -262,7 +262,7 @@ export const ProgressChart: React.FC<ProgressChartProps> = ({ type, data, timefr
       <View style={styles.chartInfo}>
         <Text style={styles.chartInfoLabel}>
           {getYAxisLabel(type)}
-          {(type === "volume" || type === "strength") && (isImperialWeight() ? " (lbs)" : " (kg)")}
+          {(type === "volume" || type === "strength") && (isImperial() ? " (lbs)" : " (kg)")}
         </Text>
         <Text style={styles.chartInfoValue}>
           {data.length} data point{data.length !== 1 ? "s" : ""} • {timeframe}

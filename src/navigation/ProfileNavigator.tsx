@@ -11,16 +11,12 @@ import ProfileEditScreen from "../screens/profile/ProfileEditScreen";
 import ExperienceLevelScreen from "../screens/profile/ExperienceLevelScreen";
 import TempSubscriptionScreen from "../screens/subscription/TempSubscriptionScreen";
 
-// Placeholder screens (will be created)
-import { SettingsScreen } from "../screens/profile/SettingsScreen";
-
 // ============================================================================
 // TYPES
 // ============================================================================
 
 export type ProfileStackParamList = {
   Profile: undefined;
-  Settings: undefined;
   Subscription: undefined;
   ExperienceLevel: undefined;
 };
@@ -74,13 +70,6 @@ const ProfileNavigator: React.FC = () => {
         component={ProfileEditScreen}
         options={{
           title: "Profile",
-        }}
-      />
-      <ProfileStack.Screen
-        name='Settings'
-        component={SettingsScreen}
-        options={{
-          title: "Settings",
         }}
       />
       <ProfileStack.Screen
