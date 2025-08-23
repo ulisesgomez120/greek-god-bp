@@ -77,6 +77,8 @@ export const ProfileEditScreen: React.FC<ProfileEditScreenProps> = () => {
   const [weightInput, setWeightInput] = useState<string>("");
   const [birthDateLocal, setBirthDateLocal] = useState<Date | null>(null);
   const [heightPickerValue, setHeightPickerValue] = useState<number | undefined>(undefined);
+  // Only show the numeric custom input when user explicitly selects "Custom"
+  const [allowCustomHeight, setAllowCustomHeight] = useState<boolean>(false);
 
   // ============================================================================
   // INITIALIZATION
@@ -98,6 +100,12 @@ export const ProfileEditScreen: React.FC<ProfileEditScreenProps> = () => {
       // Initialize local display state for conversion-on-save
       setBirthDateLocal(profile.birthDate ? new Date(profile.birthDate) : null);
       setHeightPickerValue(profile.heightCm ?? undefined);
+      // seed custom input so users see existing value when fallback is active
+      setHeightInput(
+        isImperial() ? (profile.heightCm ? formatCmToFtIn(profile.heightCm) : "") : profile.heightCm?.toString() || ""
+      );
+      // default: don't show custom input unless user selects it
+      setAllowCustomHeight(false);
     }
   }, [profile]);
 
@@ -123,7 +131,14 @@ export const ProfileEditScreen: React.FC<ProfileEditScreenProps> = () => {
   // ============================================================================
   // INPUT HANDLERS FOR UNIT-AWARE INPUTS
   // ============================================================================
-  const { preferences, setUseMetric, isImperial, isMetric, loading: prefsLoading } = useUnitPreferences();
+  const {
+    preferences,
+    setUseMetric,
+    isImperial,
+    isMetric,
+    reloadPreferences,
+    loading: prefsLoading,
+  } = useUnitPreferences();
 
   const handleHeightInput = (text: string) => {
     // local display-only; conversion happens on Save
@@ -215,6 +230,12 @@ export const ProfileEditScreen: React.FC<ProfileEditScreenProps> = () => {
       const success = await updateProfile(canonical, { optimistic: true });
 
       if (success) {
+        // reload unit preferences so UI reflects updated preference immediately
+        try {
+          await reloadPreferences();
+        } catch (err) {
+          // non-fatal, proceed
+        }
         setHasChanges(false);
         Alert.alert("Success", "Profile updated successfully");
       } else {
@@ -329,13 +350,19 @@ export const ProfileEditScreen: React.FC<ProfileEditScreenProps> = () => {
             // cm === undefined => user selected "Custom"
             setHeightPickerValue(cm);
             setHasChanges(true);
+            // show numeric input only when user explicitly selects Custom
+            setAllowCustomHeight(typeof cm === "undefined");
+            // seed the input when user picks a standard height
+            if (typeof cm === "number") {
+              setHeightInput(isImperial() ? formatCmToFtIn(cm) : String(cm));
+            }
           }}
           unitIsMetric={isMetric()}
           testID='profile-height-picker'
         />
 
-        {/* Custom height input fallback */}
-        {typeof heightPickerValue === "undefined" && (
+        {/* Custom height input fallback (only after user selected Custom) */}
+        {allowCustomHeight && (
           <TextInput
             style={getInputStyle(undefined, getInputState(focusedField === "heightCm", !!errors.heightCm))}
             value={heightInput}
@@ -645,7 +672,11 @@ export const ProfileEditScreen: React.FC<ProfileEditScreenProps> = () => {
         </View>
 
         {/* Section Tabs */}
-        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.tabsScrollContent}>
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          contentContainerStyle={styles.tabsScrollContent}
+          style={styles.tabsScroll}>
           {[
             { id: "basic", title: "Basic" },
             { id: "goals", title: "Goals" },
@@ -718,7 +749,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "space-between",
     paddingHorizontal: 20,
-    paddingVertical: 16,
+    paddingVertical: 8,
     borderBottomWidth: 1,
     borderBottomColor: "#F2F2F7",
   },
@@ -749,8 +780,8 @@ const styles = StyleSheet.create({
   tabsContainer: {
     flexDirection: "row",
     paddingHorizontal: 20,
-    paddingVertical: 16,
-    gap: 12,
+    paddingVertical: 6,
+    gap: 8,
     borderBottomWidth: 1,
     borderBottomColor: "#F2F2F7",
   },
@@ -777,16 +808,21 @@ const styles = StyleSheet.create({
     color: "#B5CFF8",
     fontWeight: "600",
   },
+  // Scrollable tabs container (wraps horizontal ScrollView)
+  tabsScroll: {
+    maxHeight: 44,
+    paddingVertical: 0,
+  },
   // Scrollable tabs content container style
   tabsScrollContent: {
     paddingHorizontal: 12,
-    paddingVertical: 8,
+    paddingVertical: 4,
     alignItems: "center",
   },
   // Scrollable tab button styles
   tabButtonScrollable: {
-    paddingVertical: 10,
-    paddingHorizontal: 14,
+    paddingVertical: 6,
+    paddingHorizontal: 12,
     borderRadius: 12,
     borderWidth: 2,
     borderColor: "#F2F2F7",
@@ -811,10 +847,10 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   scrollViewContent: {
-    padding: 20,
+    padding: 12,
   },
   section: {
-    marginBottom: 32,
+    marginBottom: 20,
   },
   sectionTitle: {
     fontSize: 22,

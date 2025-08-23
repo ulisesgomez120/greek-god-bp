@@ -1,6 +1,6 @@
 import React, { useMemo, useState } from "react";
 import { View, Text, TouchableOpacity, Modal, FlatList, StyleSheet, GestureResponderEvent } from "react-native";
-import { formatCmToFtIn } from "@/utils/unitConversions";
+import { formatCmToFtIn, feetInchesToCm } from "@/utils/unitConversions";
 
 interface Props {
   valueCm?: number | null;
@@ -24,17 +24,37 @@ export default function HeightPicker({ valueCm, onChange, unitIsMetric, style, t
   const [open, setOpen] = useState(false);
 
   const heights = useMemo(() => {
-    const min = 100;
-    const max = 220;
+    // Metric: generate a simple 100-220cm list
+    if (unitIsMetric) {
+      const min = 100;
+      const max = 220;
+      const arr: number[] = [];
+      for (let cm = min; cm <= max; cm++) {
+        arr.push(cm);
+      }
+      return arr;
+    }
+
+    // Imperial: generate unique ft/in display options from 4'0" through 7'2"
+    // Convert each ft/in to cm (rounded) and dedupe to avoid duplicate keys.
     const arr: number[] = [];
-    for (let cm = min; cm <= max; cm++) {
-      arr.push(cm);
+    const seen = new Set<number>();
+    for (let ft = 4; ft <= 7; ft++) {
+      const maxIn = ft === 7 ? 2 : 11;
+      for (let inch = 0; inch <= maxIn; inch++) {
+        const cm = Math.round(feetInchesToCm(ft, inch));
+        if (!seen.has(cm)) {
+          seen.add(cm);
+          arr.push(cm);
+        }
+      }
     }
     return arr;
-  }, []);
+  }, [unitIsMetric]);
 
   const displayFor = (cm?: number | null) => {
-    if (cm == null) return "Custom";
+    // When no value is set show a clear prompt
+    if (cm == null) return "Select height";
     return unitIsMetric ? `${cm} cm` : formatCmToFtIn(cm);
   };
 
@@ -67,7 +87,7 @@ export default function HeightPicker({ valueCm, onChange, unitIsMetric, style, t
             testID='height-picker-list'
           />
           <TouchableOpacity style={styles.option} onPress={handleSelect(undefined)} testID='height-option-custom'>
-            <Text style={[styles.optionText, styles.customText]}>Custom</Text>
+            <Text style={[styles.optionText, styles.customText]}>Custom (enter manually)</Text>
           </TouchableOpacity>
 
           <TouchableOpacity style={styles.closeButton} onPress={() => setOpen(false)} testID='height-picker-close'>
