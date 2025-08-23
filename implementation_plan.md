@@ -1,217 +1,247 @@
-# TrainSmart Metric → Imperial Conversion Implementation Plan
+# Implementation Plan
 
-## Goal
+[Overview]
+Single sentence describing the overall goal.
 
-Allow users to view and enter workout data using imperial units (lbs, ft/in, miles) while continuing to store all data in metric units (kg, cm, km) in the database. Prioritize the working workout logging flow (program → exercise logging) and implement a conversion layer + preferences so the rest of the app can switch later with minimal changes.
+Fix ProfileEditScreen state/units handling and inputs so height/weight are edited as local display strings (no conversion while typing), birthday is a date picker, height is a select/picker, conversions only happen when saving (same pattern used by SetLogger), and verify profile updates persist correctly with the database changes (use_metric boolean, removed preferences/privacy_settings JSONB).
 
-## High-level approach
+Multiple paragraphs outlining the scope, context, and high-level approach. Explain why this implementation is needed and how it fits into the existing system.
 
-- Keep database schema unchanged (store metric).
-- Add a conversion layer: metric ↔ imperial.
-- Add a unit preference manager (hook + persisted storage) using existing `ProfilePreferences` where possible.
-- Convert input from imperial → metric before persisting.
-- Format and display stored metric values into imperial for UI when user preference = imperial.
-- Prefer small, targeted changes to components used in workout logging: `SetLogger`, `ExerciseCard`, `ExerciseDetailScreen`, `WorkoutSummaryScreen`.
-- Update validation rules to accept imperial input (and convert to metric for validation/ storage), while not changing server-side validation (server still expects metric).
+This change targets the profile edit UX regressions you reported: weight not passed, height cleared after focus change, and inconsistent handling of birthDate input formats. The current ProfileEditScreen converts on blur and mixes local display state with canonical form data causing race conditions and clearing. The SetLogger component demonstrates a robust pattern: store display strings locally while editing, convert to canonical types only at submission, and keep the UI in user's preferred units. We'll apply the same pattern across ProfileEditScreen.
 
-## Files to add / modify
+Scope:
 
-Primary files to add:
+- ProfileEditScreen.tsx: main UX and state changes (height, weight, birthDate, units).
+- Add a simple HeightPicker component (inline or new file) to pick standard heights in cm or ft/in.
+- Replace birthDate text input with a date picker UI (platform-aware).
+- Modify save flow to convert display values into canonical cm/kg/date before calling updateProfile.
+- Verify profile.service handling of use_metric and normalized privacy columns; ensure no DB migrations required beyond existing migration that added use_metric and dropped preferences.
+- Add unit tests for conversion-on-save logic (where practical) and an interactive test plan.
 
-- src/utils/unitConversions.ts (new) — conversion functions and formatting helpers
-- src/hooks/useUnitPreferences.ts (new) — react hook to read & write unit prefs from storage & profile service
-- src/utils/formatters.ts (update) — reuse or add formatting for height/weight display
-- src/constants/progressionRules.ts (update) — expose kg-based rules and helpers to get imperial display values
-- implementation_plan.md (this file)
+High-level approach:
 
-Primary files to update (minimal, localized edits):
+- Use local display-only state (strings or Date) for problematic fields to avoid re-render/formatting interference.
+- Do NOT convert or write canonical numeric values to formData while user is typing; only when saving.
+- Use existing unit conversion utilities (parseDisplayWeightToKg, parseDisplayHeightToCm, format helpers) when converting on save.
+- Use a date picker component (platform-native via @react-native-community/datetimepicker or RN built-in if available) for birthDate input to avoid format variability.
+- Provide a height selector/dropdown that covers typical user heights for fast selection. Keep a "custom" option that allows numeric entry if needed.
 
-- src/components/workout/SetLogger.tsx
-- src/components/workout/ExerciseCard.tsx
-- src/screens/workout/ExerciseDetailScreen.tsx
-- src/screens/workout/WorkoutSummaryScreen.tsx
-- src/utils/validation.ts
-- src/config/constants.ts (validation ranges / storage keys adjustments optional)
-- src/types/profile.ts (already contains ProfilePreferences; ensure saved/persisted usage)
+[Types]  
+Single sentence describing the type system changes.
 
-## Design & Decisions
+No core type shape changes required; introduce local input types and ensure conversions produce fields matching ProfileEditData (heightCm:number, weightKg:number, birthDate:string).
 
-- Data storage: metric only (no DB migration).
-- Display & input: follow user's preference — by default DEFAULT_PROFILE_PREFERENCES already chooses imperial but app may not persist it; hook will read persisted preferences and fall back to defaults.
-- Height: use feet & inches format (e.g., 5'10"); provide input helpers to capture feet and inches separately or accept single string and parse.
-- Weight rounding for display: Round to nearest 0.5 lb (per requirements). For progression increments, map kg increments to practical lb increments (e.g., 2.5kg → 5.5 lbs → round to 5 lbs).
-- Progression rules: Store progression increments in kg (source of truth). Provide helper to compute approximate lb increment for display; do NOT use imperial values as truth.
-- Validation: Keep server-side validation in kg. Client-side will accept imperial values and convert to kg before validating with existing numeric ranges.
+Detailed type definitions, interfaces, enums, or data structures with complete specifications. Include field names, types, validation rules, and relationships.
 
-## Conversion rules / rounding
+- New UI-local types (internal to ProfileEditScreen, not exported):
+  - HeightDisplay: { display: string } (string for shown value, e.g., "170" or "5'10\"")
+  - WeightDisplay: string (e.g., "180" for lbs or "80" for kg; kept as string while editing)
+  - BirthDateDisplay: Date | null (selected JS Date)
+- Existing ProfileEditData (from src/types/profile.ts) remains canonical:
+  - displayName?: string
+  - heightCm?: number (integer, optional, validated 100-250)
+  - weightKg?: number (float, optional, validated 30-300)
+  - birthDate?: string (ISO date "YYYY-MM-DD")
+  - gender?: Gender
+  - fitnessGoals?: string[]
+  - privacySettings?: Partial<PrivacySettings>
+  - experienceLevel?: ExperienceLevel
+  - preferences?: ProfilePreferences (NOTE: preferences JSONB dropped in DB — profile.service maps use_metric to preferences.useMetric)
+  - Normalized privacy booleans as used by the frontend (privacyDataSharing, etc.)
 
-- 1 kg = 2.20462 lbs
-- Display weight in lbs rounded to nearest 0.5 lb: roundToNearest(valueInLbs, 0.5)
-- On input in lbs, convert to kg with: kg = lbs / 2.20462 (store float with reasonable precision)
-- Display height: convert cm → ft/in. Example: 178 cm → 5'10" (floor inches, round remaining to nearest 0.5" if needed)
-- On height input in ft/in, convert to cm for storage: cm = (ft _ 12 + in) _ 2.54
-- Volume: totalVolumeKg from server → convert to lbs for display (multiply by 2.20462), round to integer or 0.5 lb per UX choice (recommend integer for aggregates)
-- Progression conversion: map kg increments → lbs, then map to nearest practical plate increment:
-  - barbell: 2.5 kg → 5.5 lb → show 5 lb (or `~5.5 lbs`) — recommendation: show rounded to 5 lb and include note in tooltip if precise needed.
+Validation rules:
 
-## API / Persistence considerations
+- Height canonical (heightCm): integer between 100 and 250 inclusive.
+- Weight canonical (weightKg): float between 30 and 300 inclusive.
+- BirthDate canonical: string in ISO format; computed age must be >=13 and reasonable (<100).
+- When validating on save, parse display values using existing utilities and apply the above rules.
 
-- When persisting sets via workoutService.addExerciseSet, SetLogger must convert user-entered weight (lbs if imperial user) into kg and call the service with weightKg.
-- When reading sets (history, summary), components receive kg from service and must format for display using unit preference hook.
-- When updating profile preferences, use existing profile.service functions to save preferences (if present) and also persist locally (STORAGE_KEYS.async.userPreferences).
-- No backend changes required for storage, syncing, or server validation.
+[Files]
+Single sentence describing file modifications.
 
-## Implementation breakdown (ordered tasks)
+Modify ProfileEditScreen, add height picker component file, update imports, and update tests; no DB migration files required.
 
-Phase A — Foundation
+Detailed breakdown:
 
-1. Create `src/utils/unitConversions.ts`
+- New files to be created (with full paths and purpose)
 
-   - Exported functions:
-     - kgToLbs(kg: number): number
-     - lbsToKg(lbs: number): number
-     - roundToNearest(value: number, step: number): number
-     - cmToFeetInches(cm: number): { ft: number; in: number }
-     - feetInchesToCm(ft: number, inches: number): number
-     - formatLbsForDisplay(kgOrLbs: number, inputIsKg?: boolean): string // returns "180 lbs" (rounded)
-     - formatCmToFtIn(cm: number): string // returns `5'10"`
-     - parseWeightInput(input: string): number | null // parse "180", "180.5", "180 lb"
-     - parseHeightInput(input: string): { ft?: number; in?: number } | null
-   - Add unit tests locally (describe math and rounding behavior).
-   - Keep functions pure and documented.
+  - src/screens/profile/components/HeightPicker.tsx
+    - Purpose: small reusable height selection component. Exposes props:
+      - valueCm?: number | undefined
+      - onChange: (valueCm?: number) => void
+      - unitIsMetric: boolean
+      - style?: any
+    - Behavior: shows a Picker/select with common heights (100cm–220cm in 1cm increments via sections, or imperial display 4'0"–7'3" by mapping). Include a "Custom" option that when selected emits undefined so the parent can show a numeric input.
+  - (Optional) src/components/ui/DateInput.tsx
+    - Purpose: wrapper around platform date picker providing a consistent button/display. Exposes:
+      - value?: Date | null
+      - onChange: (d: Date | null) => void
+      - maximumDate?: Date
+      - minimumDate?: Date
+    - If project already uses or prefers a datepicker lib, reuse it instead of creating.
 
-2. Create `src/hooks/useUnitPreferences.ts`
-   - Reads preferences from Redux `selectUser` or from async storage fallback `STORAGE_KEYS.async.userPreferences`.
-   - Provides:
-     - current preferences
-     - setter: setUnitPreferences()
-     - helpers: isImperialWeight(), isImperialHeight()
-   - Persist changes to async storage and call `profile.service.updatePreferences` if logged in.
+- Existing files to be modified (with specific changes)
 
-Phase B — Conversion + Formatting 3. Add formatting glue in `src/utils/formatters.ts` (or extend if existing):
+  - src/screens/profile/ProfileEditScreen.tsx
+    - Replace edit flow for height and weight:
+      - Remove conversion logic in onBlur for heightInput/weightInput.
+      - Add local state:
+        - heightDisplay: string (for showing current display value or "")
+        - weightDisplay: string
+        - birthDateLocal: Date | null
+      - Initialize local states from profile in useEffect.
+      - On input change, update local display states only (no conversions).
+      - Replace Birth Date TextInput with DateInput/date picker component and manage birthDateLocal as Date.
+      - Replace Height TextInput with HeightPicker component. If HeightPicker returns undefined (Custom), show a numeric TextInput for custom entry bound to heightDisplay. If HeightPicker returns a value, set heightDisplay to formatted string for display only.
+      - Modify handleSave so that before calling updateProfile it:
+        - Parses weightDisplay into weightKg using parseDisplayWeightToKg if imperial or parseFloat if metric.
+        - Parses heightDisplay into cm using parseDisplayHeightToCm if imperial or parseInt if metric; if using HeightPicker value (already cm), use it directly.
+        - Converts birthDateLocal to ISO string ("YYYY-MM-DD") and set to formData.birthDate.
+        - Construct the ProfileEditData object with canonical fields and call updateProfile(formEditData, { optimistic:true }).
+      - Keep other fields behavior unchanged.
+    - Update imports to include new HeightPicker and DateInput and adjust getInputProps usage.
+    - Keep preferences toggle behavior: updateFormData should still set preferences.useMetric so profileService.updateProfile persists use_metric (profile.service handles updates.preferences -> use_metric mapping).
 
-- weightDisplay(kg: number | undefined, prefs): string
-- heightDisplay(cm: number | undefined, prefs): string
+- Files to be deleted or moved
 
-Phase C — Component updates (workout-first) 4. Update `src/components/workout/SetLogger.tsx`
+  - None.
 
-- Replace static "Weight (kg)" label with computed label based on prefs: `Weight (kg)` or `Weight (lbs)`
-- Accept imperial input:
-  - If user uses lbs: allow decimal numbers, round only for display. On change, keep raw lbs string in state.
-  - When constructing `ExerciseSetFormData`, convert to weightKg using `lbsToKg` before passing to onSetComplete.
-- Validation:
-  - Instead of checking kg ranges directly, convert input to kg then validate using the existing validateForm logic or constants.
-  - Update error messages to show units appropriate to user's preference.
-  - For fast change, in SetLogger adjust validateForm to convert state.weight (string) to metric before comparing against VALIDATION.workout.maxWeight etc.
-- Suggested weight prop remains as kg from parent; convert to display units for filling input (use kgToLbs if prefs === lbs).
+- Configuration file updates
+  - If choosing an external datepicker package, add to package.json:
+    - @react-native-community/datetimepicker (recommended) — or a single dependency for date picker preferred by the project.
+  - Add any TypeScript types if necessary.
+  - No DB migrations required: existing migration supabase/migrations/20250822000001_add_use_metric_and_drop_preferences.sql already applied. We must verify backend respects normalized privacy columns (profile.service already handles them).
 
-5. Update `src/components/workout/ExerciseCard.tsx`
+[Functions]
+Single sentence describing function modifications.
 
-   - Wherever `{set.weightKg ? `${set.weightKg}kg` ...}` appears, replace with `weightDisplay(set.weightKg, prefs)`
-   - ProgressionRecommendation.suggestedWeight: currently computed in kg (`lastWeight + 2.5`). When showing suggestion to users with imperial preference, convert suggestedWeight to lbs and format using roundToNearest step 0.5 or practical rules. Also update suggestion label `Try ${value}kg` → use formatter.
+Add conversion-on-save logic in the save handler and create helper utilities/components for height/date UI; no changes to profile.service logic besides ensuring mapping of preferences.useMetric to use_metric remains.
 
-6. Update `src/screens/workout/ExerciseDetailScreen.tsx`
+Detailed breakdown:
 
-   - Completed sets listing: convert `set.weightKg` to display via `weightDisplay`.
-   - Exercise history: convert session.sets weight fields accordingly.
-   - Suggested values passed into SetLogger: convert `suggestedWeight` (kg) → display units if SetLogger expects display units. Decision: keep SetLogger suggestedWeight prop as kg (current API) and let SetLogger convert to display units when rendering; less surface change.
-   - Ensure SetLogger `suggestedWeight` behavior preserved: if SetLogger input empty, fill with suggestedWeight converted to display units.
+- New functions (name, signature, file path, purpose)
 
-7. Update `src/screens/workout/WorkoutSummaryScreen.tsx`
-   - Replace raw `session.totalVolumeKg` display with conversion to lbs when prefs = imperial. Format as `X lbs` (round to integer recommended for totals).
-   - Each set display: use `weightDisplay`.
+  - formatCmToPickerDisplay(cm: number, unitIsMetric: boolean): string
+    - Location: src/screens/profile/components/HeightPicker.tsx (helper)
+    - Purpose: convert cm into display string for picker (e.g., "170 cm" or "5'7\"").
+  - parseHeightDisplayToCm(display: string, unitIsMetric: boolean): number | null
+    - Location: src/screens/profile/ProfileEditScreen.tsx (local helper or import from utils if generic)
+    - Purpose: parse custom height string entered by user into integer cm using existing parseDisplayHeightToCm utility or small wrapper.
+  - formatDateToISO(d: Date): string
+    - Location: src/components/ui/DateInput.tsx or src/screens/profile/ProfileEditScreen.tsx helper
+    - Purpose: output "YYYY-MM-DD" for storage.
 
-Phase D — Validation & Progression constants 8. Update `src/utils/validation.ts`
+- Modified functions (exact name, current file path, required changes)
 
-- Do not change server-side validation. Client-side change:
-  - Expose helper `validateWeightInput(value: string, prefs)` that converts display input into kg and validates value against current VALIDATION.profile.weight range.
-  - For height, add `validateHeightInput` that parses ft/in into cm then uses existing range.
-- Use these helpers in `ProfileSetupScreen` and `ProfileEditScreen` where appropriate.
+  - handleSave -> src/screens/profile/ProfileEditScreen.tsx
 
-9. Update `src/constants/progressionRules.ts` (or the place constants come from)
-   - Keep progression increments in kg as source of truth.
-   - Provide `getProgressionDisplayValue(incrementKg, prefs)` helper that returns formatted string for UI (e.g., `+5 lbs`).
-   - For mapping to practical plates, create `mapKgIncrementToPracticalLb(incrementKg)` simple function:
-     - Convert to lbs and round to nearest 2.5lb or 5lb depending on whether using small dumbbell increments. Document behavior.
+    - Current behavior: uses formData as-is (fields already numeric or strings), conversions happen earlier on blur. Required changes:
+      - Before validating and calling updateProfile, coerce display-only fields into canonical form:
+        - heightCm: from heightDisplay/HeightPicker selection (cm)
+        - weightKg: from weightDisplay using parseDisplayWeightToKg/parseFloat
+        - birthDate: from birthDateLocal -> ISO string
+      - Validate converted values with existing validateForm (may need to adjust validateForm to accept canonical form instead of parsing inside).
+      - Call updateProfile with the canonical ProfileEditData.
 
-Phase E — Preferences UI & persistence 10. Preference persistence - Ensure `ProfilePreferences` is saved and read during app startup. - If there's an existing `useProfile` or profile service hook, integrate hook to read and write preferences through `profile.service.updatePreferences`. - Fallback to `STORAGE_KEYS.async.userPreferences` for unauthenticated users.
+  - validateForm -> src/screens/profile/ProfileEditScreen.tsx
+    - Current behavior: validates formData which previously may have had converted values on blur. Required changes:
+      - Ensure validateForm checks the canonical values produced on-save. If validateForm continues to read formData, make sure handleSave sets canonical values into formData or pass a canonical copy to validateForm to avoid validation mismatches.
 
-11. Optional: Add toggle UI (Settings screen)
-    - Add a simple row in `src/screens/profile/SettingsScreen.tsx` to toggle weight/height units using `useUnitPreferences`.
-    - Keep implementation minimal (a few lines) because user asked primarily to focus on workout logging.
+- Removed functions (name, file path, reason, migration strategy)
+  - Remove ad-hoc onBlur parse handlers for heightInput/weightInput in ProfileEditScreen.tsx:
+    - These will be deleted and replaced with conversion-on-save.
 
-Phase F — Testing 12. Unit tests (recommended) - Add tests for conversion math (kg<->lbs, cm->ft/in) and rounding behavior. - Test parsing of weight and height input strings.
+[Classes]
+Single sentence describing class modifications.
 
-13. Manual testing flow (imperial user)
-    - Confirm default pref = imperial or set preferences manually.
-    - Open program → exercise logging.
-    - Verify SetLogger:
-      - Label shows "Weight (lbs)".
-      - Enter weight as lbs (e.g., 180) and reps; on submit, check that workoutService.addExerciseSet is called with weightKg ≈ 81.65.
-      - Suggested weight passed from previous sets (kg) is shown in lbs in the input when empty.
-    - Verify ExerciseCard:
-      - Previous workout sets display "180 lbs × 8" etc.
-      - Progression tip shows suggested increment in lbs (rounded to practical increment).
-    - Verify ExerciseDetailScreen completed sets and history display imperial units.
-    - Verify WorkoutSummaryScreen total volume displays in lbs (and exam plain conversion).
-    - Edge cases: bodyweight (BW) remains unaffected, zero/empty values handled gracefully.
-    - Test height input and profile update flows: entering 5'10" converts to 178 cm in stored profile.
+No class-level changes required.
 
-## Implementation details & code snippets
+Detailed breakdown:
 
-1. Example utility (src/utils/unitConversions.ts) — core functions:
+- New classes (name, file path, key methods, inheritance)
 
-- kgToLbs(kg) => kg \* 2.20462
-- lbsToKg(lbs) => lbs / 2.20462
-- roundToNearest(value, step) => Math.round(value / step) \* step
-- cmToFeetInches(cm) => totalInches = cm / 2.54; ft = Math.floor(totalInches / 12); in = Math.round(totalInches - ft\*12)
-- feetInchesToCm(ft, inches) => (ft*12 + inches) * 2.54
+  - None (components and helpers via functions).
 
-2. SetLogger changes (high level)
+- Modified classes (exact name, file path, specific modifications)
 
-- Replace static label:
-  - const { prefs } = useUnitPreferences();
-  - const weightLabel = prefs.units.weight === "lbs" ? "Weight (lbs)" : "Weight (kg)";
-- When rendering input value:
-  - if (prefs.units.weight === "lbs") display kgToLbs(suggestedWeight) rounded to nearest 0.5
-- When submitting:
-  - if (prefs.units.weight === "lbs") convert parseFloat(state.weight) -> kg via lbsToKg before building ExerciseSetFormData.weightKg
+  - None.
 
-3. Formatting helpers
+- Removed classes (name, file path, replacement strategy)
+  - None.
 
-- weightDisplay(kg, prefs) returns:
-  - if (!kg) return "BW"
-  - if prefs weight === "lbs" -> `${roundToNearest(kgToLbs(kg), 0.5)} lbs` else `${kg} kg`
+[Dependencies]
+Single sentence describing dependency modifications.
 
-## Acceptance criteria
+Add a lightweight datepicker dependency if the project has none; otherwise reuse existing datepicker; no database dependency changes required.
 
-- Workout logging flow (program → exercise → log set) works identical to prior behavior for metric users.
-- Imperial users see labels, inputs, suggestions, and history in imperial units but underlying storage remains metric.
-- Validation of inputs still performed against metric ranges (client converts inputs to metric before validation).
-- No DB migration necessary.
-- Changes are limited to files listed above to reduce surface area and avoid touching known-bug screens.
+Details of new packages, version changes, and integration requirements.
 
-## Rollout plan & risk mitigation
+- Recommended (choose one based on project conventions):
+  - @react-native-community/datetimepicker — cross-platform native date picker
+    - Add to package.json and run yarn/npm install.
+    - Reason: native look & feel and fewer UI surprises.
+  - Alternative: react-native-modal-datetime-picker if modal UX is preferred (requires @react-native-community/datetimepicker as peer).
+- If you prefer to avoid adding dependencies, implement a simple text-to-date parse helper and use a modal for date selection, but this is lower UX quality than native picker.
+- No DB migrations required. ProfileService already supports use_metric boolean and normalized privacy columns.
 
-- Implement changes behind a feature flag (if possible) to enable quick rollback.
-- Deploy incrementally: modify UI and utils (client-side) first; do not change server behavior.
-- Test synchronisation flows: ensure stored kg values are identical to pre-change behavior when converting back and forth.
-- Document conversion rules in README/developer docs.
+[Testing]
+Single sentence describing testing approach.
 
-## Next steps for Act Mode
+Add unit tests and manual verification steps for conversion-on-save behavior, and run end-to-end-like checks by editing profile and ensuring DB row values are correct.
 
-I will implement these changes in the following order (small commits, one area at a time):
+Test file requirements, existing test modifications, and validation strategies.
 
-- [x] Create this implementation plan file
-- [ ] Add `src/utils/unitConversions.ts` and tests
-- [ ] Add `src/hooks/useUnitPreferences.ts`
-- [ ] Update `src/components/workout/SetLogger.tsx`
-- [ ] Update `src/components/workout/ExerciseCard.tsx`
-- [ ] Update `src/screens/workout/ExerciseDetailScreen.tsx`
-- [ ] Update `src/screens/workout/WorkoutSummaryScreen.tsx`
-- [ ] Update `src/utils/validation.ts` client helpers
-- [ ] Update progression display helpers
-- [ ] Manual testing & QA pass
-- [ ] Optional: Settings toggle UI and persistence tweaks
+- Unit tests:
+  - src/screens/profile/**tests**/ProfileEditScreen.unit.tsx
+    - Tests:
+      - When editing weight (imperial), entering "180" and saving results in updateProfile called with weightKg ~= 81.65 (use parseDisplayWeightToKg).
+      - When editing height via HeightPicker selecting "170 cm", saving results in heightCm=170.
+      - Birth date selection with DateInput converts to ISO string stored in updateProfile payload.
+      - Toggle units (Use Metric Units) updates preferences.useMetric and Save persists use_metric via updates.preferences mapping.
+  - Use jest + react-test-renderer / @testing-library/react-native for component tests.
+- Manual tests:
+  - Start app, open Profile > Edit
+  - Switch to Preferences -> toggle units and Save, confirm DB user_profiles.use_metric updated (via API or database viewer).
+  - Edit weight in imperial (lbs), Save, verify weightKg in DB.
+  - Edit height using HeightPicker (imperial mode), Save, verify heightCm in DB.
+  - Edit birth date using date picker, Save, verify birth_date in DB is ISO string and validate age rules.
+- Validation strategies:
+  - Keep existing validateForm rules but ensure they run against canonical values produced on Save.
+  - Include tests for edge values (age < 13, weight too low/high, height too low/high).
 
-If you want me to start implementing the code, toggle to Act mode (switch the Plan/Act toggle to Act mode). After you switch, I'll begin by adding `src/utils/unitConversions.ts` and the unit preference hook, then update SetLogger to support imperial input.
+[Implementation Order]
+Single sentence describing the implementation sequence.
+
+Implement UI-local changes and helpers first, wire conversion-on-save logic next, add tests, then run manual verification and dependency installs if needed.
+
+Numbered steps showing the logical order of changes to minimize conflicts and ensure successful integration.
+
+1. Add HeightPicker component (src/screens/profile/components/HeightPicker.tsx) and DateInput wrapper (optional). Keep these changes isolated and unit-testable.
+2. Modify ProfileEditScreen.tsx:
+   - Add local display states (heightDisplay, weightDisplay, birthDateLocal).
+   - Replace height/weight/birth fields with new UI components/inputs bound to local state.
+   - Remove onBlur conversion logic; do not mutate formData during typing.
+   - Update the Save handler to convert local display values into canonical ProfileEditData (heightCm, weightKg, birthDate ISO) and call validateForm against this canonical copy; then call updateProfile with canonical data (optimistic:true).
+   - Ensure preferences.useMetric mapping remains working (updateFormData for preferences can still be used to update UI).
+3. Update validateForm to accept a canonical ProfileEditData argument or ensure handleSave writes canonical values into formData prior to calling validateForm.
+4. Add/adjust unit tests for conversion-on-save.
+5. If adding a new dependency (date picker), run npm/yarn install and update project configuration; commit package.json changes.
+6. Run manual QA:
+   - Edit display name, weight, height, birthDate, gender, goals, privacy toggles, units toggle; save and confirm DB values are correct.
+   - Confirm no clearing/typing issues for height/weight/birthDate when switching inputs.
+7. Address any minor style/import issues and run the app on iOS/Android simulators to confirm native datepicker behavior.
+8. Merge and ship.
+
+Notes / Edge Cases / Rationale:
+
+- We deliberately avoid converting during typing. This prevents UI flicker, formatting that interferes with editing, and clearing due to conflicting conversions.
+- Height selection: using a picker with common values covers the majority of users. Provide a "Custom" fallback so edge-case heights can still be entered.
+- The profileService already maps updates.preferences.useMetric => use_metric column, and reads use_metric to synthesize preferences on fetch. No DB migration is necessary beyond what you've already applied.
+- If you want the "units" toggle to immediately persist server-side, call updateProfile({ preferences: { useMetric: val } }, { optimistic: true }) on toggle. The existing useUnitPreferences.setUseMetric writes to local storage and redux only; depending on product preference you might persist to server immediately or defer until Save. I'll keep current behavior (local + setUseMetric) but the profile save will persist the use_metric value if present in preferences in the update payload.
+
+Implementation artifacts:
+
+- implementation_plan.md (this document) saved at project root.
+- New task created referencing this document with step-by-step task_progress and shell commands for reading sections.
+
+Proceeding to create the implementation task now.

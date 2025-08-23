@@ -31,6 +31,9 @@ import {
   formatCmToFtIn,
 } from "@/utils/unitConversions";
 import type { UserProfile, ProfileEditData, PrivacySettings, FitnessGoal } from "@/types/profile";
+import HeightPicker from "./components/HeightPicker";
+import DateInput from "@/components/ui/DateInput";
+import { format as formatDate } from "date-fns";
 import {
   DEFAULT_FITNESS_GOALS,
   EXPERIENCE_LEVELS,
@@ -72,6 +75,8 @@ export const ProfileEditScreen: React.FC<ProfileEditScreenProps> = () => {
   // Local controlled inputs to avoid formatting interfering with typing
   const [heightInput, setHeightInput] = useState<string>("");
   const [weightInput, setWeightInput] = useState<string>("");
+  const [birthDateLocal, setBirthDateLocal] = useState<Date | null>(null);
+  const [heightPickerValue, setHeightPickerValue] = useState<number | undefined>(undefined);
 
   // ============================================================================
   // INITIALIZATION
@@ -90,6 +95,9 @@ export const ProfileEditScreen: React.FC<ProfileEditScreenProps> = () => {
         // include preferences so form saves use_metric when present
         preferences: profile.preferences || undefined,
       });
+      // Initialize local display state for conversion-on-save
+      setBirthDateLocal(profile.birthDate ? new Date(profile.birthDate) : null);
+      setHeightPickerValue(profile.heightCm ?? undefined);
     }
   }, [profile]);
 
@@ -118,59 +126,93 @@ export const ProfileEditScreen: React.FC<ProfileEditScreenProps> = () => {
   const { preferences, setUseMetric, isImperial, isMetric, loading: prefsLoading } = useUnitPreferences();
 
   const handleHeightInput = (text: string) => {
-    if (isImperial()) {
-      const cm = parseDisplayHeightToCm(text);
-      updateFormData({ heightCm: cm != null ? Math.round(cm) : undefined });
-    } else {
-      updateFormData({ heightCm: text ? parseInt(text) : undefined });
-    }
+    // local display-only; conversion happens on Save
+    setHeightInput(text);
   };
 
   const handleWeightInput = (text: string) => {
-    if (isImperial()) {
-      const kg = parseDisplayWeightToKg(text);
-      updateFormData({ weightKg: kg != null ? Number(kg.toFixed(2)) : undefined });
-    } else {
-      updateFormData({ weightKg: text ? parseFloat(text) : undefined });
-    }
+    // local display-only; conversion happens on Save
+    setWeightInput(text);
   };
 
-  const validateForm = useCallback((): boolean => {
-    const newErrors: FormErrors = {};
+  const validateForm = useCallback(
+    (dataToValidate?: ProfileEditData): boolean => {
+      const data = dataToValidate || formData;
+      const newErrors: FormErrors = {};
 
-    if (formData.displayName && formData.displayName.trim().length < 2) {
-      newErrors.displayName = "Display name must be at least 2 characters";
-    }
-
-    if (formData.heightCm && (formData.heightCm < 100 || formData.heightCm > 250)) {
-      newErrors.heightCm = "Height must be between 100cm and 250cm";
-    }
-
-    if (formData.weightKg && (formData.weightKg < 30 || formData.weightKg > 300)) {
-      newErrors.weightKg = "Weight must be between 30kg and 300kg";
-    }
-
-    if (formData.birthDate) {
-      const birthDate = new Date(formData.birthDate);
-      const today = new Date();
-      const age = today.getFullYear() - birthDate.getFullYear();
-
-      if (age < 13) {
-        newErrors.birthDate = "You must be at least 13 years old";
+      if (data.displayName && data.displayName.trim().length < 2) {
+        newErrors.displayName = "Display name must be at least 2 characters";
       }
-    }
 
-    setErrors(newErrors);
-    return Object.keys(newErrors).length === 0;
-  }, [formData]);
+      if (data.heightCm && (data.heightCm < 100 || data.heightCm > 250)) {
+        newErrors.heightCm = "Height must be between 100cm and 250cm";
+      }
+
+      if (data.weightKg && (data.weightKg < 30 || data.weightKg > 300)) {
+        newErrors.weightKg = "Weight must be between 30kg and 300kg";
+      }
+
+      if (data.birthDate) {
+        const birthDate = new Date(data.birthDate);
+        const today = new Date();
+        const age = today.getFullYear() - birthDate.getFullYear();
+
+        if (age < 13) {
+          newErrors.birthDate = "You must be at least 13 years old";
+        }
+      }
+
+      setErrors(newErrors);
+      return Object.keys(newErrors).length === 0;
+    },
+    [formData]
+  );
 
   const handleSave = useCallback(async () => {
-    if (!validateForm()) {
+    // Build canonical payload from local display state + existing formData
+    const canonical: ProfileEditData = { ...formData };
+
+    // Height: prefer picker value if set, otherwise parse custom input
+    if (typeof heightPickerValue === "number") {
+      canonical.heightCm = Math.round(heightPickerValue);
+    } else if (heightInput) {
+      if (isImperial()) {
+        const cm = parseDisplayHeightToCm(heightInput);
+        canonical.heightCm = cm != null ? Math.round(cm) : undefined;
+      } else {
+        canonical.heightCm = heightInput ? parseInt(heightInput) : undefined;
+      }
+    } else {
+      // leave undefined if not provided
+      canonical.heightCm = undefined;
+    }
+
+    // Weight
+    if (weightInput) {
+      if (isImperial()) {
+        const kg = parseDisplayWeightToKg(weightInput);
+        canonical.weightKg = kg != null ? Number(kg.toFixed(2)) : undefined;
+      } else {
+        canonical.weightKg = weightInput ? parseFloat(weightInput) : undefined;
+      }
+    } else {
+      canonical.weightKg = undefined;
+    }
+
+    // Birth date
+    if (birthDateLocal) {
+      canonical.birthDate = formatDate(birthDateLocal, "yyyy-MM-dd");
+    } else {
+      canonical.birthDate = undefined;
+    }
+
+    // Validate canonical copy
+    if (!validateForm(canonical)) {
       return;
     }
 
     try {
-      const success = await updateProfile(formData, { optimistic: true });
+      const success = await updateProfile(canonical, { optimistic: true });
 
       if (success) {
         setHasChanges(false);
@@ -182,7 +224,7 @@ export const ProfileEditScreen: React.FC<ProfileEditScreenProps> = () => {
       logger.error("Profile update error", error, "profile");
       Alert.alert("Error", "An unexpected error occurred. Please try again.");
     }
-  }, [formData, updateProfile, validateForm]);
+  }, [formData, updateProfile, validateForm, heightInput, weightInput, birthDateLocal, heightPickerValue, isImperial]);
 
   const handleCancel = useCallback(() => {
     if (hasChanges) {
@@ -280,51 +322,44 @@ export const ProfileEditScreen: React.FC<ProfileEditScreenProps> = () => {
       {/* Height Field */}
       <View style={FIELD_STYLES.container}>
         <Text style={LABEL_STYLES.base}>{isImperial() ? "Height (ft/in)" : "Height (cm)"}</Text>
-        <TextInput
-          style={getInputStyle(undefined, getInputState(focusedField === "heightCm", !!errors.heightCm))}
-          value={
-            // while editing, use local input to avoid aggressive formatting
-            focusedField === "heightCm"
-              ? heightInput
-              : isImperial()
-              ? formData.heightCm
-                ? formatCmToFtIn(formData.heightCm)
-                : ""
-              : formData.heightCm?.toString() || ""
-          }
-          onChangeText={(text: string) => {
-            // update local controlled input only while typing
-            setHeightInput(text);
+
+        <HeightPicker
+          valueCm={typeof heightPickerValue === "number" ? heightPickerValue : formData.heightCm}
+          onChange={(cm) => {
+            // cm === undefined => user selected "Custom"
+            setHeightPickerValue(cm);
+            setHasChanges(true);
           }}
-          onFocus={() => {
-            setFocusedField("heightCm");
-            // seed local input with formatted value
-            setHeightInput(
-              isImperial()
-                ? formData.heightCm
-                  ? formatCmToFtIn(formData.heightCm)
-                  : ""
-                : formData.heightCm?.toString() || ""
-            );
-          }}
-          onBlur={() => {
-            setFocusedField(null);
-            // parse the local input and commit to formData
-            if (heightInput) {
-              if (isImperial()) {
-                const cm = parseDisplayHeightToCm(heightInput);
-                updateFormData({ heightCm: cm != null ? Math.round(cm) : undefined });
-              } else {
-                updateFormData({ heightCm: heightInput ? parseInt(heightInput) : undefined });
-              }
-            } else {
-              updateFormData({ heightCm: undefined });
-            }
-            setHeightInput("");
-          }}
-          {...getInputProps(isImperial() ? undefined : "number")}
-          placeholder={isImperial() ? "5'10\"" : "170"}
+          unitIsMetric={isMetric()}
+          testID='profile-height-picker'
         />
+
+        {/* Custom height input fallback */}
+        {typeof heightPickerValue === "undefined" && (
+          <TextInput
+            style={getInputStyle(undefined, getInputState(focusedField === "heightCm", !!errors.heightCm))}
+            value={heightInput}
+            onChangeText={(text: string) => {
+              setHeightInput(text);
+            }}
+            onFocus={() => {
+              setFocusedField("heightCm");
+              setHeightInput(
+                isImperial()
+                  ? formData.heightCm
+                    ? formatCmToFtIn(formData.heightCm)
+                    : ""
+                  : formData.heightCm?.toString() || ""
+              );
+            }}
+            onBlur={() => {
+              setFocusedField(null);
+            }}
+            {...getInputProps(isImperial() ? undefined : "number")}
+            placeholder={isImperial() ? "5'10\"" : "170"}
+          />
+        )}
+
         {errors.heightCm && <Text style={ERROR_STYLES.text}>{errors.heightCm}</Text>}
       </View>
 
@@ -356,17 +391,8 @@ export const ProfileEditScreen: React.FC<ProfileEditScreenProps> = () => {
             );
           }}
           onBlur={() => {
+            // only clear focus; conversion to canonical happens on Save
             setFocusedField(null);
-            if (weightInput) {
-              if (isImperial()) {
-                const kg = parseDisplayWeightToKg(weightInput);
-                updateFormData({ weightKg: kg != null ? Number(kg.toFixed(2)) : undefined });
-              } else {
-                updateFormData({ weightKg: weightInput ? parseFloat(weightInput) : undefined });
-              }
-            } else {
-              updateFormData({ weightKg: undefined });
-            }
             setWeightInput("");
           }}
           {...getInputProps(isImperial() ? undefined : "number")}
@@ -378,17 +404,20 @@ export const ProfileEditScreen: React.FC<ProfileEditScreenProps> = () => {
       {/* Birth Date Field */}
       <View style={FIELD_STYLES.container}>
         <Text style={LABEL_STYLES.base}>Birth Date</Text>
-        <TextInput
-          style={getInputStyle(undefined, getInputState(focusedField === "birthDate", !!errors.birthDate))}
-          value={formData.birthDate || ""}
-          onChangeText={(text: string) => updateFormData({ birthDate: text })}
-          onFocus={() => setFocusedField("birthDate")}
-          onBlur={() => setFocusedField(null)}
-          placeholder='YYYY-MM-DD'
-          autoCorrect={false}
-          spellCheck={false}
-          placeholderTextColor='#8E8E93'
-          selectionColor='#B5CFF8'
+        <DateInput
+          value={birthDateLocal}
+          onChange={(d) => {
+            setBirthDateLocal(d);
+            setHasChanges(true);
+            // clear birthDate error if any
+            setErrors((prev) => {
+              const copy = { ...prev };
+              delete copy.birthDate;
+              return copy;
+            });
+          }}
+          maximumDate={new Date()}
+          testID='profile-birthdate-input'
         />
         {errors.birthDate && <Text style={ERROR_STYLES.text}>{errors.birthDate}</Text>}
       </View>

@@ -58,7 +58,8 @@
     "redux-persist": "^6.0.0",
     "uuid": "^10.0.0",
     "victory-native": "^41.18.0",
-    "zod": "^3.23.8"
+    "zod": "^3.23.8",
+    "@react-native-community/datetimepicker": "^6.7.3"
   },
   "devDependencies": {
     "@babel/core": "^7.25.2",
