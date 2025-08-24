@@ -70,7 +70,7 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
   },
   web: {
     favicon: "./assets/favicon.png",
-    bundler: "webpack",
+    bundler: "metro",
     output: "single",
     lang: "en",
   },
