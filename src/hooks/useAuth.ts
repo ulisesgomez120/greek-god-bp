@@ -38,6 +38,8 @@ import {
   selectSession,
   selectAuthLoading,
   selectAuthError,
+  selectHasBeenInitialized,
+  selectIsInitializing,
 } from "@/store/auth/authSlice";
 
 // ============================================================================
@@ -53,6 +55,8 @@ export function useAuth(): UseAuthReturn {
   const session = useAppSelector(selectSession);
   const globalLoading = useAppSelector(selectAuthLoading);
   const error = useAppSelector(selectAuthError);
+  const isInitializing = useAppSelector(selectIsInitializing);
+  const hasBeenInitialized = useAppSelector(selectHasBeenInitialized);
 
   // Create stable loading states - memoize to prevent unnecessary rerenders
   const loading: AuthLoadingStates = useMemo(
@@ -64,7 +68,7 @@ export function useAuth(): UseAuthReturn {
       passwordReset: globalLoading,
       emailVerification: globalLoading,
       profileUpdate: globalLoading,
-      initialization: globalLoading,
+      initialization: isInitializing,
     }),
     [globalLoading]
   );
@@ -458,9 +462,9 @@ export function useAuth(): UseAuthReturn {
 
     const initializeAuthentication = async () => {
       try {
-        // Only initialize if not already initialized or in progress
-        if (loading.initialization) {
-          logger.info("useAuth: Initialization already in progress, skipping", undefined, "auth");
+        // Prevent initializing if another initialization has already run or is running
+        if (hasBeenInitialized || isInitializing) {
+          logger.info("useAuth: Initialization already in progress or completed, skipping", undefined, "auth");
           return;
         }
 
@@ -491,8 +495,8 @@ export function useAuth(): UseAuthReturn {
       }
     };
 
-    // Only initialize if not already initialized
-    if (!isAuthenticated && !loading.initialization && !error) {
+    // Only initialize once globally (do not re-run per-hook)
+    if (!hasBeenInitialized && !isInitializing && !error) {
       initializeAuthentication();
     }
 
@@ -544,7 +548,9 @@ export function useAuth(): UseAuthReturn {
       session,
       loading,
       error: error || null,
-      isInitialized: !loading.initialization,
+      // Consider the stable "hasBeenInitialized" flag so once initialization
+      // has completed we don't flip back to false if a brief re-init occurs.
+      isInitialized: hasBeenInitialized || !loading.initialization,
 
       // Actions
       login,
@@ -568,6 +574,7 @@ export function useAuth(): UseAuthReturn {
       session,
       loading,
       error,
+      hasBeenInitialized,
       // Stable functions - these shouldn't change unless dispatch changes
       login,
       signup,

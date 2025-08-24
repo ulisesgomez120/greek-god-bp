@@ -5,9 +5,9 @@
 // user profile management, and session persistence
 
 import { createSlice, createAsyncThunk, PayloadAction } from "@reduxjs/toolkit";
-import { createClient } from "@supabase/supabase-js";
 import { ENV_CONFIG } from "../../config/constants";
 import { getTokens, storeTokens, clearTokens, areTokensExpired } from "../../utils/storage";
+import { getAuthenticatedClient } from "@/lib/supabase";
 import { logger } from "../../utils/logger";
 import { profileService } from "../../services/profile.service";
 import type { UserProfile, Session, AuthState, LoginCredentials, SignupData } from "../../types/auth";
@@ -24,22 +24,15 @@ const initialState: AuthState = {
   loading: false,
   error: undefined,
   isInitialized: false,
+  // Stable initialization flags to prevent re-initialization/remount cycles
+  hasBeenInitialized: false,
+  isInitializing: false,
 };
 
 // Global flag to prevent multiple concurrent initializations
 let isInitializationInProgress = false;
 
-// ============================================================================
-// SUPABASE CLIENT
-// ============================================================================
-
-const supabase = createClient(ENV_CONFIG.supabaseUrl, ENV_CONFIG.supabaseAnonKey, {
-  auth: {
-    autoRefreshToken: false, // We handle this manually
-    persistSession: false, // We handle persistence manually
-    detectSessionInUrl: false,
-  },
-});
+import supabase from "@/lib/supabase";
 
 // ============================================================================
 // HELPER FUNCTIONS
@@ -53,14 +46,8 @@ async function mergeUserWithProfile(user: SupabaseUser, accessToken?: string): P
     let profileResult;
 
     if (accessToken) {
-      // Create authenticated client for RLS policies
-      const authenticatedClient = createClient(ENV_CONFIG.supabaseUrl, ENV_CONFIG.supabaseAnonKey, {
-        global: {
-          headers: {
-            Authorization: `Bearer ${accessToken}`,
-          },
-        },
-      });
+      // Use cached/shared authenticated client to avoid creating multiple GoTrueClient instances
+      const authenticatedClient = getAuthenticatedClient(accessToken);
 
       // Use authenticated client to fetch profile
       const { data, error } = await authenticatedClient.from("user_profiles").select("*").eq("id", user.id).single();
@@ -170,10 +157,10 @@ export const initializeAuth = createAsyncThunk("auth/initialize", async (_, { re
       return rejectWithValue("Initialization already in progress");
     }
 
-    // Check if already initialized
+    // Check if already initialized (use stable flag to avoid re-initialization)
     const state = getState() as any;
-    if (state.auth.isInitialized) {
-      logger.info("Authentication already initialized, skipping", undefined, "auth");
+    if (state.auth.isInitialized || state.auth.hasBeenInitialized) {
+      logger.info("Authentication already initialized or completed previously, skipping", undefined, "auth");
       return { user: state.auth.user, session: state.auth.session };
     }
 
@@ -539,12 +526,16 @@ const authSlice = createSlice({
     // Initialize Auth
     builder
       .addCase(initializeAuth.pending, (state) => {
-        state.loading = true;
+        // Track only the initialization-specific loading state to avoid
+        // other auth-related operations (login/signup) from toggling this flag
+        state.isInitializing = true;
         state.error = undefined;
       })
       .addCase(initializeAuth.fulfilled, (state, action) => {
-        state.loading = false;
+        // Initialization finished successfully
+        state.isInitializing = false;
         state.isInitialized = true;
+        state.hasBeenInitialized = true;
         if (action.payload.user && action.payload.session) {
           state.isAuthenticated = true;
           state.user = action.payload.user as any;
@@ -556,8 +547,10 @@ const authSlice = createSlice({
         }
       })
       .addCase(initializeAuth.rejected, (state, action) => {
-        state.loading = false;
+        // Initialization attempted but failed — mark as initialized to avoid retry loops
+        state.isInitializing = false;
         state.isInitialized = true;
+        state.hasBeenInitialized = true;
         state.isAuthenticated = false;
         state.user = null;
         state.session = null;
@@ -708,5 +701,9 @@ export const selectTokensExpiringSoon = (state: { auth: AuthState }) => {
 
   return currentTime >= expirationTime - fiveMinutes;
 };
+
+// Stable initialization selectors
+export const selectHasBeenInitialized = (state: { auth: AuthState }) => !!state.auth.hasBeenInitialized;
+export const selectIsInitializing = (state: { auth: AuthState }) => !!state.auth.isInitializing;
 
 export default authSlice.reducer;

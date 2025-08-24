@@ -5,7 +5,7 @@
 
 import React from "react";
 import { createStackNavigator } from "@react-navigation/stack";
-import { useAuth } from "../hooks/useAuth";
+import type { UseAuthReturn } from "../types/auth";
 
 // Auth Screens
 import LoginScreen from "../screens/auth/LoginScreen";
@@ -30,15 +30,45 @@ export type AuthStackParamList = {
 // STACK NAVIGATOR
 // ============================================================================
 
+export interface AuthNavigatorProps {
+  authState: Pick<
+    UseAuthReturn,
+    | "isAuthenticated"
+    | "user"
+    | "login"
+    | "signup"
+    | "logout"
+    | "loading"
+    | "error"
+    | "clearError"
+    | "resetPassword"
+    | "resendEmailVerification"
+    | "updateProfile"
+  >;
+}
+
 const AuthStack = createStackNavigator<AuthStackParamList>();
 
 // ============================================================================
 // AUTH NAVIGATOR COMPONENT
 // ============================================================================
 
-const AuthNavigator: React.FC = () => {
-  const authState = useAuth();
+const AuthNavigator: React.FC<AuthNavigatorProps> = ({ authState }) => {
   const { isAuthenticated, user } = authState;
+
+  React.useEffect(() => {
+    console.log("AuthNavigator: mounted");
+    return () => {
+      console.log("AuthNavigator: unmounted");
+    };
+  }, []);
+
+  React.useEffect(() => {
+    console.log("AuthNavigator: authState changed", {
+      isAuthenticated,
+      userId: user?.id ?? null,
+    });
+  }, [isAuthenticated, user?.id]);
 
   // Check if user has completed onboarding
   const isOnboardingComplete = user?.user_metadata?.onboarding_complete === true;

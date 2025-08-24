@@ -74,11 +74,29 @@ const AppNavigator: React.FC = () => {
 
   const { colors } = useTheme();
 
+  useEffect(() => {
+    console.log("AppNavigator: mounted");
+    return () => {
+      console.log("AppNavigator: unmounted");
+    };
+  }, []);
+
+  useEffect(() => {
+    console.log("AppNavigator: auth state change", {
+      isAuthenticated,
+      isOnboardingComplete: user?.user_metadata?.onboarding_complete === true,
+      isInitialized: !loading.initialization,
+      userId: user?.id ?? null,
+    });
+  }, [isAuthenticated, user?.id, loading.initialization]);
+
   // Check if user has completed onboarding
   const isOnboardingComplete = user?.user_metadata?.onboarding_complete === true;
 
-  // Show splash screen while initializing
-  if (!isInitialized || loading.initialization) {
+  // Show splash screen while initialization is actively loading.
+  // Use the stable isInitialized flag from useAuth so once initialization has
+  // completed it won't flip back and remount navigators if a brief re-init occurs.
+  if (!isInitialized) {
     return <SplashScreen />;
   }
 
@@ -106,7 +124,20 @@ const AppNavigator: React.FC = () => {
             notification: colors.error,
           },
         }}
-        linking={linking}>
+        linking={linking}
+        onReady={() => {
+          console.log("NavigationContainer: ready");
+        }}
+        onStateChange={(state) => {
+          try {
+            console.log("NavigationContainer: state change", {
+              timestamp: Date.now(),
+              stateSnapshot: state,
+            });
+          } catch (err) {
+            console.warn("NavigationContainer: failed to stringify state", err);
+          }
+        }}>
         <RootStack.Navigator
           screenOptions={{
             headerShown: false,

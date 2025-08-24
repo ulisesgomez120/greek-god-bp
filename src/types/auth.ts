@@ -60,6 +60,9 @@ export interface AuthState {
   loading: boolean;
   error?: string;
   isInitialized: boolean;
+  // Stable initialization flags used by the auth slice to avoid remount loops
+  hasBeenInitialized?: boolean;
+  isInitializing?: boolean;
 }
 
 // ============================================================================

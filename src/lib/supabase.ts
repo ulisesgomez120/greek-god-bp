@@ -4,6 +4,7 @@
 // Main Supabase client with authentication and real-time configuration
 
 import { createClient } from "@supabase/supabase-js";
+import type { SupabaseClient } from "@supabase/supabase-js";
 import { ENV_CONFIG } from "@/config/constants";
 import { clearAsyncStorage } from "@/utils/storage";
 import type { Database } from "@/types/database";
@@ -44,6 +45,40 @@ export const supabase = createClient<Database>(ENV_CONFIG.supabaseUrl, ENV_CONFI
     },
   },
 });
+
+const createAuthClientCache: { token: string | null; client: SupabaseClient<Database> | null } = {
+  token: null,
+  client: null,
+};
+
+// Return a Supabase client configured with the provided access token.
+// This function caches a single authenticated client per token to avoid creating
+// multiple GoTrueClient instances in the same browser context (which causes
+// the "Multiple GoTrueClient instances detected" warning).
+export function getAuthenticatedClient(accessToken?: string): SupabaseClient<Database> {
+  if (!accessToken) return supabase;
+  try {
+    if (createAuthClientCache.client && createAuthClientCache.token === accessToken) {
+      return createAuthClientCache.client;
+    }
+    const authClient = createClient<Database>(ENV_CONFIG.supabaseUrl, ENV_CONFIG.supabaseAnonKey, {
+      global: {
+        headers: {
+          Authorization: `Bearer ${accessToken}`,
+        },
+      },
+      auth: {
+        detectSessionInUrl: false,
+      },
+    });
+    createAuthClientCache.client = authClient;
+    createAuthClientCache.token = accessToken;
+    return authClient;
+  } catch (err) {
+    console.warn("getAuthenticatedClient: failed to create authenticated client, falling back to shared client", err);
+    return supabase;
+  }
+}
 
 // ============================================================================
 // AUTHENTICATION HELPERS
