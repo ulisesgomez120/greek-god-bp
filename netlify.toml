@@ -1,6 +1,6 @@
 [build]
   command = "npm run build:web"
-  publish = "web-build"
+  publish = "dist"
   environment = { NODE_ENV = "production" }
 
 [[redirects]]
