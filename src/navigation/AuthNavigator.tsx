@@ -5,6 +5,7 @@
 
 import React from "react";
 import { createStackNavigator } from "@react-navigation/stack";
+import { useAuth } from "../hooks/useAuth";
 
 // Auth Screens
 import LoginScreen from "../screens/auth/LoginScreen";
@@ -12,9 +13,6 @@ import RegisterScreen from "../screens/auth/RegisterScreen";
 import ForgotPasswordScreen from "../screens/auth/ForgotPasswordScreen";
 import EmailVerificationScreen from "../screens/auth/EmailVerificationScreen";
 import OnboardingScreen from "../screens/auth/OnboardingScreen";
-
-// Types
-import type { UseAuthReturn } from "../types/auth";
 
 // ============================================================================
 // TYPES
@@ -28,23 +26,6 @@ export type AuthStackParamList = {
   Onboarding: undefined;
 };
 
-export interface AuthNavigatorProps {
-  authState: Pick<
-    UseAuthReturn,
-    | "isAuthenticated"
-    | "user"
-    | "login"
-    | "signup"
-    | "logout"
-    | "loading"
-    | "error"
-    | "clearError"
-    | "resetPassword"
-    | "resendEmailVerification"
-    | "updateProfile"
-  >;
-}
-
 // ============================================================================
 // STACK NAVIGATOR
 // ============================================================================
@@ -55,7 +36,8 @@ const AuthStack = createStackNavigator<AuthStackParamList>();
 // AUTH NAVIGATOR COMPONENT
 // ============================================================================
 
-const AuthNavigator: React.FC<AuthNavigatorProps> = ({ authState }) => {
+const AuthNavigator: React.FC = () => {
+  const authState = useAuth();
   const { isAuthenticated, user } = authState;
 
   // Check if user has completed onboarding

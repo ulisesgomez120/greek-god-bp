@@ -433,20 +433,7 @@ const styles = StyleSheet.create({
 });
 
 // ============================================================================
-// MEMOIZED COMPONENT
-// ============================================================================
-
-// Wrap with React.memo to prevent unnecessary rerenders
-export const LoginScreen = React.memo(LoginScreenComponent, (prevProps, nextProps) => {
-  // Custom comparison to prevent rerenders when navigation object changes
-  return (
-    prevProps.onLoginSuccess === nextProps.onLoginSuccess &&
-    prevProps.navigation?.state?.key === nextProps.navigation?.state?.key
-  );
-});
-
-// ============================================================================
 // EXPORT
 // ============================================================================
 
-export default LoginScreen;
+export default LoginScreenComponent;
