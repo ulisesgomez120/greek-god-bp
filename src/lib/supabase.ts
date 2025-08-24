@@ -4,10 +4,10 @@
 // Main Supabase client with authentication and real-time configuration
 
 import { createClient } from "@supabase/supabase-js";
-import * as SecureStore from "expo-secure-store";
 import { ENV_CONFIG } from "@/config/constants";
 import { clearAsyncStorage } from "@/utils/storage";
 import type { Database } from "@/types/database";
+import StorageAdapter from "./storageAdapter";
 
 /*
   Use SecureStore as the storage adapter for Supabase Auth on mobile.
@@ -21,39 +21,14 @@ import type { Database } from "@/types/database";
   Note: Non-sensitive app caches (workout cache, offline queue metadata) continue
   to use AsyncStorage via the storage utilities.
 */
-const SecureStoreAdapter = {
-  getItem: async (key: string) => {
-    try {
-      const value = await SecureStore.getItemAsync(key, { keychainService: "trainsmart-keychain" });
-      return value;
-    } catch (err) {
-      console.warn("SecureStoreAdapter.getItem failed:", err);
-      return null;
-    }
-  },
-  setItem: async (key: string, value: string) => {
-    try {
-      return await SecureStore.setItemAsync(key, value, { keychainService: "trainsmart-keychain" });
-    } catch (err) {
-      console.warn("SecureStoreAdapter.setItem failed:", err);
-      throw err;
-    }
-  },
-  removeItem: async (key: string) => {
-    try {
-      return await SecureStore.deleteItemAsync(key, { keychainService: "trainsmart-keychain" });
-    } catch (err) {
-      console.warn("SecureStoreAdapter.removeItem failed:", err);
-      throw err;
-    }
-  },
-};
+// Use platform-aware StorageAdapter which selects SecureStore on native and encrypted web storage on web.
+const SupabaseStorage = StorageAdapter.secure;
 
 // Create Supabase client with proper configuration
 export const supabase = createClient<Database>(ENV_CONFIG.supabaseUrl, ENV_CONFIG.supabaseAnonKey, {
   auth: {
-    // Use SecureStore on React Native for encrypted session persistence
-    storage: SecureStoreAdapter,
+    // Use platform-aware storage adapter: SecureStore on native, encrypted web storage on web.
+    storage: SupabaseStorage,
     autoRefreshToken: true,
     persistSession: true,
     detectSessionInUrl: false,

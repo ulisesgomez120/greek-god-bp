@@ -9,6 +9,7 @@
 import { Platform } from "react-native";
 import * as SecureStore from "expo-secure-store";
 import AsyncStorage from "@react-native-async-storage/async-storage";
+import createSecureWebStorage from "./webCrypto";
 
 const ASYNC_PREFIX = "async:";
 
@@ -25,12 +26,11 @@ export const StorageAdapter = {
   secure: {
     async getItem(key: string): Promise<string | null> {
       if (isWeb()) {
-        // No secure native store on web. Use sessionStorage as a best-effort fallback.
-        // WARNING: sessionStorage/localStorage is not secure. Keep tokens short-lived on web or rely on
-        // Supabase web SDK that manages persistence securely for browsers.
+        // Use encrypted web storage via Web Crypto API when available. Falls back to plain sessionStorage/localStorage.
         try {
-          const value = sessionStorage.getItem(key);
-          return value;
+          const storageRoot = typeof localStorage !== "undefined" ? localStorage : sessionStorage;
+          const webSecure = createSecureWebStorage(storageRoot);
+          return await webSecure.getItem(key);
         } catch (err) {
           console.warn("StorageAdapter.secure.getItem (web) failed:", err);
           return null;
@@ -49,7 +49,9 @@ export const StorageAdapter = {
     async setItem(key: string, value: string): Promise<void> {
       if (isWeb()) {
         try {
-          sessionStorage.setItem(key, value);
+          const storageRoot = typeof localStorage !== "undefined" ? localStorage : sessionStorage;
+          const webSecure = createSecureWebStorage(storageRoot);
+          await webSecure.setItem(key, value);
           return;
         } catch (err) {
           console.warn("StorageAdapter.secure.setItem (web) failed:", err);
@@ -68,7 +70,9 @@ export const StorageAdapter = {
     async removeItem(key: string): Promise<void> {
       if (isWeb()) {
         try {
-          sessionStorage.removeItem(key);
+          const storageRoot = typeof localStorage !== "undefined" ? localStorage : sessionStorage;
+          const webSecure = createSecureWebStorage(storageRoot);
+          await webSecure.removeItem(key);
           return;
         } catch (err) {
           console.warn("StorageAdapter.secure.removeItem (web) failed:", err);

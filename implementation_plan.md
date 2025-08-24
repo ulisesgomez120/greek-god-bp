@@ -1,267 +1,269 @@
 # Implementation Plan
 
 [Overview]
-Enable deploying the Expo web build as a Progressive Web App (PWA) to Netlify from the GitHub repository (branch: deploy/pwa) and link/setup the existing Supabase project so the deployed web app uses the remote database and auth. The plan instructs how to configure Netlify, map environment variables into Expo's `extra` values used by the app, add minimal repository configuration for consistent builds, and safely apply the repository Supabase migrations/seeds to the remote Supabase project.
+Transform the Expo React Native / Web app into a proper Progressive Web App (PWA) with a web-safe secure storage fallback for sensitive data, service worker-based offline support, proper manifest & icons, and web-compatible animation/navigation behavior to provide an app-like installable experience and fix the current auth and install problems observed on Netlify.
 
-This implementation is needed so the app can be installed on phones as a PWA, served from Netlify with correct routing and caching for service workers/manifest, and connected to your existing Supabase backend. The approach minimizes code changes (mostly config files and small type + helper scripts), preserves security by keeping service role keys out of client environment variables, and provides safe, recommended migration steps including a backup and manual fallback via the Supabase dashboard.
+This work will add the missing PWA assets (manifest, icons, service worker), register the service worker and implement robust caching strategies, implement an encrypted web storage adapter that uses the Web Crypto API for storing sensitive tokens on web, refactor Supabase initialization to use a platform-aware storage adapter, and add small runtime and build config changes to ensure the web build exposes the PWA assets correctly. The changes will preserve existing native behavior (SecureStore / AsyncStorage) and only apply secure web crypto storage on web platforms. This approach avoids weakening security on mobile, fixes the SecureStore errors in the console when running on web, restores navigation to the Register screen, and ensures add-to-home-screen results in an app-like standalone display with proper icons and splash.
 
 [Types]  
-Single sentence describing the type system changes.  
-Add an explicit environment types file documenting the Expo `extra` environment variables used at runtime.
+Introduce a small set of PWA + secure-web-storage types and storage interfaces.
 
-Detailed type definitions, interfaces, enums, or data structures with complete specifications:
+Detailed type definitions:
 
-- File: src/types/environment.ts
-  - Purpose: Define the exact shape of the environment config referenced by `src/config/constants.ts` and provide compile-time safety.
-  - Content (TypeScript):
-    - export interface EnvironmentConfig {
-      supabaseUrl: string; // EXPO_PUBLIC_SUPABASE_URL — must be a valid HTTPS URL
-      supabaseAnonKey: string; // EXPO_PUBLIC_SUPABASE_ANON_KEY — public anon key only
-      openaiApiKey?: string; // OPENAI_API_KEY — NOT for client use; optional
-      stripePublishableKey?: string; // EXPO_PUBLIC_STRIPE_PUBLISHABLE_KEY — publishable key only
-      apiUrl: string; // EXPO_PUBLIC_API_URL
-      environment: "development" | "staging" | "production";
-      enableAnalytics?: boolean;
-      enableFlipper?: boolean;
-      sentryDsn?: string;
-      }
-  - Validation rules:
-    - supabaseUrl: required; must be non-empty; recommend HTTPS.
-    - supabaseAnonKey: required; must be non-empty. Warn to never place service role keys here.
-    - openaiApiKey: optional; prefer server-side storage; do not use EXPO*PUBLIC* prefix if you want it server-only.
-  - Relationships:
-    - This type must match the `EnvironmentConfig` referenced by `src/config/constants.ts`. If an existing type is present, ensure fields and names match exactly.
+- src/types/pwa.d.ts (new)
+
+  - export interface PWAManifest {
+    name: string;
+    short_name: string;
+    description?: string;
+    start_url: string;
+    scope?: string;
+    display: "standalone" | "fullscreen" | "minimal-ui" | "browser";
+    background_color: string;
+    theme_color: string;
+    lang?: string;
+    icons: PWAIcon[];
+    }
+  - export interface PWAIcon {
+    src: string;
+    sizes: string; // e.g., "192x192"
+    type: string; // "image/png"
+    purpose?: string; // "any maskable"
+    }
+
+- src/types/storage.d.ts (new or appended)
+  - export interface SecureWebStorage {
+    getItem(key: string): Promise<string | null>;
+    setItem(key: string, value: string): Promise<void>;
+    removeItem(key: string): Promise<void>;
+    }
+  - export interface StorageAdapterShape {
+    secure: {
+    getItem(key: string): Promise<string | null>;
+    setItem(key: string, value: string): Promise<void>;
+    removeItem(key: string): Promise<void>;
+    };
+    async: {
+    getItem<T = any>(key: string): Promise<T | null>;
+    setItem(key: string, value: any): Promise<void>;
+    removeItem(key: string): Promise<void>;
+    listKeys(): Promise<string[]>;
+    };
+    }
+
+Validation rules and relationships:
+
+- SecureWebStorage implementations must return string or null for getItem.
+- The web SecureWebStorage must encrypt values before storing in localStorage/sessionStorage and decrypt on get.
+- Keys used by web encryption must be rotated after sign-out and must not be persisted unencrypted.
 
 [Files]  
-Single sentence describing file modifications.  
-Add Netlify and typing configuration and optional helper scripts; minimal edits to existing files are recommended (no core app changes).
+Create PWA files and modify storage / supabase initialization files to use platform-aware secure storage.
 
-Detailed breakdown:
+New files to be created (full paths and purpose):
 
-- New files to be created:
-  - implementation_plan.md (root) — this document (already created).
-  - netlify.toml (root) — Purpose: instruct Netlify how to build and deploy the Expo web output and add routing/headers for PWA behavior.
-    - Example content (to be written into the file):
-      - [build]
-        command = "npm run build:web"
-        publish = "web-build"
-        environment = { NODE_ENV = "production" }
-      - [[redirects]]
-        from = "/\*"
-        to = "/index.html"
-        status = 200
-      - [[headers]]
-        for = "/service-worker.js"
-        [headers.values]
-        Cache-Control = "no-cache"
-      - [[headers]]
-        for = "/manifest.json"
-        [headers.values]
-        Cache-Control = "no-cache"
-      - [[headers]]
-        for = "/\*"
-        [headers.values]
-        Cache-Control = "public, max-age=0, must-revalidate"
-  - src/types/environment.ts — Type definitions listed above.
-  - scripts/check-envs.js (or .ts) — small node script to verify required env vars are present and optionally test connecting to Supabase URL using the anon key; prints success/failure for CI or local checks.
-  - .github/README-or-deploy-notes.md (optional) — short instructions for maintainers (how to set envs and redeploy).
-  - README-deploy-netlify.md (optional) — one-page developer guide for local build & Netlify deployment.
-- Existing files to be modified:
-  - app.config.ts
-    - Action: No code change required unless you'd prefer to change variable names. Confirm mapping in Netlify envs so that EXPO_PUBLIC_SUPABASE_URL and EXPO_PUBLIC_SUPABASE_ANON_KEY are set to the Supabase project's URL and anon key.
-    - Recommendation: Keep as-is. If you prefer to use plain SUPABASE_URL in Netlify, map it to EXPO_PUBLIC_SUPABASE_URL in Netlify envs.
-  - src/config/constants.ts
-    - Action: No modification required. Optionally add a runtime guard/log that warns if `ENV_CONFIG.supabaseUrl` or `supabaseAnonKey` are empty to make misconfiguration obvious.
-  - supabase/ (directory)
-    - Action: Do not modify migration files. They will be applied to remote DB using the Supabase CLI or via Dashboard. Confirm chronological order of migrations is correct (files already timestamped).
-- Files to be deleted or moved:
-  - None.
-- Configuration file updates:
-  - Netlify site environment variables (set via Netlify UI):
-    - EXPO_PUBLIC_SUPABASE_URL = <your supabase URL>
-    - EXPO_PUBLIC_SUPABASE_ANON_KEY = <your anon key>
-    - EXPO_PUBLIC_API_URL = https://api.trainsmart.app (or your API)
-    - EXPO_PUBLIC_STRIPE_PUBLISHABLE_KEY = <optional>
-    - EXPO_PUBLIC_ENABLE_ANALYTICS = "true" or "false"
-    - NODE_ENV = production (Netlify usually sets this automatically)
-  - Add netlify.toml in repo root to ensure consistent build settings across environments.
+- public/manifest.json
+  - Purpose: PWA manifest used by browsers for A2HS metadata. Contains app name, start_url, display: standalone, theme/background colors and a set of icons.
+- public/service-worker.js
+  - Purpose: Lightweight service worker that precaches application shell (index.html, JS bundles, manifest, icons), implements runtime caching for API requests, and provides update/skipWaiting/clients.claim flow.
+- public/icons/icon-48.png
+- public/icons/icon-72.png
+- public/icons/icon-96.png
+- public/icons/icon-144.png
+- public/icons/icon-192.png
+- public/icons/icon-256.png
+- public/icons/icon-384.png
+- public/icons/icon-512.png
+- public/icons/maskable-icon-192.png
+- public/icons/maskable-icon-512.png
+  - Purpose: PWA icon variants used by manifest. If you prefer we can provide a small script to generate PNGs from assets/icon.svg, but creating them manually or via an image tool is acceptable.
+- src/lib/webCrypto.ts
+  - Purpose: Web Crypto API helper that exposes createSecureWebStorage() producing an object implementing SecureWebStorage. Handles encryption/decryption (AES-GCM) and key derivation using a per-session derived key.
+- src/lib/pwaUtils.ts
+  - Purpose: Service worker registration utilities and helper to prompt for installation and detect updates (registerServiceWorker, listenForSWUpdate).
+- src/hooks/usePWA.ts
+  - Purpose: Hook that exposes installability, listens for beforeinstallprompt, and reports update availability to UI.
+- scripts/generate-pwa-icons.sh (optional)
+  - Purpose: A small helper script describing how to generate required icons from SVG using an external tool (imagemagick or your preferred image tool); included as reference only (no new npm deps).
+- src/types/pwa.d.ts (new) — types as above.
+- **tests**/pwa/manifest.test.ts (new)
+- **tests**/storage/webCrypto.test.ts (new)
+- **tests**/pwa/serviceWorker.test.ts (new) (high-level, can be limited to unit tests for utils and mocks)
+
+Existing files to be modified (with specific changes):
+
+- src/lib/storageAdapter.ts
+
+  - Add import for createSecureWebStorage from src/lib/webCrypto.
+  - Modify StorageAdapter.secure.\* to:
+    - When isWeb() is true, prefer using the WebCrypto-based SecureWebStorage; fallback to sessionStorage only if Web Crypto or the secure storage instance cannot be initialized.
+    - Keep behavior on native unchanged (expo-secure-store).
+  - Add a note and exported helper to explicitly clear web crypto keys on signOut.
+
+- src/lib/supabase.ts
+
+  - Replace the direct SecureStoreAdapter object with a platform-aware adapter:
+    - On native: use SecureStoreAdapter (unchanged).
+    - On web: use the StorageAdapter.secure variant (web crypto wrapper) or, if using Supabase web JS 2.x, consider using the default local persistence but ensure encryption before passing tokens into persistence.
+  - Ensure createClient() receives storage adapter compatible with supabase-js (an object with getItem/setItem/removeItem). Use ENV_CONFIG detection if necessary.
+
+- index.web.js (or src/index.web.tsx / index.ts if web entry exists)
+
+  - Register service worker by importing src/lib/pwaUtils.registerServiceWorker() at top-level when typeof window !== 'undefined' and process.env.NODE_ENV === 'production'.
+
+- app.config.ts
+
+  - No major changes required, but add a "web" manifest path if necessary and ensure "web.lang" and "web.favicon" are correct. (We'll add manifest.json to public so no programmatic change required, but include the step to verify EAS/Expo outputs manifest into the build, and ensure bundler=metro remains.)
+
+- public/\_redirects
+  - Confirm it already contains "/\* /index.html 200" (it does). Add a header to ensure manifest and service-worker served with no-cache (netlify.toml already has headers for service-worker.js and manifest.json). Confirm Netlify publish folder includes these files (dist/public?). Instruct updating netlify.toml if build publishes elsewhere.
+
+Files to be deleted or moved:
+
+- None required. Keep existing assets (assets/icon.svg and assets/adaptive-icon.png) as source images for icon generation.
+
+Configuration file updates:
+
+- netlify.toml (verify publish dir contains the created public/manifest.json and public/service-worker.js). No automatic changes are necessary if build outputs public/ to dist/ as-is; if not, add post-build script to copy public files into dist/ before Netlify publishes.
+- package.json
+  - Optional: Add a script "pwa:icons" that lists required icon generation steps (not required to add external dependencies).
+- app.config.ts
+  - Ensure web bundler is metro (already set) and that runtime output: "single" is correct for single-page deployment.
 
 [Functions]  
-Single sentence describing function modifications.  
-No application-level function changes required; add small helper scripts and an optional runtime guard in the Supabase client to fail fast if envs are missing.
+Add Web Crypto & PWA registration functions and modify the storage functions used by supabase.
+
+Single sentence describing function modifications: Add createSecureWebStorage, registerServiceWorker, and hooks to detect/install PWA; modify StorageAdapter.secure functions and Supabase SecureStoreAdapter to use web-secure storage on web.
 
 Detailed breakdown:
 
-- New functions:
-  - scripts/check-envs.js
-    - Signature: node scripts/check-envs.js
-    - Purpose: Validate required env variables and optionally make a test request to the Supabase URL to verify reachability.
-    - Behavior:
-      - Reads process.env.EXPO_PUBLIC_SUPABASE_URL and EXPO_PUBLIC_SUPABASE_ANON_KEY
-      - Prints errors and exits with non-zero status when missing
-      - Optionally performs a simple fetch to `${EXPO_PUBLIC_SUPABASE_URL}/rest/v1/?` or uses a HEAD request to the root if REST not desired.
-  - scripts/preview.sh (optional)
-    - Signature: bash scripts/preview.sh
-    - Purpose: Build and serve the production web build locally for smoke tests.
-    - Commands:
-      - npm run build:web
-      - npx serve web-build -l 5000
-- Modified functions:
-  - Optional guard in src/lib/supabase.ts
-    - Function: initialization code that creates supabase client
-    - Change: add an early runtime check (if ENV_CONFIG.supabaseUrl === "" || ENV_CONFIG.supabaseAnonKey === "") console.error a clear message and (optionally) throw an error in development to prevent silent misconfiguration.
-- Removed functions:
-  - None.
+New functions:
+
+- src/lib/webCrypto.ts
+
+  - export async function initializeWebCryptoKey(sessionSalt?: string): Promise<CryptoKey>
+    - Purpose: Derive or import an AES-GCM key from a session-specific salt (use subtle.importKey / subtle.deriveKey with PBKDF2 or HKDF).
+  - export async function encryptString(key: CryptoKey, plaintext: string): Promise<string>
+    - Purpose: AES-GCM encrypt and return base64/URL-safe string including IV.
+  - export async function decryptString(key: CryptoKey, cipher: string): Promise<string>
+    - Purpose: Decrypt AES-GCM ciphertext produced by encryptString.
+  - export function createSecureWebStorage(): Promise<SecureWebStorage>
+    - Purpose: Returns an object with getItem/setItem/removeItem that encrypts values with a per-session key, stores ciphertext in localStorage under a prefixed key, and removes/cleans keys on signOut.
+
+- src/lib/pwaUtils.ts
+
+  - export function registerServiceWorker(): Promise<void>
+    - Purpose: Registers public/service-worker.js in production, listens for updatefound and posts messages to window for update handling.
+  - export function listenForBeforeInstallPrompt(callback: (evt: Event) => void): () => void
+    - Purpose: Hook into beforeinstallprompt to allow custom install prompt flow.
+
+- src/hooks/usePWA.ts
+  - export default function usePWA(): { isInstallable: boolean; promptInstall: () => void; updateAvailable: boolean; reloadForUpdate: () => void; }
+    - Purpose: React hook that manages installability state and exposes prompt and update actions.
+
+Modified functions:
+
+- StorageAdapter.secure.getItem/setItem/removeItem (src/lib/storageAdapter.ts)
+
+  - When isWeb() is true, call createSecureWebStorage() once and then use its getItem/setItem/removeItem to perform encrypted storage. If createSecureWebStorage() fails, fall back to sessionStorage with a console.warn.
+
+- Supabase SecureStoreAdapter (src/lib/supabase.ts)
+  - Replace direct usage of expo-secure-store on web with a call to StorageAdapter.secure.\* so Supabase always sees a compliant storage object. Example:
+    - const storage = isWeb() ? { getItem: StorageAdapter.secure.getItem, setItem: StorageAdapter.secure.setItem, removeItem: StorageAdapter.secure.removeItem } : SecureStoreAdapter;
+  - Keep Supabase auth options otherwise unchanged (autoRefreshToken, persistSession: true).
+
+Removed functions:
+
+- None removed, existing APIs remain but are adapted for web compatibility.
 
 [Classes]  
-Single sentence describing class modifications.  
-No class-level changes required.
+Single sentence: No major class additions; provide a small ServiceWorkerManager utility object and ensure StorageAdapter remains a plain object.
 
 Detailed breakdown:
 
-- New classes:
-  - None.
-- Modified classes:
-  - None.
-- Removed classes:
-  - None.
+New classes/objects:
+
+- src/lib/ServiceWorkerManager (object in pwaUtils.ts)
+  - Key methods:
+    - init(): registers SW and listens for update
+    - onUpdate(callback): subscribes to update events
+    - skipWaitingAndReload(): posts skipWaiting to SW then reloads clients
+  - Inheritance: none — plain module-level manager.
+
+Modified classes:
+
+- StorageAdapter (src/lib/storageAdapter.ts)
+  - Add an initialization state for web secure storage and a method to clear crypto keys when user signs out.
+
+Removed classes:
+
+- None.
 
 [Dependencies]  
-Single sentence describing dependency modifications.  
-No new production dependencies required; optionally add lightweight dev dependencies for local testing and Netlify CLI.
+Single sentence: No new runtime dependencies required; the implementation uses standard browser APIs (Web Crypto, Service Workers, Cache API) and existing project packages.
 
-Details of new packages, version changes, and integration requirements:
+Details:
 
-- Optional dev dependencies:
-  - netlify-cli (npm i -D netlify-cli) — for local Netlify dev server and manual CLI deploys.
-  - serve (npm i -D serve) — to serve the web-build folder locally for smoke tests.
-- No changes required to @supabase/supabase-js or other runtime packages.
-- Integration requirements:
-  - Netlify must have GitHub connected (you confirmed it is).
-  - The branch to deploy will be `deploy/pwa` (you requested that name). Configure Netlify to deploy that branch or create a site that auto-deploys from it.
-  - Supabase CLI must be logged in and linked using `supabase link --project-ref <PROJECT_REF>` before running CLI migration commands.
+- No new npm packages required. Implementation uses:
+  - Web Crypto API (window.crypto.subtle) for encryption (supported by modern browsers).
+  - Cache API + Service Workers (supported by modern browsers).
+- Optional: If you want automated icon generation, you can install an external tool (ImageMagick or sharp). Recommended command-line approach instead of adding sharp to project dependencies to avoid native build issues:
+  - Example: Use Inkscape/Imagemagick or an online generator to produce PNG sizes, or run a local script using Node + sharp if dev environment supports it.
 
 [Testing]  
-Single sentence describing testing approach.  
-Manual smoke tests plus optional CI checks to ensure the web build completes and Supabase connectivity works.
+Single sentence: Add unit tests for web crypto storage, manifest validity, and service worker registration flows; test manual install and navigation flows in browser.
 
-Test file requirements, existing test modifications, and validation strategies:
+Test file requirements and validation strategies:
 
-- Manual smoke tests (post-deploy):
-  1. Visit Netlify URL on a mobile browser. Confirm PWA prompt / Add to Home Screen works and the manifest/service worker exist.
-  2. Sign up and sign in using a test account. Confirm `user_profiles` receives a new row (verify in Supabase dashboard).
-  3. Perform a simple read query to confirm DB reads (e.g., fetch user profile).
-  4. If realtime is used, perform an action that triggers a `postgres_changes` and confirm the client receives it.
-- Local tests (before pushing):
-  1. npm run build:web
-  2. npx serve web-build
-  3. Verify `web-build/manifest.json` exists and contains correct `start_url` and `scope`.
-  4. Run node scripts/check-envs.js to ensure Netlify/CI envs are set correctly.
-- CI suggestions:
-  - Add a pipeline job that runs `npm run build:web` and `node scripts/check-envs.js` to prevent broken deploys due to missing envs.
+- **tests**/storage/webCrypto.test.ts
+  - Tests: encrypt/decrypt roundtrip, set/get/remove using createSecureWebStorage, fallback behavior when Web Crypto not available (mock window.crypto.subtle).
+- **tests**/pwa/manifest.test.ts
+  - Tests: ensure public/manifest.json exists, contains required fields (name, short_name, display: standalone, start_url, icons array with required sizes).
+- **tests**/pwa/serviceWorker.test.ts
+  - Tests: registerServiceWorker registers SW in production environment (mock navigator.serviceWorker) and emits update events.
+- Manual E2E checklist:
+  - Build a production web bundle (npm run build:web), deploy to Netlify (or local static server).
+  - Confirm visiting site on Chrome/Edge/Firefox on desktop & mobile: Install prompt appears or use "Add to Home screen".
+  - Confirm installed app launches in standalone mode with no address bar and that icons show up.
+  - Sign in/out flows: ensure no console errors about SecureStore when on web, and tokens exist encrypted in localStorage.
+  - Navigation: verify Login -> Register navigation works (clicking secondary action in LoginScreen should navigate to Register).
+  - Offline behavior: load app offline after initial load and verify cached shell loads and critical pages render.
 
 [Implementation Order]  
-Single sentence describing the implementation sequence.  
-Make configuration changes and type additions first, create a feature branch, commit and push, set Netlify environment variables, perform a safe migration to Supabase, then verify the deployed PWA through smoke tests.
+Single sentence: Implement secure web storage first, refactor storage adapters and supabase to use it, then add PWA manifest/icons and service worker, register SW in web entry, add install/update utilities and tests, and finally fix animations/navigation details and run full validation.
 
-Numbered steps showing the logical order of changes:
+Numbered steps:
 
-1. Create local branch `deploy/pwa`.
-2. Add files: `netlify.toml`, `src/types/environment.ts`, `scripts/check-envs.js`, optional README-deploy-netlify.md and .github/README-or-deploy-notes.md.
-3. Commit and push the branch `deploy/pwa` to GitHub.
-4. In the Netlify site settings:
-   - Point or create a site to deploy branch `deploy/pwa` (or change the branch to deploy).
-   - Set environment variables:
-     - EXPO_PUBLIC_SUPABASE_URL = <your supabase URL>
-     - EXPO_PUBLIC_SUPABASE_ANON_KEY = <your anon key>
-     - EXPO_PUBLIC_API_URL = https://api.trainsmart.app (or your value)
-     - EXPO_PUBLIC_STRIPE_PUBLISHABLE_KEY = <optional>
-     - EXPO_PUBLIC_ENABLE_ANALYTICS = "true" or "false"
-   - Configure build settings:
-     - Build command: npm run build:web
-     - Publish directory: web-build
-5. Locally verify build and assets:
-   - npm run build:web
-   - npx serve web-build
-   - Inspect `web-build/manifest.json` and `web-build/service-worker.js`
-6. Link Supabase CLI to remote project (run locally; recommended):
-   - supabase login
-   - supabase link --project-ref <PROJECT_REF>
-   - supabase status
-7. Backup remote DB via Supabase Dashboard (recommended).
-8. Apply migrations/seeds:
-   - Preferred safe approach (manual/visible):
-     - Use Supabase Dashboard SQL editor to run the SQL from `supabase/migrations/*.sql` in timestamp order, then run `supabase/seed.sql`.
-   - CLI approach (if you prefer automated):
-     - supabase db push --project-ref <PROJECT_REF>
-     - supabase db seed --file supabase/seed.sql --project-ref <PROJECT_REF> (if supported)
-     - Note: CLI commands can modify remote DB. Always backup first.
-9. Once Netlify builds the pushed branch, visit the deployed URL and run the manual smoke tests.
-10. If you need an automated redeploy or Netlify CLI deploy script, add `scripts/deploy-netlify.sh` that uses `netlify-cli` for authenticated deploys.
+1. Implement src/lib/webCrypto.ts (createSecureWebStorage) and unit tests for encryption roundtrip.
+2. Add types file src/types/pwa.d.ts and src/types/storage.d.ts and update tsconfig includes if required.
+3. Update src/lib/storageAdapter.ts:
+   - Import createSecureWebStorage.
+   - Wire StorageAdapter.secure to use web crypto on web, fallback to sessionStorage.
+   - Export a clearWebCryptoKeys helper.
+4. Update src/lib/supabase.ts:
+   - Detect isWeb() (small helper or reuse StorageAdapter.isWeb detection).
+   - Use StorageAdapter.secure for the Supabase auth storage option on web.
+5. Create public/manifest.json and required public/icons/\* files (create or generate).
+   - Required manifest fields: name, short_name, start_url: "/", display: "standalone", background_color, theme_color, icons array including maskable icons.
+6. Add public/service-worker.js:
+   - Precaching of index.html, main JS bundle(s), manifest.json, icons.
+   - Runtime caching strategy for API requests (stale-while-revalidate) and navigation fallback.
+   - PostMessage handling for skipWaiting and broadcasting update.
+7. Modify index.web.js (or web entry) to import and call registerServiceWorker() in production.
+8. Create src/lib/pwaUtils.ts and src/hooks/usePWA.ts to surface install/update prompts to UI.
+9. Generate icons from assets/icon.svg / adaptive-icon.png (manual or scripted) and place under public/icons/.
+10. Adjust netlify.toml/publish settings if necessary and ensure public/manifest.json & service-worker.js are copied into the build output directory (dist) before publish (add post-build copy step if needed).
+11. Address useNativeDriver warnings:
+    - Add Platform.OS === "web" conditional to animation calls that use useNativeDriver: true and provide JS fallback options (or set useNativeDriver: false on web).
+    - Update components spotted earlier (src/components/ui/SplashScreen.tsx, src/components/ui/SkeletonLoader.tsx).
+12. Add tests and run unit tests, then perform manual E2E validation on desktop + mobile browsers and Netlify preview.
+13. Clean up: add docs in context/pwa/README.md explaining how web secure storage works, how to regenerate icons, and how to update the service worker cache list.
 
-Appendix: Quick Supabase CLI commands (exact lines to run locally — replace placeholders)
+Notes and rationale:
 
-- supabase login
-- supabase link --project-ref <PROJECT_REF>
-- supabase status --project-ref <PROJECT_REF>
-- (Optional, backup via Dashboard)
-- supabase db push --project-ref <PROJECT_REF>
-- supabase db seed --file supabase/seed.sql --project-ref <PROJECT_REF>
+- Using Web Crypto API with AES-GCM and storing ciphertext in localStorage provides stronger protection than plaintext storage while avoiding new heavy runtime dependencies.
+- Supabase expects a storage shape (getItem/setItem/removeItem). By providing that shape backed by encrypted localStorage, we avoid changing supabase-js behavior and remove the runtime SecureStore errors on web.
+- The service worker and manifest must live in the published static root so ensure Netlify publish includes the files (dist/public or dist root depending on your build). If the expo export output doesn't include public by default, add a post-build step to copy public/manifest.json and service-worker.js to the dist folder used by Netlify.
+- For icon generation, provide a short list of sizes and filenames so you (or a script) can create them: 48,72,96,144,192,256,384,512. Include maskable 192 & 512 for modern Android.
 
-Appendix: Example `netlify.toml` (to be added to repo)
-
-```
-[build]
-  command = "npm run build:web"
-  publish = "web-build"
-  environment = { NODE_ENV = "production" }
-
-[[redirects]]
-  from = "/*"
-  to = "/index.html"
-  status = 200
-
-[[headers]]
-  for = "/service-worker.js"
-  [headers.values]
-  Cache-Control = "no-cache"
-
-[[headers]]
-  for = "/manifest.json"
-  [headers.values]
-  Cache-Control = "no-cache"
-
-[[headers]]
-  for = "/*"
-  [headers.values]
-  Cache-Control = "public, max-age=0, must-revalidate"
-```
-
-Appendix: Example `scripts/check-envs.js`
-
-```js
-// scripts/check-envs.js
-const required = ["EXPO_PUBLIC_SUPABASE_URL", "EXPO_PUBLIC_SUPABASE_ANON_KEY", "NODE_ENV"];
-let ok = true;
-required.forEach((k) => {
-  if (!process.env[k]) {
-    console.error(`Missing env: ${k}`);
-    ok = false;
-  }
-});
-if (!ok) process.exit(1);
-console.log("All required envs present.");
-```
-
-Notes and security reminders:
-
-- Never place `SUPABASE_SERVICE_ROLE_KEY` or other privileged keys into EXPO*PUBLIC*\* envs. If you need server-side operations that require privileged keys, use Supabase Edge Functions or a secure server side (Netlify serverless functions) and set those keys in server-only environment variables.
-- If you decide to expose the Supabase anon key via Netlify, it's expected (it's the public anon key). Ensure all operations requiring elevated privileges happen server-side.
-- If you want, I will:
-  - create the branch `deploy/pwa`,
-  - add the files listed (netlify.toml, src/types/environment.ts, scripts/check-envs.js),
-  - commit & push the branch,
-  - then provide the exact supabase CLI commands for you to run locally with your project ref.
-  - After you run the Supabase CLI commands (link/migrate), you can notify me and I will help verify.
-
-Refer to this file for the exact step-by-step commands when running locally and for the task created by the implementation agent.
+End of implementation plan.
