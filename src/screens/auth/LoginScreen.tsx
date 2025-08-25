@@ -248,7 +248,7 @@ const LoginScreenComponent: React.FC<LoginScreenProps> = ({ navigation, onLoginS
                   <View style={FIELD_STYLES.container}>
                     <Text style={LABEL_STYLES.base}>Email Address *</Text>
                     <TextInput
-                      style={getInputStyle(undefined, getInputState(focusedField === "email", !!error))}
+                      style={getInputStyle(colors, undefined, getInputState(focusedField === "email", !!error))}
                       value={value}
                       onChangeText={onChange}
                       onFocus={() => setFocusedField("email")}
@@ -272,7 +272,7 @@ const LoginScreenComponent: React.FC<LoginScreenProps> = ({ navigation, onLoginS
                   <View style={FIELD_STYLES.container}>
                     <Text style={LABEL_STYLES.base}>Password *</Text>
                     <TextInput
-                      style={getInputStyle(undefined, getInputState(focusedField === "password", !!error))}
+                      style={getInputStyle(colors, undefined, getInputState(focusedField === "password", !!error))}
                       value={value}
                       onChangeText={onChange}
                       onFocus={() => setFocusedField("password")}
@@ -291,35 +291,43 @@ const LoginScreenComponent: React.FC<LoginScreenProps> = ({ navigation, onLoginS
 
             {/* Submit Button */}
             <TouchableOpacity
-              style={[styles.submitButton, (isSubmitting || loading.login) && styles.submitButtonDisabled]}
+              style={[
+                styles.submitButton,
+                { backgroundColor: colors.primary },
+                (isSubmitting || loading.login) && styles.submitButtonDisabled,
+              ]}
               onPress={handleSubmit(onSubmit)}
               disabled={isSubmitting || loading.login}>
-              <Text style={styles.submitButtonText}>
+              <Text style={[styles.submitButtonText, { color: colors.text }]}>
                 {isSubmitting || loading.login ? "Signing In..." : AUTH_FLOWS.login.submitText}
               </Text>
             </TouchableOpacity>
 
             {/* Secondary Action */}
             <TouchableOpacity style={styles.secondaryButton} onPress={navigateToSignup}>
-              <Text style={styles.secondaryButtonText}>{AUTH_FLOWS.login.switchText}</Text>
+              <Text style={[styles.secondaryButtonText, { color: colors.primary }]}>{AUTH_FLOWS.login.switchText}</Text>
             </TouchableOpacity>
 
             {/* Biometric Login */}
             {biometricAvailable && (
-              <TouchableOpacity style={styles.biometricButton} onPress={handleBiometricLogin}>
-                <Text style={styles.biometricButtonText}>Sign in with {biometricType}</Text>
+              <TouchableOpacity
+                style={[styles.biometricButton, { borderColor: colors.primary }]}
+                onPress={handleBiometricLogin}>
+                <Text style={[styles.biometricButtonText, { color: colors.primary }]}>
+                  Sign in with {biometricType}
+                </Text>
               </TouchableOpacity>
             )}
 
             {/* Forgot Password */}
             <TouchableOpacity style={styles.forgotPasswordButton} onPress={navigateToForgotPassword}>
-              <Text style={styles.forgotPasswordText}>Forgot your password?</Text>
+              <Text style={[styles.forgotPasswordText, { color: colors.primary }]}>Forgot your password?</Text>
             </TouchableOpacity>
 
             {/* Global Error */}
             {error && (
               <View style={styles.globalErrorContainer}>
-                <Text style={styles.globalErrorText}>{error}</Text>
+                <Text style={[styles.globalErrorText, { color: colors.error }]}>{error}</Text>
               </View>
             )}
           </View>

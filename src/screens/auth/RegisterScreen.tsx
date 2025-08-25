@@ -152,7 +152,7 @@ const RegisterScreenComponent: React.FC<RegisterScreenProps> = ({ navigation, on
               <View style={FIELD_STYLES.container}>
                 <Text style={LABEL_STYLES.base}>Email Address *</Text>
                 <TextInput
-                  style={getInputStyle(undefined, getInputState(focusedField === "email", !!errors.email))}
+                  style={getInputStyle(colors, undefined, getInputState(focusedField === "email", !!errors.email))}
                   value={email}
                   onChangeText={(text) => {
                     setEmail(text);
@@ -172,7 +172,11 @@ const RegisterScreenComponent: React.FC<RegisterScreenProps> = ({ navigation, on
               <View style={FIELD_STYLES.container}>
                 <Text style={LABEL_STYLES.base}>Password *</Text>
                 <TextInput
-                  style={getInputStyle(undefined, getInputState(focusedField === "password", !!errors.password))}
+                  style={getInputStyle(
+                    colors,
+                    undefined,
+                    getInputState(focusedField === "password", !!errors.password)
+                  )}
                   value={password}
                   onChangeText={(text) => {
                     setPassword(text);
@@ -193,6 +197,7 @@ const RegisterScreenComponent: React.FC<RegisterScreenProps> = ({ navigation, on
                 <Text style={LABEL_STYLES.base}>Confirm Password *</Text>
                 <TextInput
                   style={getInputStyle(
+                    colors,
                     undefined,
                     getInputState(focusedField === "confirmPassword", !!errors.confirmPassword)
                   )}

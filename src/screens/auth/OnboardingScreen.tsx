@@ -11,6 +11,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { EXPERIENCE_LEVELS, FITNESS_GOALS } from "@/constants/auth";
 import Text from "@/components/ui/Text";
 import Button from "@/components/ui/Button";
+import useTheme from "@/hooks/useTheme";
 import {
   getInputStyle,
   getInputState,
@@ -37,6 +38,7 @@ type OnboardingStep = "welcome" | "profile" | "goals" | "complete";
 
 export const OnboardingScreen: React.FC<OnboardingScreenProps> = ({ navigation, onOnboardingComplete }) => {
   const { updateProfile, loading, error, clearError, user } = useAuth();
+  const { colors } = useTheme();
   const [currentStep, setCurrentStep] = useState<OnboardingStep>("welcome");
   const [selectedGoals, setSelectedGoals] = useState<string[]>([]);
   const [experienceLevel, setExperienceLevel] = useState<string>(
@@ -155,7 +157,7 @@ export const OnboardingScreen: React.FC<OnboardingScreenProps> = ({ navigation, 
   // ============================================================================
 
   const renderWelcomeStep = () => (
-    <SafeAreaView style={styles.safeArea}>
+    <SafeAreaView style={[styles.safeArea, { backgroundColor: colors.background }]}>
       <KeyboardAvoidingView style={styles.keyboardAvoidingView} behavior={Platform.OS === "ios" ? "padding" : "height"}>
         <ScrollView
           style={styles.scrollView}

@@ -12,6 +12,7 @@ import { Provider } from "react-redux";
 import { PersistGate } from "redux-persist/integration/react";
 import { ThemeProvider } from "@/contexts/ThemeContext";
 import useTheme from "@/hooks/useTheme";
+import useSplashScreen from "@/hooks/useSplashScreen";
 
 // Store and persistence
 import { store, persistor, waitForRehydration } from "./src/store";
@@ -31,10 +32,20 @@ import { logger } from "./src/utils/logger";
 const AppContent: React.FC = () => {
   const [isRehydrated, setIsRehydrated] = useState(false);
   const { theme, statusBarStyle } = useTheme();
+  const {
+    state: splashState,
+    show: showSplash,
+    hide: hideSplash,
+  } = useSplashScreen({
+    minimumDisplayTimeMs: 2000,
+  });
 
   useEffect(() => {
     const initializeApp = async () => {
       try {
+        // show splash immediately
+        showSplash();
+
         // Wait for store rehydration
         await waitForRehydration();
         setIsRehydrated(true);
@@ -43,15 +54,19 @@ const AppContent: React.FC = () => {
       } catch (error) {
         logger.error("App initialization failed:", error);
         setIsRehydrated(true); // Continue anyway
+      } finally {
+        // hide splash (will respect minimum display time)
+        hideSplash();
       }
     };
 
     initializeApp();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // Show splash screen during store rehydration
-  if (!isRehydrated) {
-    return <SplashScreen />;
+  // While splash is active (loading or ready-to-hide), render SplashScreen so PWA shows it
+  if (splashState !== "hidden") {
+    return <SplashScreen minimumDisplayTimeMs={2000} />;
   }
 
   const expoStatusBarStyle =

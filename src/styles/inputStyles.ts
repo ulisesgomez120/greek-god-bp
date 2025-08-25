@@ -5,6 +5,7 @@
 // design system. Use direct TextInput components with these style constants.
 
 import { TextStyle, ViewStyle } from "react-native";
+import type { ThemeColors } from "@/types/theme";
 
 // ============================================================================
 // DESIGN SYSTEM COLORS
@@ -187,20 +188,91 @@ const ERROR_STYLES = {
  * @returns Array of style objects to apply to TextInput
  */
 export const getInputStyle = (
-  variant?: keyof typeof INPUT_STYLES.variants,
-  state?: keyof typeof INPUT_STYLES.states
+  arg1?: ThemeColors | keyof typeof INPUT_STYLES.variants,
+  arg2?: keyof typeof INPUT_STYLES.variants | keyof typeof INPUT_STYLES.states,
+  arg3?: keyof typeof INPUT_STYLES.states
 ): TextStyle[] => {
-  const styles = [INPUT_STYLES.base];
+  // Support two invocation patterns for backward compatibility:
+  // 1) getInputStyle(colors, variant?, state?)
+  // 2) getInputStyle(variant?, state?) -- older callers
+  let colors: ThemeColors | undefined;
+  let variant: keyof typeof INPUT_STYLES.variants | undefined;
+  let state: keyof typeof INPUT_STYLES.states | undefined;
+
+  if (arg1 && typeof arg1 === "object" && "text" in (arg1 as any)) {
+    // Pattern 1
+    colors = arg1 as ThemeColors;
+    variant = arg2 as keyof typeof INPUT_STYLES.variants | undefined;
+    state = arg3 as keyof typeof INPUT_STYLES.states | undefined;
+  } else {
+    // Pattern 2
+    variant = arg1 as keyof typeof INPUT_STYLES.variants | undefined;
+    state = arg2 as keyof typeof INPUT_STYLES.states | undefined;
+    colors = undefined;
+  }
+
+  // Resolve theme colors with safe defaults
+  const resolvedColors: ThemeColors = colors || {
+    background: COLORS.backgrounds.default,
+    surface: COLORS.backgrounds.default,
+    card: COLORS.backgrounds.default,
+    text: COLORS.text.primary,
+    subtext: COLORS.text.secondary,
+    primary: COLORS.primary.blue,
+    primaryVariant: COLORS.primary.blue,
+    secondary: COLORS.primary.blue,
+    accent: COLORS.primary.blue,
+    border: (INPUT_STYLES.states.default.borderColor as string) || "#8E8E93",
+    placeholder: COLORS.text.placeholder,
+    success: COLORS.states.success,
+    error: COLORS.states.error,
+    warning: COLORS.states.error,
+    buttonText: COLORS.text.primary,
+    buttonTextOnPrimary: undefined,
+    primaryOnDark: undefined,
+    surfaceElevated: COLORS.backgrounds.default,
+    lightBackground: COLORS.backgrounds.light,
+  };
+
+  // Base style derived from design system, then override with theme tokens
+  const baseStyle: TextStyle = {
+    ...INPUT_STYLES.base,
+    backgroundColor: resolvedColors.surface,
+    color: resolvedColors.text,
+    borderColor: resolvedColors.border || (INPUT_STYLES.states.default.borderColor as string),
+  };
+
+  const stylesArr: TextStyle[] = [baseStyle];
 
   if (variant && INPUT_STYLES.variants[variant]) {
-    styles.push(INPUT_STYLES.variants[variant]);
+    stylesArr.push(INPUT_STYLES.variants[variant]);
   }
 
   if (state && INPUT_STYLES.states[state]) {
-    styles.push(INPUT_STYLES.states[state]);
+    // Clone the state style so we can tweak based on theme tokens
+    const stateStyle: TextStyle = { ...(INPUT_STYLES.states[state] as TextStyle) } as TextStyle;
+
+    if (state === "focused") {
+      stateStyle.borderColor = resolvedColors.primary;
+      stateStyle.borderWidth = 2;
+      stateStyle.shadowColor = resolvedColors.primary;
+      stateStyle.shadowOpacity = 0.2;
+    } else if (state === "error") {
+      stateStyle.borderColor = resolvedColors.error;
+      // keep a subtle error background
+      stateStyle.backgroundColor = "rgba(255, 59, 48, 0.05)";
+    } else if (state === "disabled") {
+      stateStyle.borderColor = INPUT_STYLES.states.disabled.borderColor;
+      stateStyle.backgroundColor =
+        resolvedColors.placeholder || (INPUT_STYLES.states.disabled.backgroundColor as string);
+      // text color for disabled
+      (stateStyle as any).color = "rgba(0,0,0,0.3)";
+    }
+
+    stylesArr.push(stateStyle);
   }
 
-  return styles;
+  return stylesArr;
 };
 
 /**

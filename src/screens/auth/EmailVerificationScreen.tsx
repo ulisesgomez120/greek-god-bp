@@ -10,6 +10,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { useAuth } from "@/hooks/useAuth";
 import { AUTH_FLOWS } from "@/constants/auth";
 import Text from "@/components/ui/Text";
+import useTheme from "@/hooks/useTheme";
 
 // ============================================================================
 // TYPES

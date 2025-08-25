@@ -14,13 +14,17 @@ import useTheme from "@/hooks/useTheme";
 
 export interface SplashScreenProps {
   message?: string;
+  minimumDisplayTimeMs?: number;
 }
 
 // ============================================================================
 // COMPONENT
 // ============================================================================
 
-const SplashScreen: React.FC<SplashScreenProps> = ({ message = "Loading TrainSmart..." }) => {
+const SplashScreen: React.FC<SplashScreenProps> = ({
+  message = "Loading TrainSmart...",
+  minimumDisplayTimeMs = 2000,
+}) => {
   const fadeAnim = useRef(new Animated.Value(0)).current;
   const scaleAnim = useRef(new Animated.Value(0.8)).current;
   const pulseAnim = useRef(new Animated.Value(1)).current;
@@ -28,7 +32,12 @@ const SplashScreen: React.FC<SplashScreenProps> = ({ message = "Loading TrainSma
   // Consume theme (works when component is rendered inside ThemeProvider)
   const { colors } = useTheme();
 
+  // Manage minimum display timing using internal ref
+  const displayedAtRef = useRef<number | null>(null);
+
   useEffect(() => {
+    displayedAtRef.current = Date.now();
+
     // Initial fade in and scale animation
     Animated.parallel([
       Animated.timing(fadeAnim, {
