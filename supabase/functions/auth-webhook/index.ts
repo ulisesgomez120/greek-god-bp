@@ -6,7 +6,8 @@
 
 /// <reference types="../deno.d.ts" />
 
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+import { createClient } from "npm:@supabase/supabase-js@2";
 import { corsHeaders } from "../_shared/cors.ts";
 import type { Database } from "../_shared/database.types.ts";
 
@@ -76,10 +77,26 @@ const supabase = createClient<Database>(supabaseUrl, supabaseServiceKey, {
 // ============================================================================
 
 serve(async (req) => {
+  // Health check endpoint for deployment verification
+  try {
+    const url = new URL(req.url);
+    if (req.method === "GET" && url.pathname === "/health") {
+      return new Response(JSON.stringify({ status: "ok", timestamp: new Date().toISOString() }), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+        status: 200,
+      });
+    }
+  } catch (e) {
+    // ignore URL parse errors and continue
+  }
+
   // Handle CORS preflight requests
   if (req.method === "OPTIONS") {
     return new Response("ok", { headers: corsHeaders });
   }
+
+  // Read raw body as text for signature verification and robust logging
+  const rawBody = await req.text();
 
   try {
     // Verify webhook signature (optional but recommended)
@@ -88,8 +105,8 @@ serve(async (req) => {
       console.warn("Missing webhook signature");
     }
 
-    // Parse webhook payload
-    const payload: WebhookPayload = await req.json();
+    // Parse webhook payload (use rawBody because req.text() was already consumed)
+    const payload: WebhookPayload = JSON.parse(rawBody);
     console.log("Received webhook:", {
       type: payload.type,
       table: payload.table,

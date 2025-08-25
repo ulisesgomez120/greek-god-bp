@@ -26,7 +26,7 @@ import StorageAdapter from "./storageAdapter";
 const SupabaseStorage = StorageAdapter.secure;
 
 // Create Supabase client with proper configuration
-export const supabase = createClient<Database>(ENV_CONFIG.supabaseUrl, ENV_CONFIG.supabaseAnonKey, {
+export const supabase = createClient<Database>(ENV_CONFIG.supabaseUrl!, ENV_CONFIG.supabaseAnonKey!, {
   auth: {
     // Use platform-aware storage adapter: SecureStore on native, encrypted web storage on web.
     storage: SupabaseStorage,
@@ -46,21 +46,18 @@ export const supabase = createClient<Database>(ENV_CONFIG.supabaseUrl, ENV_CONFI
   },
 });
 
-const createAuthClientCache: { token: string | null; client: SupabaseClient<Database> | null } = {
-  token: null,
-  client: null,
-};
+const authClientCache = new Map<string, SupabaseClient<Database>>();
 
 // Return a Supabase client configured with the provided access token.
-// This function caches a single authenticated client per token to avoid creating
-// multiple GoTrueClient instances in the same browser context (which causes
-// the "Multiple GoTrueClient instances detected" warning).
+// This function caches authenticated clients per token (bounded) to avoid
+// creating an unbounded number of Supabase clients which can trigger the
+// "Multiple GoTrueClient instances detected" warning in browser contexts.
 export function getAuthenticatedClient(accessToken?: string): SupabaseClient<Database> {
   if (!accessToken) return supabase;
   try {
-    if (createAuthClientCache.client && createAuthClientCache.token === accessToken) {
-      return createAuthClientCache.client;
-    }
+    const cached = authClientCache.get(accessToken);
+    if (cached) return cached;
+
     const authClient = createClient<Database>(ENV_CONFIG.supabaseUrl, ENV_CONFIG.supabaseAnonKey, {
       global: {
         headers: {
@@ -68,11 +65,19 @@ export function getAuthenticatedClient(accessToken?: string): SupabaseClient<Dat
         },
       },
       auth: {
+        // These clients are token-scoped and should not persist sessions locally
         detectSessionInUrl: false,
+        autoRefreshToken: false,
+        persistSession: false,
       },
     });
-    createAuthClientCache.client = authClient;
-    createAuthClientCache.token = accessToken;
+
+    // Keep the cache bounded to avoid excessive clients in long-running sessions
+    if (authClientCache.size >= 5) {
+      const oldestKey = authClientCache.keys().next().value;
+      authClientCache.delete(oldestKey);
+    }
+    authClientCache.set(accessToken, authClient);
     return authClient;
   } catch (err) {
     console.warn("getAuthenticatedClient: failed to create authenticated client, falling back to shared client", err);
