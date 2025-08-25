@@ -574,7 +574,7 @@ const createStyles = (colors: any) =>
       color: colors.subtext,
     },
     formCues: {
-      backgroundColor: colors.surfaceElevated || colors.lightBackground || colors.surface,
+      backgroundColor: colors.surface || colors.surfaceElevated || colors.lightBackground,
       borderRadius: 12,
       padding: 16,
       marginTop: 8,
@@ -597,7 +597,7 @@ const createStyles = (colors: any) =>
       padding: 20,
       borderBottomWidth: 1,
       borderBottomColor: colors.border,
-      backgroundColor: colors.surfaceElevated || colors.surface,
+      backgroundColor: colors.surface || colors.surfaceElevated,
     },
     completedSetsSection: {
       padding: 20,
@@ -611,7 +611,7 @@ const createStyles = (colors: any) =>
     completedSetItem: {
       paddingVertical: 8,
       paddingHorizontal: 12,
-      backgroundColor: colors.surfaceElevated || colors.lightBackground || colors.surface,
+      backgroundColor: colors.surface || colors.surfaceElevated || colors.lightBackground,
       borderRadius: 8,
       marginBottom: 8,
     },

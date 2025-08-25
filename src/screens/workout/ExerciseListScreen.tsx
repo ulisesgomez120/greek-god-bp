@@ -198,11 +198,6 @@ const ExerciseListScreen: React.FC<ExerciseListScreenProps> = ({ navigation, rou
               }
               activeOpacity={0.7}>
               <View style={styles.exerciseHeader}>
-                <View style={styles.exerciseNumber}>
-                  <Text variant='bodySmall' color='primary'>
-                    {index + 1}
-                  </Text>
-                </View>
                 <View style={styles.exerciseInfo}>
                   <Text variant='h3' color='primary' style={styles.exerciseName}>
                     {exercise.name}
@@ -318,15 +313,6 @@ const createStyles = (colors: any) =>
       flexDirection: "row",
       alignItems: "center",
       marginBottom: 12,
-    },
-    exerciseNumber: {
-      width: 24,
-      height: 24,
-      borderRadius: 12,
-      backgroundColor: colors.surfaceElevated || colors.lightBackground || colors.background,
-      alignItems: "center",
-      justifyContent: "center",
-      marginRight: 12,
     },
     exerciseInfo: {
       flex: 1,
