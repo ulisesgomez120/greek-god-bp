@@ -150,7 +150,7 @@ const RegisterScreenComponent: React.FC<RegisterScreenProps> = ({ navigation, on
             <View style={styles.formContent}>
               {/* Email Field */}
               <View style={FIELD_STYLES.container}>
-                <Text style={LABEL_STYLES.base}>Email Address *</Text>
+                <Text style={[LABEL_STYLES.base, { color: colors.text }]}>Email Address *</Text>
                 <TextInput
                   style={getInputStyle(colors, undefined, getInputState(focusedField === "email", !!errors.email))}
                   value={email}
@@ -170,7 +170,7 @@ const RegisterScreenComponent: React.FC<RegisterScreenProps> = ({ navigation, on
 
               {/* Password Field */}
               <View style={FIELD_STYLES.container}>
-                <Text style={LABEL_STYLES.base}>Password *</Text>
+                <Text style={[LABEL_STYLES.base, { color: colors.text }]}>Password *</Text>
                 <TextInput
                   style={getInputStyle(
                     colors,
@@ -194,7 +194,7 @@ const RegisterScreenComponent: React.FC<RegisterScreenProps> = ({ navigation, on
 
               {/* Confirm Password Field */}
               <View style={FIELD_STYLES.container}>
-                <Text style={LABEL_STYLES.base}>Confirm Password *</Text>
+                <Text style={[LABEL_STYLES.base, { color: colors.text }]}>Confirm Password *</Text>
                 <TextInput
                   style={getInputStyle(
                     colors,
@@ -226,7 +226,11 @@ const RegisterScreenComponent: React.FC<RegisterScreenProps> = ({ navigation, on
               ]}
               onPress={handleSubmit}
               disabled={loading.signup}>
-              <Text style={[styles.submitButtonText, { color: colors.text }]}>
+              <Text
+                style={[
+                  styles.submitButtonText,
+                  { color: colors.buttonTextOnPrimary || colors.buttonText || colors.text },
+                ]}>
                 {loading.signup ? "Creating Account..." : "Create Account"}
               </Text>
             </TouchableOpacity>
@@ -241,7 +245,7 @@ const RegisterScreenComponent: React.FC<RegisterScreenProps> = ({ navigation, on
             {/* Global Error */}
             {error && (
               <View style={styles.globalErrorContainer}>
-                <Text style={styles.globalErrorText}>{error}</Text>
+                <Text style={[styles.globalErrorText, { color: colors.error }]}>{error}</Text>
               </View>
             )}
           </View>
@@ -297,7 +301,6 @@ const styles = StyleSheet.create({
   label: {
     fontSize: 16,
     fontWeight: "500",
-    color: "#000000",
     marginBottom: 8,
   },
   input: {
@@ -308,7 +311,6 @@ const styles = StyleSheet.create({
     backgroundColor: "#FFFFFF",
     paddingHorizontal: 16,
     fontSize: 17,
-    color: "#000000",
   },
   inputError: {
     borderColor: "#FF3B30",

@@ -246,7 +246,7 @@ const LoginScreenComponent: React.FC<LoginScreenProps> = ({ navigation, onLoginS
                 control={control}
                 render={({ field: { onChange, onBlur, value }, fieldState: { error, isTouched } }) => (
                   <View style={FIELD_STYLES.container}>
-                    <Text style={LABEL_STYLES.base}>Email Address *</Text>
+                    <Text style={[LABEL_STYLES.base, { color: colors.text }]}>Email Address *</Text>
                     <TextInput
                       style={getInputStyle(colors, undefined, getInputState(focusedField === "email", !!error))}
                       value={value}
@@ -270,7 +270,7 @@ const LoginScreenComponent: React.FC<LoginScreenProps> = ({ navigation, onLoginS
                 control={control}
                 render={({ field: { onChange, onBlur, value }, fieldState: { error, isTouched } }) => (
                   <View style={FIELD_STYLES.container}>
-                    <Text style={LABEL_STYLES.base}>Password *</Text>
+                    <Text style={[LABEL_STYLES.base, { color: colors.text }]}>Password *</Text>
                     <TextInput
                       style={getInputStyle(colors, undefined, getInputState(focusedField === "password", !!error))}
                       value={value}
@@ -298,7 +298,11 @@ const LoginScreenComponent: React.FC<LoginScreenProps> = ({ navigation, onLoginS
               ]}
               onPress={handleSubmit(onSubmit)}
               disabled={isSubmitting || loading.login}>
-              <Text style={[styles.submitButtonText, { color: colors.text }]}>
+              <Text
+                style={[
+                  styles.submitButtonText,
+                  { color: colors.buttonTextOnPrimary || colors.buttonText || colors.text },
+                ]}>
                 {isSubmitting || loading.login ? "Signing In..." : AUTH_FLOWS.login.submitText}
               </Text>
             </TouchableOpacity>

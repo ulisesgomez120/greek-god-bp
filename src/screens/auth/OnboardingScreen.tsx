@@ -250,7 +250,7 @@ export const OnboardingScreen: React.FC<OnboardingScreenProps> = ({ navigation, 
             {/* Form Content */}
             <View style={styles.formContent}>
               <View style={FIELD_STYLES.container}>
-                <Text style={LABEL_STYLES.base}>Display Name *</Text>
+                <Text style={[LABEL_STYLES.base, { color: colors.text }]}>Display Name *</Text>
                 <TextInput
                   style={getInputStyle(undefined, getInputState(focusedField === "displayName", !!errors.displayName))}
                   value={displayName}

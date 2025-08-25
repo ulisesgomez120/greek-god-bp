@@ -77,74 +77,78 @@ const SplashScreen: React.FC<SplashScreenProps> = ({
   }, [fadeAnim, scaleAnim, pulseAnim]);
 
   return (
-    <View style={[styles.container, { backgroundColor: colors?.background || "#B5CFF8" }]}>
-      <Animated.View
-        style={[
-          styles.content,
-          {
-            opacity: fadeAnim,
-            transform: [{ scale: scaleAnim }],
-          },
-        ]}>
-        {/* App Logo/Icon */}
+    <View style={styles.container}>
+      {/* Background image (contained & centered) */}
+      <Image source={require("../../../assets/splash-icon.png")} style={styles.bgImage} resizeMode='cover' />
+      {/* Dark overlay so text pops on top of the background image */}
+      <View style={[styles.overlay, { backgroundColor: "rgba(0,0,0,0.65)" }]}>
         <Animated.View
           style={[
-            styles.logoContainer,
+            styles.content,
             {
-              transform: [{ scale: pulseAnim }],
+              opacity: fadeAnim,
+              transform: [{ scale: scaleAnim }],
             },
           ]}>
-          <View style={[styles.logo, { backgroundColor: colors?.surface || "#F8FAFD" }]}>
-            <Image source={require("../../../assets/splash-icon.png")} style={styles.logoImage} resizeMode='contain' />
+          {/* App Name */}
+          <Text
+            variant='h1'
+            color='primary'
+            align='center'
+            style={[styles.appName, { color: colors?.text || "#FFFFFF" }]}>
+            TrainSmart
+          </Text>
+
+          {/* Tagline */}
+          <Text
+            variant='body'
+            color='coach'
+            align='center'
+            style={[styles.tagline, { color: colors?.subtext || "rgba(255,255,255,0.9)" }]}>
+            AI-Powered Fitness Coaching
+          </Text>
+
+          {/* Loading Message */}
+          <Text
+            variant='bodySmall'
+            color='secondary'
+            align='center'
+            style={[styles.loadingMessage, { color: colors?.subtext || "rgba(255,255,255,0.85)" }]}>
+            {message}
+          </Text>
+
+          {/* Loading Indicator */}
+          <View style={styles.loadingIndicator}>
+            <View style={styles.loadingDots}>
+              {[0, 1, 2].map((index) => (
+                <Animated.View
+                  key={index}
+                  style={[
+                    styles.dot,
+                    {
+                      opacity: pulseAnim.interpolate({
+                        inputRange: [1, 1.1],
+                        outputRange: [0.3, 1],
+                        extrapolate: "clamp",
+                      }),
+                      backgroundColor: colors?.primary || "#B5CFF8",
+                      transform: [
+                        {
+                          scale: pulseAnim.interpolate({
+                            inputRange: [1, 1.1],
+                            outputRange: [0.8, 1.2],
+                            extrapolate: "clamp",
+                          }),
+                        },
+                      ],
+                    },
+                  ]}
+                />
+              ))}
+            </View>
           </View>
         </Animated.View>
-
-        {/* App Name */}
-        <Text variant='h1' color='primary' align='center' style={styles.appName}>
-          TrainSmart
-        </Text>
-
-        {/* Tagline */}
-        <Text variant='body' color='coach' align='center' style={styles.tagline}>
-          AI-Powered Fitness Coaching
-        </Text>
-
-        {/* Loading Message */}
-        <Text variant='bodySmall' color='secondary' align='center' style={styles.loadingMessage}>
-          {message}
-        </Text>
-
-        {/* Loading Indicator */}
-        <View style={styles.loadingIndicator}>
-          <View style={styles.loadingDots}>
-            {[0, 1, 2].map((index) => (
-              <Animated.View
-                key={index}
-                style={[
-                  styles.dot,
-                  {
-                    opacity: pulseAnim.interpolate({
-                      inputRange: [1, 1.1],
-                      outputRange: [0.3, 1],
-                      extrapolate: "clamp",
-                    }),
-                    backgroundColor: colors?.primary || "#B5CFF8",
-                    transform: [
-                      {
-                        scale: pulseAnim.interpolate({
-                          inputRange: [1, 1.1],
-                          outputRange: [0.8, 1.2],
-                          extrapolate: "clamp",
-                        }),
-                      },
-                    ],
-                  },
-                ]}
-              />
-            ))}
-          </View>
-        </View>
-      </Animated.View>
+      </View>
     </View>
   );
 };
@@ -161,6 +165,12 @@ const styles = StyleSheet.create({
     backgroundColor: "#B5CFF8",
     justifyContent: "center",
     alignItems: "center",
+  },
+  overlay: {
+    ...StyleSheet.absoluteFillObject,
+    justifyContent: "center",
+    alignItems: "center",
+    backgroundColor: "rgba(0,0,0,0.45)",
   },
   content: {
     alignItems: "center",
@@ -192,6 +202,16 @@ const styles = StyleSheet.create({
   logoImage: {
     width: 48,
     height: 48,
+  },
+  bgImage: {
+    position: "absolute",
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    width: "100%",
+    height: "100%",
+    alignSelf: "center",
   },
   appName: {
     marginBottom: 8,

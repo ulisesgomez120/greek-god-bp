@@ -37,7 +37,7 @@ const AppContent: React.FC = () => {
     show: showSplash,
     hide: hideSplash,
   } = useSplashScreen({
-    minimumDisplayTimeMs: 2000,
+    minimumDisplayTimeMs: 2500,
   });
 
   useEffect(() => {

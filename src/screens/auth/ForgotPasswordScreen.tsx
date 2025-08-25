@@ -201,7 +201,7 @@ export const ForgotPasswordScreen: React.FC<ForgotPasswordScreenProps> = ({ navi
     <View style={styles.formContainer}>
       {/* Email Field */}
       <View style={FIELD_STYLES.container}>
-        <Text style={LABEL_STYLES.base}>Email Address *</Text>
+        <Text style={[LABEL_STYLES.base, { color: colors.text }]}>Email Address *</Text>
         <TextInput
           style={getInputStyle(undefined, getInputState(focusedField === "email", !!errors.email))}
           value={email}
@@ -358,7 +358,11 @@ export const ForgotPasswordScreen: React.FC<ForgotPasswordScreenProps> = ({ navi
                 ]}
                 onPress={onSubmit}
                 disabled={isSubmitting || loading.passwordReset}>
-                <Text style={[styles.submitButtonText, { color: colors.text }]}>
+                <Text
+                  style={[
+                    styles.submitButtonText,
+                    { color: colors.buttonTextOnPrimary || colors.buttonText || colors.text },
+                  ]}>
                   {isSubmitting || loading.passwordReset ? "Sending..." : AUTH_FLOWS.forgotPassword.submitText}
                 </Text>
               </TouchableOpacity>

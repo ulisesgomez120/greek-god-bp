@@ -17,7 +17,7 @@ import {
 import * as Haptics from "expo-haptics";
 import Text from "./Text";
 import useTheme from "@/hooks/useTheme";
-import { getButtonTextColor, adjustHexAlpha } from "@/utils/colorUtils";
+import { adjustHexAlpha } from "@/utils/colorUtils";
 
 // ============================================================================
 // TYPES
@@ -154,9 +154,9 @@ export const Button: React.FC<ButtonProps> = ({
     } as ViewStyle,
   };
 
-  // Compute accessible text colors for each variant
+  // Compute text colors for each variant (use theme tokens; static mapping per request)
   const textColorMap: Record<ButtonVariant, string> = {
-    primary: getButtonTextColor(colors.primary, colors),
+    primary: colors.buttonTextOnPrimary || colors.buttonText || colors.text || "#000000",
     secondary: colors.primary,
     text: colors.primary,
     danger: colors.surface || "#FFFFFF",
