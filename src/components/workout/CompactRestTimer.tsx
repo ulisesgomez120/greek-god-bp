@@ -235,7 +235,9 @@ export const CompactRestTimer: React.FC<CompactRestTimerProps> = ({ duration, on
         <Icon
           name={nativeTimerLaunched ? "timer" : isStarting ? "hourglass_empty" : "play-arrow"}
           size={20}
-          color={nativeTimerLaunched ? colors.success : colors.buttonTextOnPrimary || colors.buttonText || colors.text}
+          color={
+            nativeTimerLaunched ? colors.surface : colors.buttonTextOnPrimary || colors.buttonText || colors.surface
+          }
           style={styles.iconText}
         />
       </TouchableOpacity>
@@ -278,7 +280,6 @@ const createStyles = (colors: any) =>
     },
     iconText: {
       fontSize: 18,
-      color: colors.text,
     },
   });
 

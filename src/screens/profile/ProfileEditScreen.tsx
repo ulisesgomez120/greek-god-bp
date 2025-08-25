@@ -340,7 +340,7 @@ export const ProfileEditScreen: React.FC<ProfileEditScreenProps> = () => {
 
       {/* Display Name Field */}
       <View style={FIELD_STYLES.container}>
-        <Text style={LABEL_STYLES.base}>Display Name</Text>
+        <Text style={styles.labelBase}>Display Name</Text>
         <TextInput
           style={getInputStyle(colors, undefined, getInputState(focusedField === "displayName", !!errors.displayName))}
           value={formData.displayName || ""}
@@ -354,12 +354,12 @@ export const ProfileEditScreen: React.FC<ProfileEditScreenProps> = () => {
           placeholderTextColor={colors.placeholder}
           selectionColor={colors.primary}
         />
-        {errors.displayName && <Text style={ERROR_STYLES.text}>{errors.displayName}</Text>}
+        {errors.displayName && <Text style={[ERROR_STYLES.text, { color: colors.error }]}>{errors.displayName}</Text>}
       </View>
 
       {/* Height Field */}
       <View style={FIELD_STYLES.container}>
-        <Text style={LABEL_STYLES.base}>{isImperial() ? "Height (ft/in)" : "Height (cm)"}</Text>
+        <Text style={styles.labelBase}>{isImperial() ? "Height (ft/in)" : "Height (cm)"}</Text>
 
         <HeightPicker
           valueCm={typeof heightPickerValue === "number" ? heightPickerValue : formData.heightCm}
@@ -404,12 +404,12 @@ export const ProfileEditScreen: React.FC<ProfileEditScreenProps> = () => {
           />
         )}
 
-        {errors.heightCm && <Text style={ERROR_STYLES.text}>{errors.heightCm}</Text>}
+        {errors.heightCm && <Text style={[ERROR_STYLES.text, { color: colors.error }]}>{errors.heightCm}</Text>}
       </View>
 
       {/* Weight Field */}
       <View style={FIELD_STYLES.container}>
-        <Text style={LABEL_STYLES.base}>{isImperial() ? "Weight (lbs)" : "Weight (kg)"}</Text>
+        <Text style={styles.labelBase}>{isImperial() ? "Weight (lbs)" : "Weight (kg)"}</Text>
         <TextInput
           style={getInputStyle(colors, undefined, getInputState(focusedField === "weightKg", !!errors.weightKg))}
           value={
@@ -442,12 +442,12 @@ export const ProfileEditScreen: React.FC<ProfileEditScreenProps> = () => {
           {...getInputProps(isImperial() ? undefined : "number")}
           placeholder={isImperial() ? "180" : "70"}
         />
-        {errors.weightKg && <Text style={ERROR_STYLES.text}>{errors.weightKg}</Text>}
+        {errors.weightKg && <Text style={[ERROR_STYLES.text, { color: colors.error }]}>{errors.weightKg}</Text>}
       </View>
 
       {/* Birth Date Field */}
       <View style={FIELD_STYLES.container}>
-        <Text style={LABEL_STYLES.base}>Birth Date</Text>
+        <Text style={styles.labelBase}>Birth Date</Text>
         <DateInput
           value={birthDateLocal}
           onChange={(d) => {
@@ -463,12 +463,12 @@ export const ProfileEditScreen: React.FC<ProfileEditScreenProps> = () => {
           maximumDate={new Date()}
           testID='profile-birthdate-input'
         />
-        {errors.birthDate && <Text style={ERROR_STYLES.text}>{errors.birthDate}</Text>}
+        {errors.birthDate && <Text style={[ERROR_STYLES.text, { color: colors.error }]}>{errors.birthDate}</Text>}
       </View>
 
       {/* Gender Selection */}
       <View style={FIELD_STYLES.container}>
-        <Text style={LABEL_STYLES.base}>Gender</Text>
+        <Text style={styles.labelBase}>Gender</Text>
         <View style={styles.genderContainer}>
           {["male", "female", "other", "prefer_not_to_say"].map((gender) => (
             <TouchableOpacity
@@ -535,10 +535,10 @@ export const ProfileEditScreen: React.FC<ProfileEditScreenProps> = () => {
       <Text style={styles.sectionTitle}>Preferences</Text>
 
       <View style={FIELD_STYLES.container}>
-        <Text style={LABEL_STYLES.base}>Units</Text>
+        <Text style={styles.labelBase}>Units</Text>
 
         <View style={{ marginTop: 8, flexDirection: "row", alignItems: "center", justifyContent: "space-between" }}>
-          <Text style={LABEL_STYLES.base}>Use Metric Units</Text>
+          <Text style={styles.labelBase}>Use Metric Units</Text>
           <Switch
             value={Boolean(formData.preferences?.useMetric ?? preferences?.useMetric)}
             onValueChange={(val) => {
@@ -885,6 +885,18 @@ const createStyles = (colors: any) =>
       fontWeight: "600",
       color: colors.text,
       marginBottom: 8,
+    },
+    labelBase: {
+      fontSize: 16,
+      fontWeight: "500",
+      color: colors.text,
+      marginBottom: 8,
+    },
+    labelSmall: {
+      fontSize: 14,
+      fontWeight: "400",
+      color: colors.subtext,
+      marginBottom: 6,
     },
     sectionDescription: {
       fontSize: 15,
