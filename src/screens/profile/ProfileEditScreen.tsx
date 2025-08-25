@@ -24,6 +24,7 @@ import { LoadingButton } from "@/components/ui/LoadingButton";
 import { useProfile } from "@/hooks/useProfile";
 import { logger } from "@/utils/logger";
 import useUnitPreferences from "@/hooks/useUnitPreferences";
+import useAuth from "@/hooks/useAuth";
 import {
   parseDisplayWeightToKg,
   parseDisplayHeightToCm,
@@ -139,6 +140,8 @@ export const ProfileEditScreen: React.FC<ProfileEditScreenProps> = () => {
     reloadPreferences,
     loading: prefsLoading,
   } = useUnitPreferences();
+
+  const { logout, loading: authLoading } = useAuth();
 
   const handleHeightInput = (text: string) => {
     // local display-only; conversion happens on Save
@@ -275,6 +278,17 @@ export const ProfileEditScreen: React.FC<ProfileEditScreenProps> = () => {
       navigation.goBack();
     }
   }, [hasChanges, profile, navigation]);
+
+  const handleSignOut = useCallback(async () => {
+    try {
+      const result = await logout();
+      if (!result || !result.success) {
+        Alert.alert("Error", result?.error?.message || "Failed to sign out");
+      }
+    } catch (err) {
+      Alert.alert("Error", "Failed to sign out");
+    }
+  }, [logout]);
 
   // ============================================================================
   // GOAL MANAGEMENT
@@ -464,6 +478,16 @@ export const ProfileEditScreen: React.FC<ProfileEditScreenProps> = () => {
             </TouchableOpacity>
           ))}
         </View>
+      </View>
+
+      <View style={{ marginTop: 16 }}>
+        <LoadingButton
+          loading={Boolean(authLoading?.logout)}
+          onPress={handleSignOut}
+          style={styles.signOutButton}
+          testID='profile-signout-button'>
+          Sign Out
+        </LoadingButton>
       </View>
     </View>
   );
@@ -967,6 +991,11 @@ const styles = StyleSheet.create({
     fontSize: 13,
     color: "#8E8E93",
     lineHeight: 18,
+  },
+  signOutButton: {
+    marginTop: 16,
+    backgroundColor: "#FF3B30",
+    borderColor: "#FF3B30",
   },
   errorContainer: {
     backgroundColor: "#FF3B30",
