@@ -8,6 +8,7 @@ import React, { useState, useCallback } from "react";
 import { View, StyleSheet, Animated, Pressable } from "react-native";
 import { Text } from "@/components/ui/Text";
 import { Button } from "@/components/ui/Button";
+import useTheme from "@/hooks/useTheme";
 import type { ExperienceLevelInfo } from "@/types/profile";
 import type { ExperienceLevel } from "@/types/database";
 import { EXPERIENCE_LEVELS, getExperienceLevelInfo } from "@/types/profile";
@@ -48,6 +49,9 @@ const LevelCard: React.FC<LevelCardProps> = ({
   disabled,
   index,
 }) => {
+  const { colors } = useTheme();
+  const styles = createStyles(colors);
+
   const [scaleAnim] = useState(new Animated.Value(1));
   const [pressAnim] = useState(new Animated.Value(0));
 
@@ -115,17 +119,26 @@ const LevelCard: React.FC<LevelCardProps> = ({
   const difficultyLevel = Math.min(index, 4);
   const difficultyPercentage = ((difficultyLevel + 1) / 5) * 100;
 
-  // Get level color based on difficulty
+  // Get level color based on difficulty - use theme tokens with safe fallbacks
   const getLevelColor = (level: number): string => {
-    const colors = ["#34C759", "#64D2FF", "#FF9500", "#FF6B35", "#FF3B30"];
-    return colors[level] || colors[0];
+    const palette = [
+      colors.success || "#34C759",
+      colors.primary || "#64D2FF",
+      colors.warning || "#FF9500",
+      colors.primaryOnDark || "#FF6B35",
+      colors.error || "#FF3B30",
+    ];
+    return palette[level] || palette[0];
   };
 
   const levelColor = getLevelColor(difficultyLevel);
 
   const animatedBackgroundColor = pressAnim.interpolate({
     inputRange: [0, 1],
-    outputRange: [isSelected ? "#F8FAFD" : "#FFFFFF", "#F0F8FF"],
+    outputRange: [
+      isSelected ? colors.surfaceElevated || colors.surface || colors.background : colors.background,
+      colors.surfaceElevated || colors.surface,
+    ],
   });
 
   return (
@@ -250,6 +263,8 @@ export const ExperienceLevelSelector: React.FC<ExperienceLevelSelectorProps> = (
   disabled = false,
   excludeAdvanced = true,
 }) => {
+  const { colors } = useTheme();
+  const styles = createStyles(colors);
   // Filter experience levels (exclude advanced for most users)
   const availableLevels = EXPERIENCE_LEVELS.filter((level) => {
     if (excludeAdvanced && level.level === "advanced") {
@@ -313,196 +328,198 @@ export const ExperienceLevelSelector: React.FC<ExperienceLevelSelectorProps> = (
 // STYLES
 // ============================================================================
 
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-  },
-  containerCompact: {
-    flex: 0,
-  },
-  containerDisabled: {
-    opacity: 0.6,
-  },
-  header: {
-    marginBottom: 24,
-    alignItems: "center",
-  },
-  headerTitle: {
-    fontSize: 24,
-    fontWeight: "700",
-    color: "#1C1C1E",
-    textAlign: "center",
-    marginBottom: 8,
-  },
-  headerDescription: {
-    fontSize: 16,
-    color: "#8E8E93",
-    textAlign: "center",
-    lineHeight: 22,
-    paddingHorizontal: 20,
-  },
-  levelsContainer: {
-    gap: 16,
-  },
-  levelsContainerCompact: {
-    gap: 12,
-  },
-  levelCard: {
-    borderRadius: 16,
-    overflow: "hidden",
-    elevation: 2,
-    shadowColor: "#000000",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 8,
-  },
-  levelCardCompact: {
-    borderRadius: 12,
-  },
-  levelCardSelected: {
-    elevation: 4,
-    shadowOpacity: 0.15,
-    shadowRadius: 12,
-  },
-  levelCardDisabled: {
-    opacity: 0.5,
-  },
-  levelCardBackground: {
-    borderWidth: 2,
-    borderColor: "#F2F2F7",
-    borderRadius: 16,
-  },
-  levelCardPressable: {
-    padding: 20,
-    position: "relative",
-  },
-  levelCardHeader: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "flex-start",
-    marginBottom: 12,
-  },
-  levelNameContainer: {
-    flex: 1,
-    marginRight: 16,
-  },
-  levelName: {
-    fontSize: 20,
-    fontWeight: "700",
-    color: "#1C1C1E",
-    marginBottom: 8,
-  },
-  levelNameCompact: {
-    fontSize: 18,
-    marginBottom: 6,
-  },
-  levelNameSelected: {
-    color: "#B5CFF8",
-  },
-  levelNameDisabled: {
-    color: "#8E8E93",
-  },
-  difficultyContainer: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 8,
-  },
-  difficultyTrack: {
-    width: 60,
-    height: 4,
-    backgroundColor: "#F2F2F7",
-    borderRadius: 2,
-    overflow: "hidden",
-  },
-  difficultyFill: {
-    height: "100%",
-    borderRadius: 2,
-  },
-  difficultyText: {
-    fontSize: 12,
-    fontWeight: "600",
-    color: "#8E8E93",
-  },
-  levelDuration: {
-    fontSize: 14,
-    fontWeight: "600",
-    color: "#8E8E93",
-    textAlign: "right",
-  },
-  levelDurationSelected: {
-    color: "#B5CFF8",
-  },
-  levelDurationDisabled: {
-    color: "#C7C7CC",
-  },
-  levelDescription: {
-    fontSize: 16,
-    color: "#8E8E93",
-    lineHeight: 22,
-    marginBottom: 16,
-  },
-  levelDescriptionCompact: {
-    fontSize: 14,
-    marginBottom: 0,
-  },
-  levelDescriptionSelected: {
-    color: "#1C1C1E",
-  },
-  levelDescriptionDisabled: {
-    color: "#C7C7CC",
-  },
-  levelDetails: {
-    gap: 12,
-  },
-  detailSection: {
-    gap: 4,
-  },
-  detailLabel: {
-    fontSize: 14,
-    fontWeight: "600",
-    color: "#1C1C1E",
-  },
-  detailText: {
-    fontSize: 14,
-    color: "#8E8E93",
-    lineHeight: 20,
-  },
-  detailTextSelected: {
-    color: "#B5CFF8",
-    fontWeight: "500",
-  },
-  characteristicsList: {
-    gap: 2,
-  },
-  characteristicItem: {
-    fontSize: 14,
-    color: "#8E8E93",
-    lineHeight: 20,
-  },
-  characteristicItemSelected: {
-    color: "#1C1C1E",
-  },
-  selectionIndicator: {
-    position: "absolute",
-    top: 16,
-    right: 16,
-  },
-  selectionDot: {
-    width: 12,
-    height: 12,
-    borderRadius: 6,
-  },
-  helpContainer: {
-    marginTop: 24,
-    paddingHorizontal: 20,
-  },
-  helpText: {
-    fontSize: 15,
-    color: "#8E8E93",
-    textAlign: "center",
-    lineHeight: 20,
-    fontStyle: "italic",
-  },
-});
+const createStyles = (colors: any) =>
+  StyleSheet.create({
+    container: {
+      flex: 1,
+    },
+    containerCompact: {
+      flex: 0,
+    },
+    containerDisabled: {
+      opacity: 0.6,
+    },
+    header: {
+      marginBottom: 24,
+      alignItems: "center",
+    },
+    headerTitle: {
+      fontSize: 24,
+      fontWeight: "700",
+      color: colors.text,
+      textAlign: "center",
+      marginBottom: 8,
+    },
+    headerDescription: {
+      fontSize: 16,
+      color: colors.subtext,
+      textAlign: "center",
+      lineHeight: 22,
+      paddingHorizontal: 20,
+    },
+    levelsContainer: {
+      gap: 16,
+    },
+    levelsContainerCompact: {
+      gap: 12,
+    },
+    levelCard: {
+      borderRadius: 16,
+      overflow: "hidden",
+      elevation: 2,
+      shadowColor: colors.shadow || "#000",
+      shadowOffset: { width: 0, height: 2 },
+      shadowOpacity: 0.1,
+      shadowRadius: 8,
+    },
+    levelCardCompact: {
+      borderRadius: 12,
+    },
+    levelCardSelected: {
+      elevation: 4,
+      shadowOpacity: 0.15,
+      shadowRadius: 12,
+    },
+    levelCardDisabled: {
+      opacity: 0.5,
+    },
+    levelCardBackground: {
+      borderWidth: 2,
+      borderColor: colors.border,
+      borderRadius: 16,
+      backgroundColor: colors.surface,
+    },
+    levelCardPressable: {
+      padding: 20,
+      position: "relative",
+    },
+    levelCardHeader: {
+      flexDirection: "row",
+      justifyContent: "space-between",
+      alignItems: "flex-start",
+      marginBottom: 12,
+    },
+    levelNameContainer: {
+      flex: 1,
+      marginRight: 16,
+    },
+    levelName: {
+      fontSize: 20,
+      fontWeight: "700",
+      color: colors.text,
+      marginBottom: 8,
+    },
+    levelNameCompact: {
+      fontSize: 18,
+      marginBottom: 6,
+    },
+    levelNameSelected: {
+      color: colors.primary,
+    },
+    levelNameDisabled: {
+      color: colors.subtext,
+    },
+    difficultyContainer: {
+      flexDirection: "row",
+      alignItems: "center",
+      gap: 8,
+    },
+    difficultyTrack: {
+      width: 60,
+      height: 4,
+      backgroundColor: colors.border,
+      borderRadius: 2,
+      overflow: "hidden",
+    },
+    difficultyFill: {
+      height: "100%",
+      borderRadius: 2,
+    },
+    difficultyText: {
+      fontSize: 12,
+      fontWeight: "600",
+      color: colors.subtext,
+    },
+    levelDuration: {
+      fontSize: 14,
+      fontWeight: "600",
+      color: colors.subtext,
+      textAlign: "right",
+    },
+    levelDurationSelected: {
+      color: colors.primary,
+    },
+    levelDurationDisabled: {
+      color: colors.muted || colors.subtext,
+    },
+    levelDescription: {
+      fontSize: 16,
+      color: colors.subtext,
+      lineHeight: 22,
+      marginBottom: 16,
+    },
+    levelDescriptionCompact: {
+      fontSize: 14,
+      marginBottom: 0,
+    },
+    levelDescriptionSelected: {
+      color: colors.text,
+    },
+    levelDescriptionDisabled: {
+      color: colors.muted || colors.subtext,
+    },
+    levelDetails: {
+      gap: 12,
+    },
+    detailSection: {
+      gap: 4,
+    },
+    detailLabel: {
+      fontSize: 14,
+      fontWeight: "600",
+      color: colors.text,
+    },
+    detailText: {
+      fontSize: 14,
+      color: colors.subtext,
+      lineHeight: 20,
+    },
+    detailTextSelected: {
+      color: colors.primary,
+      fontWeight: "500",
+    },
+    characteristicsList: {
+      gap: 2,
+    },
+    characteristicItem: {
+      fontSize: 14,
+      color: colors.subtext,
+      lineHeight: 20,
+    },
+    characteristicItemSelected: {
+      color: colors.text,
+    },
+    selectionIndicator: {
+      position: "absolute",
+      top: 16,
+      right: 16,
+    },
+    selectionDot: {
+      width: 12,
+      height: 12,
+      borderRadius: 6,
+    },
+    helpContainer: {
+      marginTop: 24,
+      paddingHorizontal: 20,
+    },
+    helpText: {
+      fontSize: 15,
+      color: colors.subtext,
+      textAlign: "center",
+      lineHeight: 20,
+      fontStyle: "italic",
+    },
+  });
 
 export default ExperienceLevelSelector;

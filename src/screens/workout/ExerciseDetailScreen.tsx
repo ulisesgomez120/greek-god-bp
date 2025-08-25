@@ -12,6 +12,7 @@ import { RouteProp } from "@react-navigation/native";
 
 // Components
 import Text from "../../components/ui/Text";
+import useTheme from "@/hooks/useTheme";
 import { Button } from "../../components/ui/Button";
 import SetLogger from "../../components/workout/SetLogger";
 import CompactRestTimer from "../../components/workout/CompactRestTimer";
@@ -64,26 +65,14 @@ interface NextExerciseInfo {
 }
 
 // ============================================================================
-// CONSTANTS
-// ============================================================================
-
-const COLORS = {
-  primary: "#B5CFF8",
-  success: "#34C759",
-  warning: "#FF9500",
-  error: "#FF3B30",
-  text: "#1C1C1E",
-  textSecondary: "#8E8E93",
-  background: "#FFFFFF",
-  backgroundLight: "#F8FAFD",
-} as const;
-
-// ============================================================================
 // MAIN COMPONENT
 // ============================================================================
 
 export const ExerciseDetailScreen: React.FC<ExerciseDetailScreenProps> = ({ navigation, route }) => {
   const { exerciseId, exerciseIndex, workoutContext, exerciseData } = route.params;
+
+  const { colors } = useTheme();
+  const styles = createStyles(colors);
 
   // ============================================================================
   // STATE
@@ -470,17 +459,21 @@ export const ExerciseDetailScreen: React.FC<ExerciseDetailScreenProps> = ({ navi
   const renderNavigationFooter = () => (
     <View style={styles.navigationFooter}>
       {state.nextExercise ? (
-        <TouchableOpacity style={styles.nextButton} onPress={handleNextExercise}>
-          <Text variant='button' style={styles.nextButtonText}>
-            Next: {state.nextExercise.name} →
-          </Text>
-        </TouchableOpacity>
+        <Button
+          variant='primary'
+          onPress={handleNextExercise}
+          style={styles.nextButton}
+          accessibilityLabel='Next exercise'>
+          {`Next: ${state.nextExercise.name} →`}
+        </Button>
       ) : (
-        <TouchableOpacity style={styles.completeButton} onPress={handleCompleteWorkout}>
-          <Text variant='button' style={styles.completeButtonText}>
-            Complete Workout
-          </Text>
-        </TouchableOpacity>
+        <Button
+          variant='primary'
+          onPress={handleCompleteWorkout}
+          style={{ ...styles.completeButton, backgroundColor: colors.success }}
+          accessibilityLabel='Complete workout'>
+          Complete Workout
+        </Button>
       )}
     </View>
   );
@@ -492,7 +485,7 @@ export const ExerciseDetailScreen: React.FC<ExerciseDetailScreenProps> = ({ navi
   if (state.isLoading) {
     return (
       <View style={styles.loadingContainer}>
-        <ActivityIndicator size='large' color={COLORS.primary} />
+        <ActivityIndicator size='large' color={colors.primary} />
         <Text variant='body' color='secondary' style={styles.loadingText}>
           Loading exercise data...
         </Text>
@@ -540,149 +533,159 @@ export const ExerciseDetailScreen: React.FC<ExerciseDetailScreenProps> = ({ navi
 // STYLES
 // ============================================================================
 
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: COLORS.background,
-  },
-  loadingContainer: {
-    flex: 1,
-    justifyContent: "center",
-    alignItems: "center",
-    backgroundColor: COLORS.background,
-  },
-  loadingText: {
-    marginTop: 16,
-  },
-  scrollView: {
-    flex: 1,
-  },
-  scrollContent: {
-    paddingBottom: 100, // Space for navigation footer
-  },
-  header: {
-    padding: 20,
-    borderBottomWidth: 1,
-    borderBottomColor: "#F2F2F7",
-  },
-  exerciseName: {
-    marginBottom: 12,
-    textAlign: "center",
-  },
-  targetInfo: {
-    marginBottom: 16,
-  },
-  targetText: {
-    textAlign: "center",
-    lineHeight: 20,
-  },
-  formCues: {
-    backgroundColor: COLORS.backgroundLight,
-    borderRadius: 12,
-    padding: 16,
-    marginTop: 8,
-  },
-  formCuesTitle: {
-    marginBottom: 8,
-    fontWeight: "600",
-  },
-  formCuesText: {
-    lineHeight: 20,
-  },
-  restTimerSection: {
-    padding: 20,
-    borderBottomWidth: 1,
-    borderBottomColor: "#F2F2F7",
-  },
-  setLoggerSection: {
-    padding: 20,
-    borderBottomWidth: 1,
-    borderBottomColor: "#F2F2F7",
-  },
-  completedSetsSection: {
-    padding: 20,
-    borderBottomWidth: 1,
-    borderBottomColor: "#F2F2F7",
-  },
-  sectionTitle: {
-    marginBottom: 16,
-  },
-  completedSetItem: {
-    paddingVertical: 8,
-    paddingHorizontal: 12,
-    backgroundColor: COLORS.backgroundLight,
-    borderRadius: 8,
-    marginBottom: 8,
-  },
-  historySection: {
-    padding: 20,
-  },
-  historyItem: {
-    paddingVertical: 12,
-    borderBottomWidth: 1,
-    borderBottomColor: "#F2F2F7",
-  },
-  historyDate: {
-    marginBottom: 4,
-    fontWeight: "500",
-  },
-  historySets: {
-    marginTop: 4,
-  },
-  historySetItem: {
-    marginBottom: 2,
-    lineHeight: 18,
-  },
-  navigationFooter: {
-    position: "absolute",
-    bottom: 0,
-    left: 0,
-    right: 0,
-    flexDirection: "row",
-    padding: 20,
-    backgroundColor: COLORS.background,
-    borderTopWidth: 1,
-    borderTopColor: "#F2F2F7",
-    gap: 12,
-  },
-  backButton: {
-    flex: 1,
-    height: 50,
-    backgroundColor: "transparent",
-    borderWidth: 2,
-    borderColor: COLORS.primary,
-    borderRadius: 12,
-    justifyContent: "center",
-    alignItems: "center",
-  },
-  backButtonText: {
-    color: COLORS.primary,
-    fontWeight: "600",
-  },
-  nextButton: {
-    flex: 2,
-    height: 50,
-    backgroundColor: COLORS.primary,
-    borderRadius: 12,
-    justifyContent: "center",
-    alignItems: "center",
-  },
-  nextButtonText: {
-    color: COLORS.text,
-    fontWeight: "600",
-  },
-  completeButton: {
-    flex: 2,
-    height: 50,
-    backgroundColor: COLORS.success,
-    borderRadius: 12,
-    justifyContent: "center",
-    alignItems: "center",
-  },
-  completeButtonText: {
-    color: COLORS.background,
-    fontWeight: "600",
-  },
-});
+const createStyles = (colors: any) =>
+  StyleSheet.create({
+    container: {
+      flex: 1,
+      backgroundColor: colors.background,
+    },
+    loadingContainer: {
+      flex: 1,
+      justifyContent: "center",
+      alignItems: "center",
+      backgroundColor: colors.background,
+    },
+    loadingText: {
+      marginTop: 16,
+      color: colors.subtext,
+    },
+    scrollView: {
+      flex: 1,
+    },
+    scrollContent: {
+      paddingBottom: 100, // Space for navigation footer
+    },
+    header: {
+      padding: 20,
+      borderBottomWidth: 1,
+      borderBottomColor: colors.border,
+    },
+    exerciseName: {
+      marginBottom: 12,
+      textAlign: "center",
+      color: colors.text,
+    },
+    targetInfo: {
+      marginBottom: 16,
+    },
+    targetText: {
+      textAlign: "center",
+      lineHeight: 20,
+      color: colors.subtext,
+    },
+    formCues: {
+      backgroundColor: colors.surfaceElevated || colors.lightBackground || colors.surface,
+      borderRadius: 12,
+      padding: 16,
+      marginTop: 8,
+    },
+    formCuesTitle: {
+      marginBottom: 8,
+      fontWeight: "600",
+      color: colors.subtext,
+    },
+    formCuesText: {
+      lineHeight: 20,
+      color: colors.text,
+    },
+    restTimerSection: {
+      padding: 20,
+      borderBottomWidth: 1,
+      borderBottomColor: colors.border,
+    },
+    setLoggerSection: {
+      padding: 20,
+      borderBottomWidth: 1,
+      borderBottomColor: colors.border,
+      backgroundColor: colors.surfaceElevated || colors.surface,
+    },
+    completedSetsSection: {
+      padding: 20,
+      borderBottomWidth: 1,
+      borderBottomColor: colors.border,
+    },
+    sectionTitle: {
+      marginBottom: 16,
+      color: colors.text,
+    },
+    completedSetItem: {
+      paddingVertical: 8,
+      paddingHorizontal: 12,
+      backgroundColor: colors.surfaceElevated || colors.lightBackground || colors.surface,
+      borderRadius: 8,
+      marginBottom: 8,
+    },
+    historySection: {
+      padding: 20,
+    },
+    historyItem: {
+      paddingVertical: 12,
+      borderBottomWidth: 1,
+      borderBottomColor: colors.border,
+    },
+    historyDate: {
+      marginBottom: 4,
+      fontWeight: "500",
+      color: colors.subtext,
+    },
+    historySets: {
+      marginTop: 4,
+    },
+    historySetItem: {
+      marginBottom: 2,
+      lineHeight: 18,
+      color: colors.text,
+    },
+    navigationFooter: {
+      position: "absolute",
+      bottom: 0,
+      left: 0,
+      right: 0,
+      flexDirection: "row",
+      padding: 20,
+      backgroundColor: colors.background,
+      borderTopWidth: 1,
+      borderTopColor: colors.border,
+      gap: 12,
+    },
+    backButton: {
+      flex: 1,
+      height: 50,
+      backgroundColor: "transparent",
+      borderWidth: 2,
+      borderColor: colors.primary,
+      borderRadius: 12,
+      justifyContent: "center",
+      alignItems: "center",
+    },
+    backButtonText: {
+      color: colors.primary,
+      fontWeight: "600",
+    },
+    nextButton: {
+      flex: 2,
+      height: 50,
+      backgroundColor: colors.primary,
+      borderRadius: 12,
+      justifyContent: "center",
+      alignItems: "center",
+    },
+    nextButtonText: {
+      color: colors.buttonTextOnPrimary || colors.buttonText || colors.text,
+      fontWeight: "600",
+    },
+    completeButton: {
+      flex: 2,
+      height: 50,
+      backgroundColor: colors.success,
+      borderRadius: 12,
+      justifyContent: "center",
+      alignItems: "center",
+    },
+    completeButtonText: {
+      color: colors.buttonTextOnPrimary || colors.buttonText || colors.background,
+      fontWeight: "600",
+    },
+  });
 
 export default ExerciseDetailScreen;

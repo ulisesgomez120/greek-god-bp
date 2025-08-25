@@ -19,6 +19,7 @@ import {
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useNavigation } from "@react-navigation/native";
 import { Text } from "@/components/ui/Text";
+import useTheme from "@/hooks/useTheme";
 import { Button } from "@/components/ui/Button";
 import { LoadingButton } from "@/components/ui/LoadingButton";
 import { useProfile } from "@/hooks/useProfile";
@@ -67,6 +68,8 @@ interface FormErrors {
 export const ProfileEditScreen: React.FC<ProfileEditScreenProps> = () => {
   const navigation = useNavigation();
   const { profile, updateProfile, updating, error } = useProfile();
+  const { colors } = useTheme();
+  const styles = createStyles(colors);
 
   const [formData, setFormData] = useState<ProfileEditData>({});
   const [errors, setErrors] = useState<FormErrors>({});
@@ -339,7 +342,7 @@ export const ProfileEditScreen: React.FC<ProfileEditScreenProps> = () => {
       <View style={FIELD_STYLES.container}>
         <Text style={LABEL_STYLES.base}>Display Name</Text>
         <TextInput
-          style={getInputStyle(undefined, getInputState(focusedField === "displayName", !!errors.displayName))}
+          style={getInputStyle(colors, undefined, getInputState(focusedField === "displayName", !!errors.displayName))}
           value={formData.displayName || ""}
           onChangeText={(text: string) => updateFormData({ displayName: text })}
           onFocus={() => setFocusedField("displayName")}
@@ -348,8 +351,8 @@ export const ProfileEditScreen: React.FC<ProfileEditScreenProps> = () => {
           autoCapitalize='words'
           autoCorrect={false}
           spellCheck={false}
-          placeholderTextColor='#8E8E93'
-          selectionColor='#B5CFF8'
+          placeholderTextColor={colors.placeholder}
+          selectionColor={colors.primary}
         />
         {errors.displayName && <Text style={ERROR_STYLES.text}>{errors.displayName}</Text>}
       </View>
@@ -378,7 +381,7 @@ export const ProfileEditScreen: React.FC<ProfileEditScreenProps> = () => {
         {/* Custom height input fallback (only after user selected Custom) */}
         {allowCustomHeight && (
           <TextInput
-            style={getInputStyle(undefined, getInputState(focusedField === "heightCm", !!errors.heightCm))}
+            style={getInputStyle(colors, undefined, getInputState(focusedField === "heightCm", !!errors.heightCm))}
             value={heightInput}
             onChangeText={(text: string) => {
               setHeightInput(text);
@@ -408,7 +411,7 @@ export const ProfileEditScreen: React.FC<ProfileEditScreenProps> = () => {
       <View style={FIELD_STYLES.container}>
         <Text style={LABEL_STYLES.base}>{isImperial() ? "Weight (lbs)" : "Weight (kg)"}</Text>
         <TextInput
-          style={getInputStyle(undefined, getInputState(focusedField === "weightKg", !!errors.weightKg))}
+          style={getInputStyle(colors, undefined, getInputState(focusedField === "weightKg", !!errors.weightKg))}
           value={
             focusedField === "weightKg"
               ? weightInput
@@ -550,8 +553,8 @@ export const ProfileEditScreen: React.FC<ProfileEditScreenProps> = () => {
               void setUseMetric(val);
             }}
             accessibilityLabel='Toggle metric units'
-            trackColor={{ false: "#F2F2F7", true: "#B5CFF8" }}
-            thumbColor='#FFFFFF'
+            trackColor={{ false: colors.surfaceElevated, true: colors.primary }}
+            thumbColor={colors.surface}
           />
         </View>
       </View>
@@ -601,8 +604,8 @@ export const ProfileEditScreen: React.FC<ProfileEditScreenProps> = () => {
             <Switch
               value={normalized.dataSharing}
               onValueChange={(value) => updatePrivacySetting("dataSharing", value)}
-              trackColor={{ false: "#F2F2F7", true: "#B5CFF8" }}
-              thumbColor='#FFFFFF'
+              trackColor={{ false: colors.surfaceElevated, true: colors.primary }}
+              thumbColor={colors.surface}
             />
           </View>
 
@@ -614,8 +617,8 @@ export const ProfileEditScreen: React.FC<ProfileEditScreenProps> = () => {
             <Switch
               value={normalized.analytics}
               onValueChange={(value) => updatePrivacySetting("analytics", value)}
-              trackColor={{ false: "#F2F2F7", true: "#B5CFF8" }}
-              thumbColor='#FFFFFF'
+              trackColor={{ false: colors.surfaceElevated, true: colors.primary }}
+              thumbColor={colors.surface}
             />
           </View>
 
@@ -627,8 +630,8 @@ export const ProfileEditScreen: React.FC<ProfileEditScreenProps> = () => {
             <Switch
               value={normalized.aiCoaching}
               onValueChange={(value) => updatePrivacySetting("aiCoaching", value)}
-              trackColor={{ false: "#F2F2F7", true: "#B5CFF8" }}
-              thumbColor='#FFFFFF'
+              trackColor={{ false: colors.surfaceElevated, true: colors.primary }}
+              thumbColor={colors.surface}
             />
           </View>
 
@@ -640,8 +643,8 @@ export const ProfileEditScreen: React.FC<ProfileEditScreenProps> = () => {
             <Switch
               value={normalized.workoutSharing}
               onValueChange={(value) => updatePrivacySetting("workoutSharing", value)}
-              trackColor={{ false: "#F2F2F7", true: "#B5CFF8" }}
-              thumbColor='#FFFFFF'
+              trackColor={{ false: colors.surfaceElevated, true: colors.primary }}
+              thumbColor={colors.surface}
             />
           </View>
 
@@ -653,8 +656,8 @@ export const ProfileEditScreen: React.FC<ProfileEditScreenProps> = () => {
             <Switch
               value={normalized.progressSharing}
               onValueChange={(value) => updatePrivacySetting("progressSharing", value)}
-              trackColor={{ false: "#F2F2F7", true: "#B5CFF8" }}
-              thumbColor='#FFFFFF'
+              trackColor={{ false: colors.surfaceElevated, true: colors.primary }}
+              thumbColor={colors.surface}
             />
           </View>
         </View>
@@ -749,267 +752,268 @@ export const ProfileEditScreen: React.FC<ProfileEditScreenProps> = () => {
 // STYLES
 // ============================================================================
 
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: "#FFFFFF",
-  },
-  keyboardAvoidingView: {
-    flex: 1,
-  },
-  loadingContainer: {
-    flex: 1,
-    justifyContent: "center",
-    alignItems: "center",
-    padding: 20,
-  },
-  loadingText: {
-    fontSize: 18,
-    fontWeight: "600",
-    color: "#1C1C1E",
-  },
-  header: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    paddingHorizontal: 20,
-    paddingVertical: 8,
-    borderBottomWidth: 1,
-    borderBottomColor: "#F2F2F7",
-  },
-  headerButton: {
-    minWidth: 80,
-    paddingVertical: 8,
-    paddingHorizontal: 12,
-    borderRadius: 8,
-  },
-  headerButtonDisabled: {
-    opacity: 0.5,
-  },
-  headerButtonText: {
-    fontSize: 16,
-    fontWeight: "500",
-    color: "#B5CFF8",
-    textAlign: "center",
-  },
-  headerButtonTextPrimary: {
-    color: "#B5CFF8",
-    fontWeight: "600",
-  },
-  headerTitle: {
-    fontSize: 18,
-    fontWeight: "600",
-    color: "#1C1C1E",
-  },
-  tabsContainer: {
-    flexDirection: "row",
-    paddingHorizontal: 20,
-    paddingVertical: 6,
-    gap: 8,
-    borderBottomWidth: 1,
-    borderBottomColor: "#F2F2F7",
-  },
-  tabButton: {
-    flex: 1,
-    paddingVertical: 12,
-    paddingHorizontal: 16,
-    borderRadius: 12,
-    borderWidth: 2,
-    borderColor: "#F2F2F7",
-    backgroundColor: "#FFFFFF",
-    alignItems: "center",
-  },
-  tabButtonActive: {
-    borderColor: "#B5CFF8",
-    backgroundColor: "#F8FAFD",
-  },
-  tabButtonText: {
-    fontSize: 15,
-    fontWeight: "500",
-    color: "#8E8E93",
-  },
-  tabButtonTextActive: {
-    color: "#B5CFF8",
-    fontWeight: "600",
-  },
-  // Scrollable tabs container (wraps horizontal ScrollView)
-  tabsScroll: {
-    maxHeight: 44,
-    paddingVertical: 0,
-  },
-  // Scrollable tabs content container style
-  tabsScrollContent: {
-    paddingHorizontal: 12,
-    paddingVertical: 4,
-    alignItems: "center",
-  },
-  // Scrollable tab button styles
-  tabButtonScrollable: {
-    paddingVertical: 6,
-    paddingHorizontal: 12,
-    borderRadius: 12,
-    borderWidth: 2,
-    borderColor: "#F2F2F7",
-    backgroundColor: "#FFFFFF",
-    marginRight: 8,
-    alignItems: "center",
-  },
-  tabButtonActiveScrollable: {
-    borderColor: "#B5CFF8",
-    backgroundColor: "#F8FAFD",
-  },
-  tabButtonTextScrollable: {
-    fontSize: 15,
-    fontWeight: "500",
-    color: "#8E8E93",
-  },
-  tabButtonTextActiveScrollable: {
-    color: "#B5CFF8",
-    fontWeight: "600",
-  },
-  scrollView: {
-    flex: 1,
-  },
-  scrollViewContent: {
-    padding: 12,
-  },
-  section: {
-    marginBottom: 20,
-  },
-  sectionTitle: {
-    fontSize: 22,
-    fontWeight: "600",
-    color: "#1C1C1E",
-    marginBottom: 8,
-  },
-  sectionDescription: {
-    fontSize: 15,
-    color: "#8E8E93",
-    marginBottom: 24,
-    lineHeight: 20,
-  },
-  genderContainer: {
-    flexDirection: "row",
-    flexWrap: "wrap",
-    gap: 8,
-    marginTop: 8,
-  },
-  genderButton: {
-    flex: 1,
-    minWidth: "45%",
-    paddingVertical: 12,
-    paddingHorizontal: 16,
-    borderRadius: 12,
-    borderWidth: 2,
-    borderColor: "#F2F2F7",
-    backgroundColor: "#FFFFFF",
-    alignItems: "center",
-  },
-  genderButtonSelected: {
-    borderColor: "#B5CFF8",
-    backgroundColor: "#F8FAFD",
-  },
-  genderButtonText: {
-    fontSize: 15,
-    fontWeight: "500",
-    color: "#1C1C1E",
-  },
-  genderButtonTextSelected: {
-    color: "#B5CFF8",
-    fontWeight: "600",
-  },
-  goalsContainer: {
-    gap: 12,
-  },
-  goalCard: {
-    borderRadius: 12,
-    borderWidth: 2,
-    borderColor: "#F2F2F7",
-    backgroundColor: "#FFFFFF",
-  },
-  goalCardSelected: {
-    borderColor: "#B5CFF8",
-    backgroundColor: "#F8FAFD",
-  },
-  goalContent: {
-    padding: 16,
-  },
-  goalHeader: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    marginBottom: 8,
-  },
-  goalName: {
-    fontSize: 17,
-    fontWeight: "600",
-    color: "#1C1C1E",
-    flex: 1,
-  },
-  goalNameSelected: {
-    color: "#B5CFF8",
-  },
-  popularBadge: {
-    backgroundColor: "#64D2FF",
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 12,
-  },
-  popularBadgeText: {
-    fontSize: 11,
-    fontWeight: "600",
-    color: "#FFFFFF",
-  },
-  goalDescription: {
-    fontSize: 15,
-    color: "#8E8E93",
-    lineHeight: 20,
-  },
-  goalDescriptionSelected: {
-    color: "#1C1C1E",
-  },
-  privacyContainer: {
-    gap: 20,
-  },
-  privacyItem: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    paddingVertical: 12,
-  },
-  privacyItemContent: {
-    flex: 1,
-    marginRight: 16,
-  },
-  privacyItemTitle: {
-    fontSize: 17,
-    fontWeight: "500",
-    color: "#1C1C1E",
-    marginBottom: 4,
-  },
-  privacyItemDescription: {
-    fontSize: 13,
-    color: "#8E8E93",
-    lineHeight: 18,
-  },
-  signOutButton: {
-    marginTop: 16,
-    backgroundColor: "#FF3B30",
-    borderColor: "#FF3B30",
-  },
-  errorContainer: {
-    backgroundColor: "#FF3B30",
-    paddingHorizontal: 20,
-    paddingVertical: 12,
-    margin: 20,
-    borderRadius: 8,
-  },
-  errorText: {
-    color: "#FFFFFF",
-    fontSize: 15,
-    fontWeight: "500",
-    textAlign: "center",
-  },
-});
+const createStyles = (colors: any) =>
+  StyleSheet.create({
+    container: {
+      flex: 1,
+      backgroundColor: colors.background,
+    },
+    keyboardAvoidingView: {
+      flex: 1,
+    },
+    loadingContainer: {
+      flex: 1,
+      justifyContent: "center",
+      alignItems: "center",
+      padding: 20,
+    },
+    loadingText: {
+      fontSize: 18,
+      fontWeight: "600",
+      color: colors.text,
+    },
+    header: {
+      flexDirection: "row",
+      alignItems: "center",
+      justifyContent: "space-between",
+      paddingHorizontal: 20,
+      paddingVertical: 8,
+      borderBottomWidth: 1,
+      borderBottomColor: colors.border,
+    },
+    headerButton: {
+      minWidth: 80,
+      paddingVertical: 8,
+      paddingHorizontal: 12,
+      borderRadius: 8,
+    },
+    headerButtonDisabled: {
+      opacity: 0.5,
+    },
+    headerButtonText: {
+      fontSize: 16,
+      fontWeight: "500",
+      color: colors.primary,
+      textAlign: "center",
+    },
+    headerButtonTextPrimary: {
+      color: colors.primary,
+      fontWeight: "600",
+    },
+    headerTitle: {
+      fontSize: 18,
+      fontWeight: "600",
+      color: colors.text,
+    },
+    tabsContainer: {
+      flexDirection: "row",
+      paddingHorizontal: 20,
+      paddingVertical: 6,
+      gap: 8,
+      borderBottomWidth: 1,
+      borderBottomColor: colors.border,
+    },
+    tabButton: {
+      flex: 1,
+      paddingVertical: 12,
+      paddingHorizontal: 16,
+      borderRadius: 12,
+      borderWidth: 2,
+      borderColor: colors.border,
+      backgroundColor: colors.background,
+      alignItems: "center",
+    },
+    tabButtonActive: {
+      borderColor: colors.primary,
+      backgroundColor: colors.surfaceElevated || colors.surface,
+    },
+    tabButtonText: {
+      fontSize: 15,
+      fontWeight: "500",
+      color: colors.subtext,
+    },
+    tabButtonTextActive: {
+      color: colors.primary,
+      fontWeight: "600",
+    },
+    // Scrollable tabs container (wraps horizontal ScrollView)
+    tabsScroll: {
+      maxHeight: 44,
+      paddingVertical: 0,
+    },
+    // Scrollable tabs content container style
+    tabsScrollContent: {
+      paddingHorizontal: 12,
+      paddingVertical: 4,
+      alignItems: "center",
+    },
+    // Scrollable tab button styles
+    tabButtonScrollable: {
+      paddingVertical: 6,
+      paddingHorizontal: 12,
+      borderRadius: 12,
+      borderWidth: 2,
+      borderColor: colors.border,
+      backgroundColor: colors.background,
+      marginRight: 8,
+      alignItems: "center",
+    },
+    tabButtonActiveScrollable: {
+      borderColor: colors.primary,
+      backgroundColor: colors.surfaceElevated || colors.surface,
+    },
+    tabButtonTextScrollable: {
+      fontSize: 15,
+      fontWeight: "500",
+      color: colors.subtext,
+    },
+    tabButtonTextActiveScrollable: {
+      color: colors.primary,
+      fontWeight: "600",
+    },
+    scrollView: {
+      flex: 1,
+    },
+    scrollViewContent: {
+      padding: 12,
+    },
+    section: {
+      marginBottom: 20,
+    },
+    sectionTitle: {
+      fontSize: 22,
+      fontWeight: "600",
+      color: colors.text,
+      marginBottom: 8,
+    },
+    sectionDescription: {
+      fontSize: 15,
+      color: colors.subtext,
+      marginBottom: 24,
+      lineHeight: 20,
+    },
+    genderContainer: {
+      flexDirection: "row",
+      flexWrap: "wrap",
+      gap: 8,
+      marginTop: 8,
+    },
+    genderButton: {
+      flex: 1,
+      minWidth: "45%",
+      paddingVertical: 12,
+      paddingHorizontal: 16,
+      borderRadius: 12,
+      borderWidth: 2,
+      borderColor: colors.border,
+      backgroundColor: colors.background,
+      alignItems: "center",
+    },
+    genderButtonSelected: {
+      borderColor: colors.primary,
+      backgroundColor: colors.surfaceElevated || colors.surface,
+    },
+    genderButtonText: {
+      fontSize: 15,
+      fontWeight: "500",
+      color: colors.text,
+    },
+    genderButtonTextSelected: {
+      color: colors.primary,
+      fontWeight: "600",
+    },
+    goalsContainer: {
+      gap: 12,
+    },
+    goalCard: {
+      borderRadius: 12,
+      borderWidth: 2,
+      borderColor: colors.border,
+      backgroundColor: colors.background,
+    },
+    goalCardSelected: {
+      borderColor: colors.primary,
+      backgroundColor: colors.surfaceElevated || colors.surface,
+    },
+    goalContent: {
+      padding: 16,
+    },
+    goalHeader: {
+      flexDirection: "row",
+      justifyContent: "space-between",
+      alignItems: "center",
+      marginBottom: 8,
+    },
+    goalName: {
+      fontSize: 17,
+      fontWeight: "600",
+      color: colors.text,
+      flex: 1,
+    },
+    goalNameSelected: {
+      color: colors.primary,
+    },
+    popularBadge: {
+      backgroundColor: colors.primary,
+      paddingHorizontal: 8,
+      paddingVertical: 4,
+      borderRadius: 12,
+    },
+    popularBadgeText: {
+      fontSize: 11,
+      fontWeight: "600",
+      color: colors.buttonTextOnPrimary || colors.buttonText || "#FFFFFF",
+    },
+    goalDescription: {
+      fontSize: 15,
+      color: colors.subtext,
+      lineHeight: 20,
+    },
+    goalDescriptionSelected: {
+      color: colors.text,
+    },
+    privacyContainer: {
+      gap: 20,
+    },
+    privacyItem: {
+      flexDirection: "row",
+      alignItems: "center",
+      justifyContent: "space-between",
+      paddingVertical: 12,
+    },
+    privacyItemContent: {
+      flex: 1,
+      marginRight: 16,
+    },
+    privacyItemTitle: {
+      fontSize: 17,
+      fontWeight: "500",
+      color: colors.text,
+      marginBottom: 4,
+    },
+    privacyItemDescription: {
+      fontSize: 13,
+      color: colors.subtext,
+      lineHeight: 18,
+    },
+    signOutButton: {
+      marginTop: 16,
+      backgroundColor: colors.error,
+      borderColor: colors.error,
+    },
+    errorContainer: {
+      backgroundColor: colors.error,
+      paddingHorizontal: 20,
+      paddingVertical: 12,
+      margin: 20,
+      borderRadius: 8,
+    },
+    errorText: {
+      color: colors.buttonTextOnPrimary || colors.buttonText || "#FFFFFF",
+      fontSize: 15,
+      fontWeight: "500",
+      textAlign: "center",
+    },
+  });
 
 export default ProfileEditScreen;

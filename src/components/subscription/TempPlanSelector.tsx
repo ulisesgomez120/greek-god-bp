@@ -7,6 +7,7 @@
 import React from "react";
 import { View, TouchableOpacity, StyleSheet } from "react-native";
 import { Text } from "../ui/Text";
+import useTheme from "@/hooks/useTheme";
 import type { TempSubscriptionPlan } from "../../types/tempSubscription";
 
 // ============================================================================
@@ -30,6 +31,7 @@ interface PlanCardProps {
   onSelect: () => void;
   disabled?: boolean;
   testingLabel?: string;
+  styles?: any;
 }
 
 // ============================================================================
@@ -46,7 +48,11 @@ function PlanCard({
   onSelect,
   disabled = false,
   testingLabel,
+  styles: stylesProp,
 }: PlanCardProps) {
+  // allow callers to pass styles in so PlanCard can be used as a top-level function
+  const styles = stylesProp || ({} as any);
+
   const cardStyle = [
     styles.planCard,
     isSelected && styles.selectedCard,
@@ -105,6 +111,9 @@ function PlanCard({
 // ============================================================================
 
 export function TempPlanSelector({ selectedPlan, onPlanSelect, currentPlan, disabled = false }: TempPlanSelectorProps) {
+  const { colors } = useTheme();
+  const styles = createStyles(colors);
+
   // Plan configurations
   const plans = [
     {
@@ -159,6 +168,7 @@ export function TempPlanSelector({ selectedPlan, onPlanSelect, currentPlan, disa
           isCurrent={currentPlan === planConfig.plan}
           onSelect={() => onPlanSelect(planConfig.plan)}
           disabled={disabled}
+          styles={styles}
         />
       ))}
 
@@ -181,132 +191,133 @@ export function TempPlanSelector({ selectedPlan, onPlanSelect, currentPlan, disa
 // STYLES
 // ============================================================================
 
-const styles = StyleSheet.create({
-  container: {
-    gap: 16,
-  },
-  planCard: {
-    backgroundColor: "#FFFFFF",
-    borderRadius: 16,
-    padding: 20,
-    borderWidth: 2,
-    borderColor: "#F2F2F7",
-    position: "relative",
-  },
-  selectedCard: {
-    borderColor: "#B5CFF8",
-    backgroundColor: "#F8FAFD",
-  },
-  currentCard: {
-    borderColor: "#34C759",
-    backgroundColor: "#F0FDF4",
-  },
-  disabledCard: {
-    opacity: 0.6,
-  },
-  testingLabel: {
-    position: "absolute",
-    top: 12,
-    right: 12,
-    backgroundColor: "#FF9500",
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 6,
-  },
-  testingLabelText: {
-    fontSize: 11,
-    fontWeight: "600",
-    color: "#FFFFFF",
-    letterSpacing: 0.5,
-  },
-  currentBadge: {
-    position: "absolute",
-    top: 12,
-    right: 12,
-    backgroundColor: "#34C759",
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 6,
-  },
-  currentBadgeText: {
-    fontSize: 11,
-    fontWeight: "600",
-    color: "#FFFFFF",
-  },
-  planHeader: {
-    marginBottom: 16,
-  },
-  planTitle: {
-    fontSize: 22,
-    fontWeight: "700",
-    color: "#000000",
-    marginBottom: 4,
-  },
-  selectedText: {
-    color: "#B5CFF8",
-  },
-  currentText: {
-    color: "#34C759",
-  },
-  planPrice: {
-    fontSize: 17,
-    fontWeight: "500",
-    color: "#8E8E93",
-  },
-  featuresList: {
-    gap: 8,
-  },
-  featureItem: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 8,
-  },
-  featureIcon: {
-    fontSize: 16,
-    color: "#34C759",
-    fontWeight: "600",
-  },
-  featureText: {
-    fontSize: 15,
-    color: "#000000",
-    flex: 1,
-  },
-  selectionIndicator: {
-    marginTop: 16,
-    paddingTop: 16,
-    borderTopWidth: 1,
-    borderTopColor: "#B5CFF8",
-    alignItems: "center",
-  },
-  selectionText: {
-    fontSize: 15,
-    fontWeight: "600",
-    color: "#B5CFF8",
-  },
-  disclaimer: {
-    backgroundColor: "#F8FAFD",
-    padding: 16,
-    borderRadius: 12,
-    marginTop: 8,
-  },
-  disclaimerTitle: {
-    fontSize: 17,
-    fontWeight: "600",
-    color: "#000000",
-    marginBottom: 8,
-  },
-  disclaimerText: {
-    fontSize: 15,
-    color: "#8E8E93",
-    lineHeight: 20,
-    marginBottom: 8,
-  },
-  disclaimerNote: {
-    fontSize: 13,
-    color: "#B5CFF8",
-    fontWeight: "500",
-    textAlign: "center",
-  },
-});
+const createStyles = (colors: any) =>
+  StyleSheet.create({
+    container: {
+      gap: 16,
+    },
+    planCard: {
+      backgroundColor: colors.surface,
+      borderRadius: 16,
+      padding: 20,
+      borderWidth: 2,
+      borderColor: colors.border,
+      position: "relative",
+    },
+    selectedCard: {
+      borderColor: colors.primary,
+      backgroundColor: colors.surfaceElevated || colors.surface,
+    },
+    currentCard: {
+      borderColor: colors.success,
+      backgroundColor: colors.surfaceElevated || colors.surface,
+    },
+    disabledCard: {
+      opacity: 0.6,
+    },
+    testingLabel: {
+      position: "absolute",
+      top: 12,
+      right: 12,
+      backgroundColor: colors.warning || "#FF9500",
+      paddingHorizontal: 8,
+      paddingVertical: 4,
+      borderRadius: 6,
+    },
+    testingLabelText: {
+      fontSize: 11,
+      fontWeight: "600",
+      color: colors.buttonTextOnPrimary || colors.buttonText || "#FFFFFF",
+      letterSpacing: 0.5,
+    },
+    currentBadge: {
+      position: "absolute",
+      top: 12,
+      right: 12,
+      backgroundColor: colors.success,
+      paddingHorizontal: 8,
+      paddingVertical: 4,
+      borderRadius: 6,
+    },
+    currentBadgeText: {
+      fontSize: 11,
+      fontWeight: "600",
+      color: colors.buttonTextOnPrimary || colors.buttonText || "#FFFFFF",
+    },
+    planHeader: {
+      marginBottom: 16,
+    },
+    planTitle: {
+      fontSize: 22,
+      fontWeight: "700",
+      color: colors.text,
+      marginBottom: 4,
+    },
+    selectedText: {
+      color: colors.primary,
+    },
+    currentText: {
+      color: colors.success,
+    },
+    planPrice: {
+      fontSize: 17,
+      fontWeight: "500",
+      color: colors.subtext,
+    },
+    featuresList: {
+      gap: 8,
+    },
+    featureItem: {
+      flexDirection: "row",
+      alignItems: "center",
+      gap: 8,
+    },
+    featureIcon: {
+      fontSize: 16,
+      color: colors.success,
+      fontWeight: "600",
+    },
+    featureText: {
+      fontSize: 15,
+      color: colors.text,
+      flex: 1,
+    },
+    selectionIndicator: {
+      marginTop: 16,
+      paddingTop: 16,
+      borderTopWidth: 1,
+      borderTopColor: colors.primary,
+      alignItems: "center",
+    },
+    selectionText: {
+      fontSize: 15,
+      fontWeight: "600",
+      color: colors.primary,
+    },
+    disclaimer: {
+      backgroundColor: colors.surfaceElevated || colors.surface,
+      padding: 16,
+      borderRadius: 12,
+      marginTop: 8,
+    },
+    disclaimerTitle: {
+      fontSize: 17,
+      fontWeight: "600",
+      color: colors.text,
+      marginBottom: 8,
+    },
+    disclaimerText: {
+      fontSize: 15,
+      color: colors.subtext,
+      lineHeight: 20,
+      marginBottom: 8,
+    },
+    disclaimerNote: {
+      fontSize: 13,
+      color: colors.primary,
+      fontWeight: "500",
+      textAlign: "center",
+    },
+  });
 
 export default TempPlanSelector;

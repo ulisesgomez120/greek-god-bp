@@ -2,6 +2,7 @@ import React, { useState } from "react";
 import { View, Text, TouchableOpacity, Modal, Platform, StyleSheet } from "react-native";
 import DateTimePicker from "@react-native-community/datetimepicker";
 import { format } from "date-fns";
+import useTheme from "@/hooks/useTheme";
 
 interface Props {
   value?: Date | null;
@@ -22,6 +23,9 @@ interface Props {
  */
 export default function DateInput({ value, onChange, minimumDate, maximumDate, testID }: Props) {
   const [open, setOpen] = useState(false);
+
+  const { colors } = useTheme();
+  const styles = createStyles(colors);
 
   const displayText = value ? format(value, "yyyy-MM-dd") : "Select date";
 
@@ -84,52 +88,53 @@ export default function DateInput({ value, onChange, minimumDate, maximumDate, t
   );
 }
 
-const styles = StyleSheet.create({
-  button: {
-    paddingVertical: 12,
-    paddingHorizontal: 12,
-    borderRadius: 8,
-    borderWidth: 1,
-    borderColor: "#E0E0E0",
-    backgroundColor: "#FFF",
-  },
-  text: {
-    fontSize: 16,
-    color: "#111",
-  },
-  modalBackdrop: {
-    flex: 1,
-    backgroundColor: "rgba(0,0,0,0.35)",
-    justifyContent: "flex-end",
-  },
-  modalContent: {
-    backgroundColor: "#FFF",
-    paddingTop: 12,
-    paddingBottom: 24,
-    borderTopLeftRadius: 12,
-    borderTopRightRadius: 12,
-  },
-  modalActions: {
-    flexDirection: "row",
-    justifyContent: "flex-end",
-    paddingHorizontal: 16,
-    paddingTop: 8,
-  },
-  actionButton: {
-    paddingVertical: 8,
-    paddingHorizontal: 12,
-    borderRadius: 8,
-    marginLeft: 8,
-  },
-  actionButtonPrimary: {
-    backgroundColor: "#B5CFF8",
-  },
-  actionText: {
-    fontSize: 16,
-    color: "#333",
-  },
-  actionTextPrimary: {
-    color: "#fff",
-    fontWeight: "600",
-  },
-});
+const createStyles = (colors: any) =>
+  StyleSheet.create({
+    button: {
+      paddingVertical: 12,
+      paddingHorizontal: 12,
+      borderRadius: 8,
+      borderWidth: 1,
+      borderColor: colors.border,
+      backgroundColor: colors.surface,
+    },
+    text: {
+      fontSize: 16,
+      color: colors.text,
+    },
+    modalBackdrop: {
+      flex: 1,
+      backgroundColor: "rgba(0,0,0,0.35)",
+      justifyContent: "flex-end",
+    },
+    modalContent: {
+      backgroundColor: colors.background,
+      paddingTop: 12,
+      paddingBottom: 24,
+      borderTopLeftRadius: 12,
+      borderTopRightRadius: 12,
+    },
+    modalActions: {
+      flexDirection: "row",
+      justifyContent: "flex-end",
+      paddingHorizontal: 16,
+      paddingTop: 8,
+    },
+    actionButton: {
+      paddingVertical: 8,
+      paddingHorizontal: 12,
+      borderRadius: 8,
+      marginLeft: 8,
+    },
+    actionButtonPrimary: {
+      backgroundColor: colors.primary,
+    },
+    actionText: {
+      fontSize: 16,
+      color: colors.subtext,
+    },
+    actionTextPrimary: {
+      color: colors.buttonTextOnPrimary || colors.buttonText || "#FFFFFF",
+      fontWeight: "600",
+    },
+  });

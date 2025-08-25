@@ -252,8 +252,14 @@ export const OnboardingScreen: React.FC<OnboardingScreenProps> = ({ navigation, 
               <View style={FIELD_STYLES.container}>
                 <Text style={[LABEL_STYLES.base, { color: colors.text }]}>Display Name *</Text>
                 <TextInput
-                  style={getInputStyle(undefined, getInputState(focusedField === "displayName", !!errors.displayName))}
+                  style={getInputStyle(
+                    colors,
+                    undefined,
+                    getInputState(focusedField === "displayName", !!errors.displayName)
+                  )}
                   value={displayName}
+                  placeholderTextColor={colors.placeholder}
+                  selectionColor={colors.primary}
                   onChangeText={handleDisplayNameChange}
                   onFocus={() => setFocusedField("displayName")}
                   onBlur={() => setFocusedField(null)}

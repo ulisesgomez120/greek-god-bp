@@ -4,8 +4,9 @@
 // Centralized styling system for TextInput components following TrainSmart
 // design system. Use direct TextInput components with these style constants.
 
-import { TextStyle, ViewStyle } from "react-native";
+import { TextStyle, ViewStyle, Appearance } from "react-native";
 import type { ThemeColors } from "@/types/theme";
+import { getTheme } from "@/styles/themes";
 
 // ============================================================================
 // DESIGN SYSTEM COLORS
@@ -211,28 +212,17 @@ export const getInputStyle = (
     colors = undefined;
   }
 
-  // Resolve theme colors with safe defaults
-  const resolvedColors: ThemeColors = colors || {
-    background: COLORS.backgrounds.default,
-    surface: COLORS.backgrounds.default,
-    card: COLORS.backgrounds.default,
-    text: COLORS.text.primary,
-    subtext: COLORS.text.secondary,
-    primary: COLORS.primary.blue,
-    primaryVariant: COLORS.primary.blue,
-    secondary: COLORS.primary.blue,
-    accent: COLORS.primary.blue,
-    border: (INPUT_STYLES.states.default.borderColor as string) || "#8E8E93",
-    placeholder: COLORS.text.placeholder,
-    success: COLORS.states.success,
-    error: COLORS.states.error,
-    warning: COLORS.states.error,
-    buttonText: COLORS.text.primary,
-    buttonTextOnPrimary: undefined,
-    primaryOnDark: undefined,
-    surfaceElevated: COLORS.backgrounds.default,
-    lightBackground: COLORS.backgrounds.light,
-  };
+  // Resolve theme colors with safe defaults.
+  // If a ThemeColors object is provided use it, otherwise derive colors from the current system theme
+  // so inputs behave correctly when callers don't pass theme colors.
+  let resolvedColors: ThemeColors;
+  if (colors) {
+    resolvedColors = colors;
+  } else {
+    const scheme = (Appearance.getColorScheme() as "light" | "dark") || "light";
+    // getTheme returns a full theme object; grab the colors map
+    resolvedColors = getTheme(scheme).colors as ThemeColors;
+  }
 
   // Base style derived from design system, then override with theme tokens
   const baseStyle: TextStyle = {
@@ -252,21 +242,25 @@ export const getInputStyle = (
     // Clone the state style so we can tweak based on theme tokens
     const stateStyle: TextStyle = { ...(INPUT_STYLES.states[state] as TextStyle) } as TextStyle;
 
-    if (state === "focused") {
+    // Default state: ensure we use theme surface + border instead of hardcoded light background
+    if (state === "default") {
+      stateStyle.backgroundColor = resolvedColors.surface;
+      stateStyle.borderColor = resolvedColors.border || (INPUT_STYLES.states.default.borderColor as string);
+    } else if (state === "focused") {
       stateStyle.borderColor = resolvedColors.primary;
       stateStyle.borderWidth = 2;
       stateStyle.shadowColor = resolvedColors.primary;
       stateStyle.shadowOpacity = 0.2;
     } else if (state === "error") {
       stateStyle.borderColor = resolvedColors.error;
-      // keep a subtle error background
+      // keep a subtle error background using a stable fallback (ThemeColors doesn't include an 'errorBackground' token)
       stateStyle.backgroundColor = "rgba(255, 59, 48, 0.05)";
     } else if (state === "disabled") {
       stateStyle.borderColor = INPUT_STYLES.states.disabled.borderColor;
       stateStyle.backgroundColor =
         resolvedColors.placeholder || (INPUT_STYLES.states.disabled.backgroundColor as string);
-      // text color for disabled
-      (stateStyle as any).color = "rgba(0,0,0,0.3)";
+      // text color for disabled - use theme placeholder/subtext for appropriate contrast
+      (stateStyle as any).color = resolvedColors.placeholder || resolvedColors.subtext || "rgba(0,0,0,0.3)";
     }
 
     stylesArr.push(stateStyle);
@@ -299,11 +293,15 @@ export const getInputState = (
  * @returns Common props object
  */
 export const getInputProps = (type?: "email" | "password" | "search" | "number") => {
+  // Derive sensible defaults for TextInput props from the current theme so callers don't
+  // need to pass theme colors explicitly.
+  const schemeForProps = (Appearance.getColorScheme() as "light" | "dark") || "light";
+  const themeForProps = getTheme(schemeForProps).colors;
   const baseProps = {
     autoCorrect: false,
     spellCheck: false,
-    placeholderTextColor: COLORS.text.placeholder,
-    selectionColor: COLORS.primary.blue,
+    placeholderTextColor: themeForProps.placeholder,
+    selectionColor: themeForProps.primary,
   };
 
   switch (type) {

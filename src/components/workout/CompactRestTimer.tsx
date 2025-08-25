@@ -11,6 +11,7 @@ import { View, Text, StyleSheet, Platform, Linking, Alert, TouchableOpacity, Vie
 import { useHapticFeedback } from "../../hooks/useHapticFeedback";
 import { logger } from "../../utils/logger";
 import TextUI from "../ui/Text";
+import useTheme from "@/hooks/useTheme";
 import Icon from "react-native-vector-icons/MaterialIcons";
 
 interface CompactRestTimerProps {
@@ -82,6 +83,9 @@ const scheduleWebNotification = async (durationSeconds: number, title = "Rest Co
 
 export const CompactRestTimer: React.FC<CompactRestTimerProps> = ({ duration, onComplete, onSkip, style }) => {
   const { triggerRestTimerCompleteHaptic } = useHapticFeedback();
+  const { colors } = useTheme();
+  const styles = createStyles(colors);
+
   const [nativeTimerLaunched, setNativeTimerLaunched] = useState(false);
   const [isStarting, setIsStarting] = useState(false);
   const webCancelRef = useRef<null | (() => void)>(null);
@@ -231,7 +235,7 @@ export const CompactRestTimer: React.FC<CompactRestTimerProps> = ({ duration, on
         <Icon
           name={nativeTimerLaunched ? "timer" : isStarting ? "hourglass_empty" : "play-arrow"}
           size={20}
-          color={nativeTimerLaunched ? "#34C759" : "#1C1C1E"}
+          color={nativeTimerLaunched ? colors.success : colors.buttonTextOnPrimary || colors.buttonText || colors.text}
           style={styles.iconText}
         />
       </TouchableOpacity>
@@ -239,40 +243,43 @@ export const CompactRestTimer: React.FC<CompactRestTimerProps> = ({ duration, on
   );
 };
 
-const styles = StyleSheet.create({
-  container: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    width: "100%",
-    marginTop: 12,
-    marginBottom: 12,
-  },
-  restText: {
-    marginRight: 12,
-    fontWeight: "600",
-  },
-  button: {
-    width: 42,
-    height: 42,
-    borderRadius: 22,
-    alignItems: "center",
-    justifyContent: "center",
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.08,
-    shadowRadius: 4,
-    elevation: 2,
-  },
-  buttonIdle: {
-    backgroundColor: "#B5CFF8",
-  },
-  buttonActive: {
-    backgroundColor: "#34C759",
-  },
-  iconText: {
-    fontSize: 18,
-  },
-});
+const createStyles = (colors: any) =>
+  StyleSheet.create({
+    container: {
+      flexDirection: "row",
+      alignItems: "center",
+      justifyContent: "space-between",
+      width: "100%",
+      marginTop: 12,
+      marginBottom: 12,
+    },
+    restText: {
+      marginRight: 12,
+      fontWeight: "600",
+      color: colors.subtext,
+    },
+    button: {
+      width: 42,
+      height: 42,
+      borderRadius: 22,
+      alignItems: "center",
+      justifyContent: "center",
+      shadowColor: "#000",
+      shadowOffset: { width: 0, height: 1 },
+      shadowOpacity: 0.08,
+      shadowRadius: 4,
+      elevation: 2,
+    },
+    buttonIdle: {
+      backgroundColor: colors.primary,
+    },
+    buttonActive: {
+      backgroundColor: colors.success,
+    },
+    iconText: {
+      fontSize: 18,
+      color: colors.text,
+    },
+  });
 
 export default CompactRestTimer;

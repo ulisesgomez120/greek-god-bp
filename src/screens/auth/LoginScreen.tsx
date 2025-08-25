@@ -248,7 +248,10 @@ const LoginScreenComponent: React.FC<LoginScreenProps> = ({ navigation, onLoginS
                   <View style={FIELD_STYLES.container}>
                     <Text style={[LABEL_STYLES.base, { color: colors.text }]}>Email Address *</Text>
                     <TextInput
-                      style={getInputStyle(colors, undefined, getInputState(focusedField === "email", !!error))}
+                      style={[
+                        ...getInputStyle(colors, undefined, getInputState(focusedField === "email", !!error)),
+                        { color: colors.text, backgroundColor: colors.surface },
+                      ]}
                       value={value}
                       onChangeText={onChange}
                       onFocus={() => setFocusedField("email")}
@@ -257,6 +260,8 @@ const LoginScreenComponent: React.FC<LoginScreenProps> = ({ navigation, onLoginS
                         onBlur();
                       }}
                       {...getInputProps("email")}
+                      placeholderTextColor={colors.placeholder}
+                      selectionColor={colors.primary}
                       placeholder='Enter your email'
                     />
                     {isTouched && error && <Text style={ERROR_STYLES.text}>{error.message}</Text>}
@@ -272,7 +277,10 @@ const LoginScreenComponent: React.FC<LoginScreenProps> = ({ navigation, onLoginS
                   <View style={FIELD_STYLES.container}>
                     <Text style={[LABEL_STYLES.base, { color: colors.text }]}>Password *</Text>
                     <TextInput
-                      style={getInputStyle(colors, undefined, getInputState(focusedField === "password", !!error))}
+                      style={[
+                        ...getInputStyle(colors, undefined, getInputState(focusedField === "password", !!error)),
+                        { color: colors.text, backgroundColor: colors.surface },
+                      ]}
                       value={value}
                       onChangeText={onChange}
                       onFocus={() => setFocusedField("password")}
@@ -281,6 +289,8 @@ const LoginScreenComponent: React.FC<LoginScreenProps> = ({ navigation, onLoginS
                         onBlur();
                       }}
                       {...getInputProps("password")}
+                      placeholderTextColor={colors.placeholder}
+                      selectionColor={colors.primary}
                       placeholder='Enter your password'
                     />
                     {isTouched && error && <Text style={ERROR_STYLES.text}>{error.message}</Text>}
