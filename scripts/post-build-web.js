@@ -73,6 +73,35 @@ async function main() {
   const distIconsDir = path.join(dist, "icons");
   await copyDir(publicIconsDir, distIconsDir);
 
+  // Patch manifest icon paths to point at /icons/ (if the manifest references /assets/)
+  try {
+    const manifestPath = path.join(dist, "manifest.json");
+    const manifestExists = await fsp
+      .stat(manifestPath)
+      .then(() => true)
+      .catch(() => false);
+    if (manifestExists) {
+      const raw = await fsp.readFile(manifestPath, "utf8");
+      const manifest = JSON.parse(raw);
+
+      if (Array.isArray(manifest.icons)) {
+        manifest.icons = manifest.icons.map((icon) => {
+          if (typeof icon.src === "string") {
+            icon.src = icon.src.replace(/^\/?assets\//, "/icons/");
+          }
+          return icon;
+        });
+      }
+
+      await fsp.writeFile(manifestPath, JSON.stringify(manifest, null, 2), "utf8");
+      console.log("post-build-web: updated manifest icon paths to /icons/");
+    } else {
+      console.warn("post-build-web: manifest.json not found in dist; skipping manifest patch");
+    }
+  } catch (err) {
+    console.warn("post-build-web: manifest patch failed:", err && err.message);
+  }
+
   console.log("post-build-web: finished");
 }
 
