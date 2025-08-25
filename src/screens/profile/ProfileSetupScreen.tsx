@@ -8,6 +8,7 @@ import { View, ScrollView, StyleSheet, Alert, KeyboardAvoidingView, Platform, Te
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useNavigation } from "@react-navigation/native";
 import { Text } from "@/components/ui/Text";
+import useTheme from "@/hooks/useTheme";
 import { Button } from "@/components/ui/Button";
 import { LoadingButton } from "@/components/ui/LoadingButton";
 import {
@@ -105,7 +106,7 @@ const ONBOARDING_STEPS: OnboardingStep[] = [
 // STEP COMPONENTS
 // ============================================================================
 
-const WelcomeStep: React.FC<StepComponentProps> = ({ onNext }) => (
+const WelcomeStep: React.FC<StepComponentProps & { styles: any }> = ({ onNext, styles }) => (
   <View style={styles.stepContainer}>
     <View style={styles.welcomeContent}>
       <Text style={styles.welcomeTitle}>Welcome to TrainSmart! 🏋️‍♂️</Text>
@@ -121,7 +122,13 @@ const WelcomeStep: React.FC<StepComponentProps> = ({ onNext }) => (
   </View>
 );
 
-const BasicInfoStep: React.FC<StepComponentProps> = ({ data, onUpdate, onNext, canGoNext }) => {
+const BasicInfoStep: React.FC<StepComponentProps & { styles: any }> = ({
+  data,
+  onUpdate,
+  onNext,
+  canGoNext,
+  styles,
+}) => {
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [focusedField, setFocusedField] = useState<string | null>(null);
 
@@ -311,7 +318,13 @@ const BasicInfoStep: React.FC<StepComponentProps> = ({ data, onUpdate, onNext, c
   );
 };
 
-const ExperienceLevelStep: React.FC<StepComponentProps> = ({ data, onUpdate, onNext, canGoNext }) => {
+const ExperienceLevelStep: React.FC<StepComponentProps & { styles: any }> = ({
+  data,
+  onUpdate,
+  onNext,
+  canGoNext,
+  styles,
+}) => {
   const [selectedLevel, setSelectedLevel] = useState<ExperienceLevel | null>(data.experienceLevel || null);
 
   const handleLevelSelect = (level: ExperienceLevel) => {
@@ -369,7 +382,13 @@ const ExperienceLevelStep: React.FC<StepComponentProps> = ({ data, onUpdate, onN
   );
 };
 
-const FitnessGoalsStep: React.FC<StepComponentProps> = ({ data, onUpdate, onNext, canGoNext }) => {
+const FitnessGoalsStep: React.FC<StepComponentProps & { styles: any }> = ({
+  data,
+  onUpdate,
+  onNext,
+  canGoNext,
+  styles,
+}) => {
   const [selectedGoals, setSelectedGoals] = useState<string[]>(data.fitnessGoals || []);
 
   const toggleGoal = (goalId: string) => {
@@ -420,7 +439,7 @@ const FitnessGoalsStep: React.FC<StepComponentProps> = ({ data, onUpdate, onNext
   );
 };
 
-const CompletionStep: React.FC<StepComponentProps> = ({ data, onNext }) => {
+const CompletionStep: React.FC<StepComponentProps & { styles: any }> = ({ data, onNext, styles }) => {
   const experienceLevelInfo = data.experienceLevel ? getExperienceLevelInfo(data.experienceLevel) : null;
 
   return (
@@ -472,6 +491,8 @@ export const ProfileSetupScreen: React.FC<ProfileSetupScreenProps> = () => {
   const navigation = useNavigation();
   const { user } = useAuth();
   const { createProfile } = useProfile();
+  const { colors } = useTheme();
+  const styles = createStyles(colors);
 
   const [currentStepIndex, setCurrentStepIndex] = useState(0);
   const [profileData, setProfileData] = useState<Partial<ProfileSetupData>>({});
@@ -573,15 +594,15 @@ export const ProfileSetupScreen: React.FC<ProfileSetupScreenProps> = () => {
 
     switch (currentStep.component) {
       case "WelcomeStep":
-        return <WelcomeStep {...stepProps} />;
+        return <WelcomeStep {...stepProps} styles={styles} />;
       case "BasicInfoStep":
-        return <BasicInfoStep {...stepProps} />;
+        return <BasicInfoStep {...stepProps} styles={styles} />;
       case "ExperienceLevelStep":
-        return <ExperienceLevelStep {...stepProps} />;
+        return <ExperienceLevelStep {...stepProps} styles={styles} />;
       case "FitnessGoalsStep":
-        return <FitnessGoalsStep {...stepProps} />;
+        return <FitnessGoalsStep {...stepProps} styles={styles} />;
       case "CompletionStep":
-        return <CompletionStep {...stepProps} />;
+        return <CompletionStep {...stepProps} styles={styles} />;
       default:
         return null;
     }
@@ -642,311 +663,312 @@ export const ProfileSetupScreen: React.FC<ProfileSetupScreenProps> = () => {
 // STYLES
 // ============================================================================
 
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: "#FFFFFF",
-  },
-  keyboardAvoidingView: {
-    flex: 1,
-  },
-  loadingContainer: {
-    flex: 1,
-    justifyContent: "center",
-    alignItems: "center",
-    padding: 20,
-  },
-  loadingText: {
-    fontSize: 18,
-    fontWeight: "600",
-    color: "#1C1C1E",
-    marginBottom: 20,
-  },
-  progressContainer: {
-    paddingHorizontal: 20,
-    paddingVertical: 16,
-    borderBottomWidth: 1,
-    borderBottomColor: "#F2F2F7",
-  },
-  progressBar: {
-    height: 4,
-    backgroundColor: "#F2F2F7",
-    borderRadius: 2,
-    marginBottom: 8,
-  },
-  progressFill: {
-    height: "100%",
-    backgroundColor: "#B5CFF8",
-    borderRadius: 2,
-  },
-  progressText: {
-    fontSize: 13,
-    color: "#8E8E93",
-    textAlign: "center",
-  },
-  scrollView: {
-    flex: 1,
-  },
-  scrollViewContent: {
-    flexGrow: 1,
-  },
-  stepContainer: {
-    flex: 1,
-    padding: 20,
-  },
-  stepTitle: {
-    fontSize: 28,
-    fontWeight: "700",
-    color: "#1C1C1E",
-    marginBottom: 8,
-  },
-  stepDescription: {
-    fontSize: 17,
-    color: "#8E8E93",
-    marginBottom: 32,
-    lineHeight: 22,
-  },
-  formContainer: {
-    flex: 1,
-    marginBottom: 32,
-  },
-  genderContainer: {
-    flexDirection: "row",
-    flexWrap: "wrap",
-    gap: 8,
-  },
-  genderButton: {
-    flex: 1,
-    minWidth: "45%",
-  },
-  experienceLevelsContainer: {
-    flex: 1,
-    marginBottom: 32,
-  },
-  experienceLevelCard: {
-    marginBottom: 16,
-    borderRadius: 12,
-    borderWidth: 2,
-    borderColor: "#F2F2F7",
-    backgroundColor: "#FFFFFF",
-  },
-  experienceLevelCardSelected: {
-    borderColor: "#B5CFF8",
-    backgroundColor: "#F8FAFD",
-  },
-  experienceLevelButton: {
-    padding: 0,
-    backgroundColor: "transparent",
-  },
-  experienceLevelContent: {
-    padding: 16,
-  },
-  experienceLevelHeader: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    marginBottom: 8,
-  },
-  experienceLevelName: {
-    fontSize: 18,
-    fontWeight: "600",
-    color: "#1C1C1E",
-  },
-  experienceLevelNameSelected: {
-    color: "#B5CFF8",
-  },
-  experienceLevelDuration: {
-    fontSize: 14,
-    color: "#8E8E93",
-    fontWeight: "500",
-  },
-  experienceLevelDurationSelected: {
-    color: "#B5CFF8",
-  },
-  experienceLevelDescription: {
-    fontSize: 15,
-    color: "#8E8E93",
-    marginBottom: 8,
-    lineHeight: 20,
-  },
-  experienceLevelDescriptionSelected: {
-    color: "#1C1C1E",
-  },
-  experienceLevelStrategy: {
-    fontSize: 13,
-    color: "#8E8E93",
-    fontStyle: "italic",
-    lineHeight: 18,
-  },
-  experienceLevelStrategySelected: {
-    color: "#B5CFF8",
-  },
-  goalsContainer: {
-    flex: 1,
-    marginBottom: 32,
-  },
-  goalCard: {
-    marginBottom: 12,
-    borderRadius: 12,
-    borderWidth: 2,
-    borderColor: "#F2F2F7",
-    backgroundColor: "#FFFFFF",
-  },
-  goalCardSelected: {
-    borderColor: "#B5CFF8",
-    backgroundColor: "#F8FAFD",
-  },
-  goalButton: {
-    padding: 0,
-    backgroundColor: "transparent",
-  },
-  goalContent: {
-    padding: 16,
-  },
-  goalHeader: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    marginBottom: 8,
-  },
-  goalName: {
-    fontSize: 17,
-    fontWeight: "600",
-    color: "#1C1C1E",
-    flex: 1,
-  },
-  goalNameSelected: {
-    color: "#B5CFF8",
-  },
-  popularBadge: {
-    backgroundColor: "#64D2FF",
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 12,
-  },
-  popularBadgeText: {
-    fontSize: 11,
-    fontWeight: "600",
-    color: "#FFFFFF",
-  },
-  goalDescription: {
-    fontSize: 15,
-    color: "#8E8E93",
-    lineHeight: 20,
-  },
-  goalDescriptionSelected: {
-    color: "#1C1C1E",
-  },
-  welcomeContent: {
-    flex: 1,
-    justifyContent: "center",
-    alignItems: "center",
-    paddingVertical: 40,
-  },
-  welcomeTitle: {
-    fontSize: 32,
-    fontWeight: "700",
-    color: "#1C1C1E",
-    textAlign: "center",
-    marginBottom: 16,
-  },
-  welcomeDescription: {
-    fontSize: 20,
-    fontWeight: "600",
-    color: "#B5CFF8",
-    textAlign: "center",
-    marginBottom: 24,
-    lineHeight: 26,
-  },
-  welcomeSubtext: {
-    fontSize: 17,
-    color: "#8E8E93",
-    textAlign: "center",
-    lineHeight: 22,
-    paddingHorizontal: 20,
-  },
-  completionContent: {
-    flex: 1,
-    justifyContent: "center",
-    alignItems: "center",
-    paddingVertical: 40,
-  },
-  completionTitle: {
-    fontSize: 32,
-    fontWeight: "700",
-    color: "#1C1C1E",
-    textAlign: "center",
-    marginBottom: 16,
-  },
-  completionDescription: {
-    fontSize: 17,
-    color: "#8E8E93",
-    textAlign: "center",
-    marginBottom: 32,
-    lineHeight: 22,
-  },
-  summaryContainer: {
-    backgroundColor: "#F8FAFD",
-    borderRadius: 12,
-    padding: 20,
-    width: "100%",
-    marginBottom: 32,
-  },
-  summaryTitle: {
-    fontSize: 18,
-    fontWeight: "600",
-    color: "#1C1C1E",
-    marginBottom: 16,
-  },
-  summaryItem: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    marginBottom: 12,
-  },
-  summaryLabel: {
-    fontSize: 15,
-    color: "#8E8E93",
-  },
-  summaryValue: {
-    fontSize: 15,
-    fontWeight: "500",
-    color: "#1C1C1E",
-    flex: 1,
-    textAlign: "right",
-  },
-  nextStepsText: {
-    fontSize: 15,
-    color: "#B5CFF8",
-    textAlign: "center",
-    fontWeight: "500",
-    lineHeight: 20,
-  },
-  primaryButton: {
-    marginTop: "auto",
-  },
-  navigationContainer: {
-    padding: 20,
-    borderTopWidth: 1,
-    borderTopColor: "#F2F2F7",
-  },
-  backButton: {
-    width: 100,
-  },
-  fieldContainer: {
-    marginBottom: 20,
-  },
-  fieldLabel: {
-    fontSize: 16,
-    fontWeight: "600",
-    color: "#1C1C1E",
-    marginBottom: 4,
-  },
-  fieldHint: {
-    fontSize: 13,
-    color: "#8E8E93",
-    marginBottom: 12,
-  },
-});
+const createStyles = (colors: any) =>
+  StyleSheet.create({
+    container: {
+      flex: 1,
+      backgroundColor: colors.background,
+    },
+    keyboardAvoidingView: {
+      flex: 1,
+    },
+    loadingContainer: {
+      flex: 1,
+      justifyContent: "center",
+      alignItems: "center",
+      padding: 20,
+    },
+    loadingText: {
+      fontSize: 18,
+      fontWeight: "600",
+      color: colors.text,
+      marginBottom: 20,
+    },
+    progressContainer: {
+      paddingHorizontal: 20,
+      paddingVertical: 16,
+      borderBottomWidth: 1,
+      borderBottomColor: colors.surfaceElevated,
+    },
+    progressBar: {
+      height: 4,
+      backgroundColor: colors.surfaceElevated,
+      borderRadius: 2,
+      marginBottom: 8,
+    },
+    progressFill: {
+      height: "100%",
+      backgroundColor: colors.primary,
+      borderRadius: 2,
+    },
+    progressText: {
+      fontSize: 13,
+      color: colors.subtext,
+      textAlign: "center",
+    },
+    scrollView: {
+      flex: 1,
+    },
+    scrollViewContent: {
+      flexGrow: 1,
+    },
+    stepContainer: {
+      flex: 1,
+      padding: 20,
+    },
+    stepTitle: {
+      fontSize: 28,
+      fontWeight: "700",
+      color: colors.text,
+      marginBottom: 8,
+    },
+    stepDescription: {
+      fontSize: 17,
+      color: colors.subtext,
+      marginBottom: 32,
+      lineHeight: 22,
+    },
+    formContainer: {
+      flex: 1,
+      marginBottom: 32,
+    },
+    genderContainer: {
+      flexDirection: "row",
+      flexWrap: "wrap",
+      gap: 8,
+    },
+    genderButton: {
+      flex: 1,
+      minWidth: "45%",
+    },
+    experienceLevelsContainer: {
+      flex: 1,
+      marginBottom: 32,
+    },
+    experienceLevelCard: {
+      marginBottom: 16,
+      borderRadius: 12,
+      borderWidth: 2,
+      borderColor: colors.surfaceElevated,
+      backgroundColor: colors.surface,
+    },
+    experienceLevelCardSelected: {
+      borderColor: colors.primary,
+      backgroundColor: colors.lightBackground,
+    },
+    experienceLevelButton: {
+      padding: 0,
+      backgroundColor: "transparent",
+    },
+    experienceLevelContent: {
+      padding: 16,
+    },
+    experienceLevelHeader: {
+      flexDirection: "row",
+      justifyContent: "space-between",
+      alignItems: "center",
+      marginBottom: 8,
+    },
+    experienceLevelName: {
+      fontSize: 18,
+      fontWeight: "600",
+      color: colors.text,
+    },
+    experienceLevelNameSelected: {
+      color: colors.primary,
+    },
+    experienceLevelDuration: {
+      fontSize: 14,
+      color: colors.subtext,
+      fontWeight: "500",
+    },
+    experienceLevelDurationSelected: {
+      color: colors.primary,
+    },
+    experienceLevelDescription: {
+      fontSize: 15,
+      color: colors.subtext,
+      marginBottom: 8,
+      lineHeight: 20,
+    },
+    experienceLevelDescriptionSelected: {
+      color: colors.text,
+    },
+    experienceLevelStrategy: {
+      fontSize: 13,
+      color: colors.subtext,
+      fontStyle: "italic",
+      lineHeight: 18,
+    },
+    experienceLevelStrategySelected: {
+      color: colors.primary,
+    },
+    goalsContainer: {
+      flex: 1,
+      marginBottom: 32,
+    },
+    goalCard: {
+      marginBottom: 12,
+      borderRadius: 12,
+      borderWidth: 2,
+      borderColor: colors.surfaceElevated,
+      backgroundColor: colors.surface,
+    },
+    goalCardSelected: {
+      borderColor: colors.primary,
+      backgroundColor: colors.lightBackground,
+    },
+    goalButton: {
+      padding: 0,
+      backgroundColor: "transparent",
+    },
+    goalContent: {
+      padding: 16,
+    },
+    goalHeader: {
+      flexDirection: "row",
+      justifyContent: "space-between",
+      alignItems: "center",
+      marginBottom: 8,
+    },
+    goalName: {
+      fontSize: 17,
+      fontWeight: "600",
+      color: colors.text,
+      flex: 1,
+    },
+    goalNameSelected: {
+      color: colors.primary,
+    },
+    popularBadge: {
+      backgroundColor: colors.accent,
+      paddingHorizontal: 8,
+      paddingVertical: 4,
+      borderRadius: 12,
+    },
+    popularBadgeText: {
+      fontSize: 11,
+      fontWeight: "600",
+      color: colors.buttonTextOnPrimary || colors.buttonText || colors.text,
+    },
+    goalDescription: {
+      fontSize: 15,
+      color: colors.subtext,
+      lineHeight: 20,
+    },
+    goalDescriptionSelected: {
+      color: colors.text,
+    },
+    welcomeContent: {
+      flex: 1,
+      justifyContent: "center",
+      alignItems: "center",
+      paddingVertical: 40,
+    },
+    welcomeTitle: {
+      fontSize: 32,
+      fontWeight: "700",
+      color: colors.text,
+      textAlign: "center",
+      marginBottom: 16,
+    },
+    welcomeDescription: {
+      fontSize: 20,
+      fontWeight: "600",
+      color: colors.primary,
+      textAlign: "center",
+      marginBottom: 24,
+      lineHeight: 26,
+    },
+    welcomeSubtext: {
+      fontSize: 17,
+      color: colors.subtext,
+      textAlign: "center",
+      lineHeight: 22,
+      paddingHorizontal: 20,
+    },
+    completionContent: {
+      flex: 1,
+      justifyContent: "center",
+      alignItems: "center",
+      paddingVertical: 40,
+    },
+    completionTitle: {
+      fontSize: 32,
+      fontWeight: "700",
+      color: colors.text,
+      textAlign: "center",
+      marginBottom: 16,
+    },
+    completionDescription: {
+      fontSize: 17,
+      color: colors.subtext,
+      textAlign: "center",
+      marginBottom: 32,
+      lineHeight: 22,
+    },
+    summaryContainer: {
+      backgroundColor: colors.lightBackground,
+      borderRadius: 12,
+      padding: 20,
+      width: "100%",
+      marginBottom: 32,
+    },
+    summaryTitle: {
+      fontSize: 18,
+      fontWeight: "600",
+      color: colors.text,
+      marginBottom: 16,
+    },
+    summaryItem: {
+      flexDirection: "row",
+      justifyContent: "space-between",
+      alignItems: "center",
+      marginBottom: 12,
+    },
+    summaryLabel: {
+      fontSize: 15,
+      color: colors.subtext,
+    },
+    summaryValue: {
+      fontSize: 15,
+      fontWeight: "500",
+      color: colors.text,
+      flex: 1,
+      textAlign: "right",
+    },
+    nextStepsText: {
+      fontSize: 15,
+      color: colors.primary,
+      textAlign: "center",
+      fontWeight: "500",
+      lineHeight: 20,
+    },
+    primaryButton: {
+      marginTop: "auto",
+    },
+    navigationContainer: {
+      padding: 20,
+      borderTopWidth: 1,
+      borderTopColor: colors.surfaceElevated,
+    },
+    backButton: {
+      width: 100,
+    },
+    fieldContainer: {
+      marginBottom: 20,
+    },
+    fieldLabel: {
+      fontSize: 16,
+      fontWeight: "600",
+      color: colors.text,
+      marginBottom: 4,
+    },
+    fieldHint: {
+      fontSize: 13,
+      color: colors.subtext,
+      marginBottom: 12,
+    },
+  });
 
 export default ProfileSetupScreen;

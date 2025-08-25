@@ -10,6 +10,7 @@ import { RouteProp } from "@react-navigation/native";
 
 // Components
 import Text from "../../components/ui/Text";
+import useTheme from "@/hooks/useTheme";
 
 // Services
 import workoutPlanService, { WorkoutPhase } from "../../services/workoutPlan.service";
@@ -35,6 +36,8 @@ interface PhaseSelectionScreenProps {
 
 const PhaseSelectionScreen: React.FC<PhaseSelectionScreenProps> = ({ navigation, route }) => {
   const { programId } = route.params;
+  const { colors } = useTheme();
+  const styles = createStyles(colors);
 
   const [plan, setPlan] = useState<any | null>(null);
   const [phases, setPhases] = useState<WorkoutPhase[]>([]);
@@ -86,7 +89,7 @@ const PhaseSelectionScreen: React.FC<PhaseSelectionScreenProps> = ({ navigation,
   if (loading) {
     return (
       <View style={styles.containerCentered}>
-        <ActivityIndicator size='large' color='#B5CFF8' />
+        <ActivityIndicator size='large' color={colors.primary} />
       </View>
     );
   }
@@ -194,55 +197,56 @@ const PhaseSelectionScreen: React.FC<PhaseSelectionScreenProps> = ({ navigation,
 // STYLES
 // ============================================================================
 
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: "#FFFFFF",
-  },
-  containerCentered: {
-    flex: 1,
-    alignItems: "center",
-    justifyContent: "center",
-    backgroundColor: "#FFFFFF",
-  },
-  scrollView: {
-    flex: 1,
-  },
-  scrollContent: {
-    padding: 20,
-  },
-  title: {
-    marginBottom: 8,
-  },
-  subtitle: {
-    marginBottom: 32,
-  },
-  phaseCard: {
-    backgroundColor: "#FFFFFF",
-    borderRadius: 16,
-    padding: 20,
-    marginBottom: 16,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.08,
-    shadowRadius: 10,
-    elevation: 2,
-    borderWidth: 1,
-    borderColor: "#F2F2F7",
-  },
-  emptyState: {
-    padding: 24,
-    alignItems: "center",
-  },
-  retryButton: {
-    marginTop: 16,
-    paddingHorizontal: 16,
-    paddingVertical: 10,
-    borderRadius: 10,
-    borderWidth: 1,
-    borderColor: "#B5CFF8",
-    backgroundColor: "#FFFFFF",
-  },
-});
+const createStyles = (colors: any) =>
+  StyleSheet.create({
+    container: {
+      flex: 1,
+      backgroundColor: colors.background,
+    },
+    containerCentered: {
+      flex: 1,
+      alignItems: "center",
+      justifyContent: "center",
+      backgroundColor: colors.background,
+    },
+    scrollView: {
+      flex: 1,
+    },
+    scrollContent: {
+      padding: 20,
+    },
+    title: {
+      marginBottom: 8,
+    },
+    subtitle: {
+      marginBottom: 32,
+    },
+    phaseCard: {
+      backgroundColor: colors.surface,
+      borderRadius: 16,
+      padding: 20,
+      marginBottom: 16,
+      shadowColor: "#000",
+      shadowOffset: { width: 0, height: 1 },
+      shadowOpacity: 0.08,
+      shadowRadius: 10,
+      elevation: 2,
+      borderWidth: 1,
+      borderColor: colors.surfaceElevated,
+    },
+    emptyState: {
+      padding: 24,
+      alignItems: "center",
+    },
+    retryButton: {
+      marginTop: 16,
+      paddingHorizontal: 16,
+      paddingVertical: 10,
+      borderRadius: 10,
+      borderWidth: 1,
+      borderColor: colors.primary,
+      backgroundColor: colors.surface,
+    },
+  });
 
 export default PhaseSelectionScreen;

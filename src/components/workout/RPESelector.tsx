@@ -7,6 +7,7 @@ import React, { useCallback } from "react";
 import { View, Text, StyleSheet, TouchableOpacity, Modal, ScrollView, Dimensions } from "react-native";
 import { useHapticFeedback } from "../../hooks/useHapticFeedback";
 import Icon from "react-native-vector-icons/MaterialIcons";
+import useTheme from "@/hooks/useTheme";
 import { Button } from "../ui/Button";
 
 // ============================================================================
@@ -22,18 +23,6 @@ interface RPESelectorProps {
 // ============================================================================
 // CONSTANTS
 // ============================================================================
-
-const COLORS = {
-  primary: "#B5CFF8",
-  success: "#34C759",
-  warning: "#FF9500",
-  error: "#FF3B30",
-  text: "#1C1C1E",
-  textSecondary: "#8E8E93",
-  background: "#FFFFFF",
-  backgroundLight: "#F8FAFD",
-  overlay: "rgba(0, 0, 0, 0.5)",
-} as const;
 
 const RPE_DESCRIPTIONS = [
   {
@@ -111,6 +100,9 @@ export const RPESelector: React.FC<RPESelectorProps> = ({ onSelect, onClose, sel
 
   const { triggerHaptic } = useHapticFeedback();
 
+  const { colors } = useTheme();
+  const styles = createStyles(colors);
+
   // ============================================================================
   // HANDLERS
   // ============================================================================
@@ -172,7 +164,7 @@ export const RPESelector: React.FC<RPESelectorProps> = ({ onSelect, onClose, sel
   const renderFooter = () => (
     <View style={styles.footer}>
       <View style={styles.footerHint}>
-        <Icon name='lightbulb' size={16} color={COLORS.primary} style={{ marginRight: 8 }} />
+        <Icon name='lightbulb' size={16} color={colors.primary} style={{ marginRight: 8 }} />
         <Text style={styles.footerText}>RPE helps track your training intensity and guides progression decisions.</Text>
       </View>
       <Button
@@ -211,158 +203,159 @@ export const RPESelector: React.FC<RPESelectorProps> = ({ onSelect, onClose, sel
 // STYLES
 // ============================================================================
 
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: COLORS.background,
-  },
+const createStyles = (colors: any) =>
+  StyleSheet.create({
+    container: {
+      flex: 1,
+      backgroundColor: colors.background,
+    },
 
-  header: {
-    paddingHorizontal: 20,
-    paddingTop: 20,
-    paddingBottom: 16,
-    borderBottomWidth: 1,
-    borderBottomColor: COLORS.backgroundLight,
-  },
+    header: {
+      paddingHorizontal: 20,
+      paddingTop: 20,
+      paddingBottom: 16,
+      borderBottomWidth: 1,
+      borderBottomColor: colors.surfaceElevated || colors.lightBackground || colors.border || colors.surface,
+    },
 
-  title: {
-    fontSize: 24,
-    fontWeight: "700",
-    color: COLORS.text,
-    marginBottom: 8,
-    textAlign: "center",
-  },
+    title: {
+      fontSize: 24,
+      fontWeight: "700",
+      color: colors.text,
+      marginBottom: 8,
+      textAlign: "center",
+    },
 
-  subtitle: {
-    fontSize: 16,
-    color: COLORS.textSecondary,
-    textAlign: "center",
-    lineHeight: 22,
-  },
+    subtitle: {
+      fontSize: 16,
+      color: colors.subtext,
+      textAlign: "center",
+      lineHeight: 22,
+    },
 
-  scrollView: {
-    flex: 1,
-  },
+    scrollView: {
+      flex: 1,
+    },
 
-  scrollContent: {
-    paddingHorizontal: 20,
-    paddingVertical: 16,
-  },
+    scrollContent: {
+      paddingHorizontal: 20,
+      paddingVertical: 16,
+    },
 
-  rpeOption: {
-    flexDirection: "row",
-    alignItems: "center",
-    backgroundColor: COLORS.background,
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: COLORS.backgroundLight,
-    borderLeftWidth: 4,
-    marginBottom: 8,
-    padding: 16,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.05,
-    shadowRadius: 2,
-    elevation: 1,
-  },
+    rpeOption: {
+      flexDirection: "row",
+      alignItems: "center",
+      backgroundColor: colors.background,
+      borderRadius: 12,
+      borderWidth: 1,
+      borderColor: colors.surfaceElevated || colors.lightBackground || colors.border || colors.surface,
+      borderLeftWidth: 4,
+      marginBottom: 8,
+      padding: 16,
+      shadowColor: "#000",
+      shadowOffset: { width: 0, height: 1 },
+      shadowOpacity: 0.05,
+      shadowRadius: 2,
+      elevation: 1,
+    },
 
-  rpeOptionSelected: {
-    borderColor: COLORS.primary,
-    backgroundColor: "rgba(181, 207, 248, 0.1)",
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 2,
-  },
+    rpeOptionSelected: {
+      borderColor: colors.primary,
+      backgroundColor: colors.surfaceElevated || "rgba(181, 207, 248, 0.06)",
+      shadowOpacity: 0.1,
+      shadowRadius: 4,
+      elevation: 2,
+    },
 
-  rpeNumber: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
-    backgroundColor: COLORS.backgroundLight,
-    justifyContent: "center",
-    alignItems: "center",
-    marginRight: 16,
-  },
+    rpeNumber: {
+      width: 48,
+      height: 48,
+      borderRadius: 24,
+      backgroundColor: colors.surfaceElevated || colors.lightBackground || colors.surface,
+      justifyContent: "center",
+      alignItems: "center",
+      marginRight: 16,
+    },
 
-  rpeNumberText: {
-    fontSize: 20,
-    fontWeight: "700",
-    color: COLORS.text,
-  },
+    rpeNumberText: {
+      fontSize: 20,
+      fontWeight: "700",
+      color: colors.text,
+    },
 
-  rpeNumberTextSelected: {
-    color: COLORS.primary,
-  },
+    rpeNumberTextSelected: {
+      color: colors.primary,
+    },
 
-  rpeContent: {
-    flex: 1,
-  },
+    rpeContent: {
+      flex: 1,
+    },
 
-  rpeDescription: {
-    fontSize: 17,
-    fontWeight: "600",
-    color: COLORS.text,
-    marginBottom: 4,
-  },
+    rpeDescription: {
+      fontSize: 17,
+      fontWeight: "600",
+      color: colors.text,
+      marginBottom: 4,
+    },
 
-  rpeDescriptionSelected: {
-    color: COLORS.primary,
-  },
+    rpeDescriptionSelected: {
+      color: colors.primary,
+    },
 
-  rpeDetail: {
-    fontSize: 14,
-    color: COLORS.textSecondary,
-    lineHeight: 18,
-  },
+    rpeDetail: {
+      fontSize: 14,
+      color: colors.subtext,
+      lineHeight: 18,
+    },
 
-  rpeDetailSelected: {
-    color: COLORS.primary,
-  },
+    rpeDetailSelected: {
+      color: colors.primary,
+    },
 
-  selectedIndicator: {
-    width: 24,
-    height: 24,
-    borderRadius: 12,
-    backgroundColor: COLORS.primary,
-    justifyContent: "center",
-    alignItems: "center",
-  },
+    selectedIndicator: {
+      width: 24,
+      height: 24,
+      borderRadius: 12,
+      backgroundColor: colors.primary,
+      justifyContent: "center",
+      alignItems: "center",
+    },
 
-  selectedIndicatorText: {
-    fontSize: 14,
-    fontWeight: "700",
-    color: COLORS.background,
-  },
+    selectedIndicatorText: {
+      fontSize: 14,
+      fontWeight: "700",
+      color: colors.background,
+    },
 
-  footer: {
-    paddingHorizontal: 20,
-    paddingVertical: 20,
-    borderTopWidth: 1,
-    borderTopColor: COLORS.backgroundLight,
-  },
+    footer: {
+      paddingHorizontal: 20,
+      paddingVertical: 20,
+      borderTopWidth: 1,
+      borderTopColor: colors.surfaceElevated || colors.lightBackground || colors.border || colors.surface,
+    },
 
-  footerHint: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "center",
-    marginBottom: 12,
-  },
+    footerHint: {
+      flexDirection: "row",
+      alignItems: "center",
+      justifyContent: "center",
+      marginBottom: 12,
+    },
 
-  footerText: {
-    fontSize: 14,
-    color: COLORS.textSecondary,
-    lineHeight: 20,
-    textAlign: "center",
-  },
+    footerText: {
+      fontSize: 14,
+      color: colors.subtext,
+      lineHeight: 20,
+      textAlign: "center",
+    },
 
-  closeButton: {
-    height: 48,
-  },
+    closeButton: {
+      height: 48,
+    },
 
-  closeButtonText: {
-    fontSize: 16,
-    fontWeight: "600",
-  },
-});
+    closeButtonText: {
+      fontSize: 16,
+      fontWeight: "600",
+    },
+  });
 
 export default RPESelector;

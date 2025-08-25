@@ -10,6 +10,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { useAuth } from "@/hooks/useAuth";
 import { AUTH_FLOWS } from "@/constants/auth";
 import Text from "@/components/ui/Text";
+import useTheme from "@/hooks/useTheme";
 
 // ============================================================================
 // TYPES
@@ -32,6 +33,7 @@ type VerificationState = "waiting" | "resending" | "sent" | "error";
 
 export const EmailVerificationScreen: React.FC<EmailVerificationScreenProps> = ({ navigation, route }) => {
   const { resendEmailVerification, loading, error, clearError } = useAuth();
+  const { colors } = useTheme();
   const [verificationState, setVerificationState] = useState<VerificationState>("waiting");
   const [resendCooldown, setResendCooldown] = useState(0);
   const [email, setEmail] = useState("");
@@ -180,7 +182,7 @@ export const EmailVerificationScreen: React.FC<EmailVerificationScreenProps> = (
         </Text>
 
         <TouchableOpacity style={styles.changeEmailButton} onPress={navigateToSignup}>
-          <Text style={styles.changeEmailButtonText}>Sign up with different email</Text>
+          <Text style={[styles.changeEmailButtonText, { color: colors.primary }]}>Sign up with different email</Text>
         </TouchableOpacity>
       </View>
     </View>
@@ -212,8 +214,11 @@ export const EmailVerificationScreen: React.FC<EmailVerificationScreenProps> = (
         Please check your email and click the verification link to activate your account.
       </Text>
 
-      <TouchableOpacity style={styles.actionButton} onPress={navigateToLogin}>
-        <Text style={styles.actionButtonText}>Go to Sign In</Text>
+      <TouchableOpacity style={[styles.actionButton, { backgroundColor: colors.primary }]} onPress={navigateToLogin}>
+        <Text
+          style={[styles.actionButtonText, { color: colors.buttonTextOnPrimary || colors.buttonText || colors.text }]}>
+          Go to Sign In
+        </Text>
       </TouchableOpacity>
     </View>
   );
@@ -242,8 +247,11 @@ export const EmailVerificationScreen: React.FC<EmailVerificationScreenProps> = (
         </View>
       )}
 
-      <TouchableOpacity style={styles.actionButton} onPress={tryAgain}>
-        <Text style={styles.actionButtonText}>Try Again</Text>
+      <TouchableOpacity style={[styles.actionButton, { backgroundColor: colors.primary }]} onPress={tryAgain}>
+        <Text
+          style={[styles.actionButtonText, { color: colors.buttonTextOnPrimary || colors.buttonText || colors.text }]}>
+          Try Again
+        </Text>
       </TouchableOpacity>
     </View>
   );

@@ -7,6 +7,7 @@
 import React, { useState, useEffect } from "react";
 import { View, Modal, TouchableOpacity, StyleSheet, Animated, ScrollView } from "react-native";
 import { Text } from "../ui/Text";
+import useTheme from "@/hooks/useTheme";
 import { useFeatureGate } from "../../hooks/useFeatureAccess";
 import { useTempSubscription } from "../../hooks/useTempSubscription";
 import type { FeatureKey } from "../../constants/subscriptionTiers";
@@ -26,19 +27,21 @@ export interface TempUpgradePromptProps {
 interface FeatureBenefitProps {
   benefit: string;
   index: number;
+  styles?: any;
 }
 
 interface PlanComparisonProps {
   currentPlan: string;
   recommendedPlan: string;
   newFeatures: string[];
+  styles?: any;
 }
 
 // ============================================================================
 // FEATURE BENEFIT COMPONENT
 // ============================================================================
 
-function FeatureBenefit({ benefit, index }: FeatureBenefitProps) {
+function FeatureBenefit({ benefit, index, styles }: FeatureBenefitProps) {
   const [fadeAnim] = useState(new Animated.Value(0));
 
   useEffect(() => {
@@ -64,7 +67,7 @@ function FeatureBenefit({ benefit, index }: FeatureBenefitProps) {
 // PLAN COMPARISON COMPONENT
 // ============================================================================
 
-function PlanComparison({ currentPlan, recommendedPlan, newFeatures }: PlanComparisonProps) {
+function PlanComparison({ currentPlan, recommendedPlan, newFeatures, styles }: PlanComparisonProps) {
   return (
     <View style={styles.planComparison}>
       <Text style={styles.comparisonTitle}>What you'll unlock:</Text>
@@ -105,7 +108,7 @@ function PlanComparison({ currentPlan, recommendedPlan, newFeatures }: PlanCompa
 // TESTING BANNER COMPONENT
 // ============================================================================
 
-function TestingBanner({ testingNote }: { testingNote: string }) {
+function TestingBanner({ testingNote, styles }: { testingNote: string; styles: any }) {
   return (
     <View style={styles.testingBanner}>
       <View style={styles.testingIcon}>
@@ -132,6 +135,9 @@ export function TempUpgradePrompt({
 }: TempUpgradePromptProps) {
   const [slideAnim] = useState(new Animated.Value(0));
   const [upgrading, setUpgrading] = useState(false);
+
+  const { colors } = useTheme();
+  const styles = createStyles(colors);
 
   const { subscription } = useTempSubscription();
   const { upgradePrompt, featureInfo, canStartPreview, startPreview, accessResult } = useFeatureGate(featureKey, {
@@ -239,13 +245,13 @@ export function TempUpgradePrompt({
             </View>
 
             {/* Testing Banner */}
-            <TestingBanner testingNote={upgradePrompt.testingNote} />
+            <TestingBanner testingNote={upgradePrompt.testingNote} styles={styles} />
 
             {/* Benefits List */}
             <View style={styles.benefitsSection}>
               <Text style={styles.benefitsTitle}>What you'll get:</Text>
               {upgradePrompt.benefits.map((benefit: string, index: number) => (
-                <FeatureBenefit key={index} benefit={benefit} index={index} />
+                <FeatureBenefit key={index} benefit={benefit} index={index} styles={styles} />
               ))}
             </View>
 
@@ -254,6 +260,7 @@ export function TempUpgradePrompt({
               currentPlan={currentPlanName}
               recommendedPlan={recommendedPlanName}
               newFeatures={upgradePrompt.benefits}
+              styles={styles}
             />
 
             {/* Action Buttons */}
@@ -295,293 +302,294 @@ export function TempUpgradePrompt({
 // STYLES
 // ============================================================================
 
-const styles = StyleSheet.create({
-  modalOverlay: {
-    flex: 1,
-    justifyContent: "flex-end",
-    backgroundColor: "rgba(0, 0, 0, 0.5)",
-  },
-  modalBackground: {
-    position: "absolute",
-    top: 0,
-    left: 0,
-    right: 0,
-    bottom: 0,
-  },
-  modalContent: {
-    backgroundColor: "#FFFFFF",
-    borderTopLeftRadius: 20,
-    borderTopRightRadius: 20,
-    maxHeight: "90%",
-    paddingBottom: 34, // Safe area padding
-  },
-  header: {
-    flexDirection: "row",
-    justifyContent: "flex-end",
-    padding: 16,
-    paddingBottom: 0,
-  },
-  closeButton: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
-    backgroundColor: "#F2F2F7",
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  closeButtonText: {
-    fontSize: 16,
-    color: "#8E8E93",
-    fontWeight: "600",
-  },
-  featureHeader: {
-    alignItems: "center",
-    paddingHorizontal: 24,
-    paddingBottom: 24,
-  },
-  featureIconContainer: {
-    width: 80,
-    height: 80,
-    borderRadius: 40,
-    backgroundColor: "#F8FAFD",
-    alignItems: "center",
-    justifyContent: "center",
-    marginBottom: 16,
-  },
-  featureIcon: {
-    fontSize: 32,
-  },
-  upgradeTitle: {
-    fontSize: 24,
-    fontWeight: "700",
-    color: "#000000",
-    textAlign: "center",
-    marginBottom: 8,
-  },
-  upgradeDescription: {
-    fontSize: 17,
-    color: "#8E8E93",
-    textAlign: "center",
-    lineHeight: 22,
-  },
-  testingBanner: {
-    flexDirection: "row",
-    backgroundColor: "#FFF4E6",
-    marginHorizontal: 24,
-    marginBottom: 24,
-    padding: 16,
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: "#FF9500",
-  },
-  testingIcon: {
-    marginRight: 12,
-  },
-  testingIconText: {
-    fontSize: 20,
-  },
-  testingContent: {
-    flex: 1,
-  },
-  testingTitle: {
-    fontSize: 15,
-    fontWeight: "600",
-    color: "#FF9500",
-    marginBottom: 4,
-  },
-  testingDescription: {
-    fontSize: 13,
-    color: "#8E8E93",
-    lineHeight: 18,
-  },
-  benefitsSection: {
-    paddingHorizontal: 24,
-    marginBottom: 24,
-  },
-  benefitsTitle: {
-    fontSize: 20,
-    fontWeight: "700",
-    color: "#000000",
-    marginBottom: 16,
-  },
-  benefitItem: {
-    flexDirection: "row",
-    alignItems: "center",
-    marginBottom: 12,
-  },
-  benefitIcon: {
-    width: 24,
-    height: 24,
-    borderRadius: 12,
-    backgroundColor: "#F0FDF4",
-    alignItems: "center",
-    justifyContent: "center",
-    marginRight: 12,
-  },
-  benefitIconText: {
-    fontSize: 12,
-    color: "#34C759",
-    fontWeight: "700",
-  },
-  benefitText: {
-    fontSize: 15,
-    color: "#000000",
-    flex: 1,
-    lineHeight: 20,
-  },
-  planComparison: {
-    marginHorizontal: 24,
-    marginBottom: 24,
-    padding: 16,
-    backgroundColor: "#F8FAFD",
-    borderRadius: 12,
-  },
-  comparisonTitle: {
-    fontSize: 17,
-    fontWeight: "600",
-    color: "#000000",
-    marginBottom: 16,
-    textAlign: "center",
-  },
-  comparisonRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    marginBottom: 16,
-  },
-  currentPlanBox: {
-    flex: 1,
-    alignItems: "center",
-    padding: 12,
-    backgroundColor: "#FFFFFF",
-    borderRadius: 8,
-    borderWidth: 1,
-    borderColor: "#F2F2F7",
-  },
-  currentPlanLabel: {
-    fontSize: 11,
-    color: "#8E8E93",
-    fontWeight: "500",
-    marginBottom: 4,
-  },
-  currentPlanName: {
-    fontSize: 15,
-    color: "#000000",
-    fontWeight: "600",
-  },
-  arrow: {
-    paddingHorizontal: 16,
-  },
-  arrowText: {
-    fontSize: 20,
-    color: "#B5CFF8",
-    fontWeight: "600",
-  },
-  recommendedPlanBox: {
-    flex: 1,
-    alignItems: "center",
-    padding: 12,
-    backgroundColor: "#B5CFF8",
-    borderRadius: 8,
-  },
-  recommendedPlanLabel: {
-    fontSize: 11,
-    color: "#1C1C1E",
-    fontWeight: "500",
-    marginBottom: 4,
-  },
-  recommendedPlanName: {
-    fontSize: 15,
-    color: "#1C1C1E",
-    fontWeight: "700",
-  },
-  newFeatures: {
-    marginTop: 8,
-  },
-  newFeaturesTitle: {
-    fontSize: 13,
-    fontWeight: "600",
-    color: "#8E8E93",
-    marginBottom: 8,
-  },
-  newFeatureItem: {
-    flexDirection: "row",
-    alignItems: "center",
-    marginBottom: 4,
-  },
-  newFeatureIcon: {
-    fontSize: 12,
-    color: "#34C759",
-    fontWeight: "700",
-    marginRight: 8,
-    width: 16,
-    textAlign: "center",
-  },
-  newFeatureText: {
-    fontSize: 13,
-    color: "#8E8E93",
-    flex: 1,
-  },
-  moreFeatures: {
-    fontSize: 13,
-    color: "#B5CFF8",
-    fontWeight: "500",
-    marginTop: 4,
-    textAlign: "center",
-  },
-  actionButtons: {
-    paddingHorizontal: 24,
-    gap: 12,
-  },
-  previewButton: {
-    paddingVertical: 14,
-    paddingHorizontal: 20,
-    backgroundColor: "#F8FAFD",
-    borderRadius: 12,
-    borderWidth: 2,
-    borderColor: "#B5CFF8",
-    alignItems: "center",
-  },
-  previewButtonText: {
-    fontSize: 17,
-    fontWeight: "600",
-    color: "#B5CFF8",
-  },
-  upgradeButton: {
-    paddingVertical: 16,
-    paddingHorizontal: 20,
-    backgroundColor: "#B5CFF8",
-    borderRadius: 12,
-    alignItems: "center",
-  },
-  upgradeButtonLoading: {
-    opacity: 0.6,
-  },
-  upgradeButtonText: {
-    fontSize: 17,
-    fontWeight: "700",
-    color: "#1C1C1E",
-  },
-  cancelButton: {
-    paddingVertical: 14,
-    paddingHorizontal: 20,
-    alignItems: "center",
-  },
-  cancelButtonText: {
-    fontSize: 17,
-    fontWeight: "500",
-    color: "#8E8E93",
-  },
-  footer: {
-    paddingHorizontal: 24,
-    paddingTop: 16,
-    alignItems: "center",
-  },
-  footerText: {
-    fontSize: 13,
-    color: "#8E8E93",
-    textAlign: "center",
-    lineHeight: 18,
-  },
-});
+const createStyles = (colors: any) =>
+  StyleSheet.create({
+    modalOverlay: {
+      flex: 1,
+      justifyContent: "flex-end",
+      backgroundColor: "rgba(0, 0, 0, 0.5)",
+    },
+    modalBackground: {
+      position: "absolute",
+      top: 0,
+      left: 0,
+      right: 0,
+      bottom: 0,
+    },
+    modalContent: {
+      backgroundColor: colors.background,
+      borderTopLeftRadius: 20,
+      borderTopRightRadius: 20,
+      maxHeight: "90%",
+      paddingBottom: 34, // Safe area padding
+    },
+    header: {
+      flexDirection: "row",
+      justifyContent: "flex-end",
+      padding: 16,
+      paddingBottom: 0,
+    },
+    closeButton: {
+      width: 32,
+      height: 32,
+      borderRadius: 16,
+      backgroundColor: colors.border,
+      alignItems: "center",
+      justifyContent: "center",
+    },
+    closeButtonText: {
+      fontSize: 16,
+      color: colors.subtext,
+      fontWeight: "600",
+    },
+    featureHeader: {
+      alignItems: "center",
+      paddingHorizontal: 24,
+      paddingBottom: 24,
+    },
+    featureIconContainer: {
+      width: 80,
+      height: 80,
+      borderRadius: 40,
+      backgroundColor: colors.surfaceElevated || colors.surface,
+      alignItems: "center",
+      justifyContent: "center",
+      marginBottom: 16,
+    },
+    featureIcon: {
+      fontSize: 32,
+    },
+    upgradeTitle: {
+      fontSize: 24,
+      fontWeight: "700",
+      color: colors.text,
+      textAlign: "center",
+      marginBottom: 8,
+    },
+    upgradeDescription: {
+      fontSize: 17,
+      color: colors.subtext,
+      textAlign: "center",
+      lineHeight: 22,
+    },
+    testingBanner: {
+      flexDirection: "row",
+      backgroundColor: colors.warning || "#FFF4E6",
+      marginHorizontal: 24,
+      marginBottom: 24,
+      padding: 16,
+      borderRadius: 12,
+      borderWidth: 1,
+      borderColor: colors.warning || "#FF9500",
+    },
+    testingIcon: {
+      marginRight: 12,
+    },
+    testingIconText: {
+      fontSize: 20,
+    },
+    testingContent: {
+      flex: 1,
+    },
+    testingTitle: {
+      fontSize: 15,
+      fontWeight: "600",
+      color: colors.warning || "#FF9500",
+      marginBottom: 4,
+    },
+    testingDescription: {
+      fontSize: 13,
+      color: colors.subtext,
+      lineHeight: 18,
+    },
+    benefitsSection: {
+      paddingHorizontal: 24,
+      marginBottom: 24,
+    },
+    benefitsTitle: {
+      fontSize: 20,
+      fontWeight: "700",
+      color: colors.text,
+      marginBottom: 16,
+    },
+    benefitItem: {
+      flexDirection: "row",
+      alignItems: "center",
+      marginBottom: 12,
+    },
+    benefitIcon: {
+      width: 24,
+      height: 24,
+      borderRadius: 12,
+      backgroundColor: colors.successBackground || colors.surface,
+      alignItems: "center",
+      justifyContent: "center",
+      marginRight: 12,
+    },
+    benefitIconText: {
+      fontSize: 12,
+      color: colors.success,
+      fontWeight: "700",
+    },
+    benefitText: {
+      fontSize: 15,
+      color: colors.text,
+      flex: 1,
+      lineHeight: 20,
+    },
+    planComparison: {
+      marginHorizontal: 24,
+      marginBottom: 24,
+      padding: 16,
+      backgroundColor: colors.surfaceElevated || colors.surface,
+      borderRadius: 12,
+    },
+    comparisonTitle: {
+      fontSize: 17,
+      fontWeight: "600",
+      color: colors.text,
+      marginBottom: 16,
+      textAlign: "center",
+    },
+    comparisonRow: {
+      flexDirection: "row",
+      alignItems: "center",
+      marginBottom: 16,
+    },
+    currentPlanBox: {
+      flex: 1,
+      alignItems: "center",
+      padding: 12,
+      backgroundColor: colors.background,
+      borderRadius: 8,
+      borderWidth: 1,
+      borderColor: colors.border,
+    },
+    currentPlanLabel: {
+      fontSize: 11,
+      color: colors.subtext,
+      fontWeight: "500",
+      marginBottom: 4,
+    },
+    currentPlanName: {
+      fontSize: 15,
+      color: colors.text,
+      fontWeight: "600",
+    },
+    arrow: {
+      paddingHorizontal: 16,
+    },
+    arrowText: {
+      fontSize: 20,
+      color: colors.primary,
+      fontWeight: "600",
+    },
+    recommendedPlanBox: {
+      flex: 1,
+      alignItems: "center",
+      padding: 12,
+      backgroundColor: colors.primary,
+      borderRadius: 8,
+    },
+    recommendedPlanLabel: {
+      fontSize: 11,
+      color: colors.primaryOnDark || colors.text,
+      fontWeight: "500",
+      marginBottom: 4,
+    },
+    recommendedPlanName: {
+      fontSize: 15,
+      color: colors.primaryOnDark || colors.text,
+      fontWeight: "700",
+    },
+    newFeatures: {
+      marginTop: 8,
+    },
+    newFeaturesTitle: {
+      fontSize: 13,
+      fontWeight: "600",
+      color: colors.subtext,
+      marginBottom: 8,
+    },
+    newFeatureItem: {
+      flexDirection: "row",
+      alignItems: "center",
+      marginBottom: 4,
+    },
+    newFeatureIcon: {
+      fontSize: 12,
+      color: colors.success,
+      fontWeight: "700",
+      marginRight: 8,
+      width: 16,
+      textAlign: "center",
+    },
+    newFeatureText: {
+      fontSize: 13,
+      color: colors.subtext,
+      flex: 1,
+    },
+    moreFeatures: {
+      fontSize: 13,
+      color: colors.primary,
+      fontWeight: "500",
+      marginTop: 4,
+      textAlign: "center",
+    },
+    actionButtons: {
+      paddingHorizontal: 24,
+      gap: 12,
+    },
+    previewButton: {
+      paddingVertical: 14,
+      paddingHorizontal: 20,
+      backgroundColor: colors.surfaceElevated || colors.surface,
+      borderRadius: 12,
+      borderWidth: 2,
+      borderColor: colors.primary,
+      alignItems: "center",
+    },
+    previewButtonText: {
+      fontSize: 17,
+      fontWeight: "600",
+      color: colors.primary,
+    },
+    upgradeButton: {
+      paddingVertical: 16,
+      paddingHorizontal: 20,
+      backgroundColor: colors.primary,
+      borderRadius: 12,
+      alignItems: "center",
+    },
+    upgradeButtonLoading: {
+      opacity: 0.6,
+    },
+    upgradeButtonText: {
+      fontSize: 17,
+      fontWeight: "700",
+      color: colors.buttonTextOnPrimary || colors.buttonText || colors.text,
+    },
+    cancelButton: {
+      paddingVertical: 14,
+      paddingHorizontal: 20,
+      alignItems: "center",
+    },
+    cancelButtonText: {
+      fontSize: 17,
+      fontWeight: "500",
+      color: colors.subtext,
+    },
+    footer: {
+      paddingHorizontal: 24,
+      paddingTop: 16,
+      alignItems: "center",
+    },
+    footerText: {
+      fontSize: 13,
+      color: colors.subtext,
+      textAlign: "center",
+      lineHeight: 18,
+    },
+  });
 
 export default TempUpgradePrompt;

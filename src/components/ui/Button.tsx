@@ -17,6 +17,7 @@ import {
 import * as Haptics from "expo-haptics";
 import Text from "./Text";
 import useTheme from "@/hooks/useTheme";
+import { adjustHexAlpha } from "@/utils/colorUtils";
 
 // ============================================================================
 // TYPES
@@ -132,13 +133,13 @@ export const Button: React.FC<ButtonProps> = ({
 
   const disabledVariantStyles: Record<ButtonVariant, ViewStyle> = {
     primary: {
-      backgroundColor: `${colors.primary}66`, // 40% alpha with 8-digit hex
+      backgroundColor: adjustHexAlpha(colors.primary, 0.4),
       borderColor: "transparent",
       borderWidth: 0,
     } as ViewStyle,
     secondary: {
       backgroundColor: "transparent",
-      borderColor: `${colors.primary}66`,
+      borderColor: adjustHexAlpha(colors.primary, 0.4),
       borderWidth: 2,
     } as ViewStyle,
     text: {
@@ -147,24 +148,25 @@ export const Button: React.FC<ButtonProps> = ({
       borderWidth: 0,
     } as ViewStyle,
     danger: {
-      backgroundColor: `${colors.error}66`,
+      backgroundColor: adjustHexAlpha(colors.error, 0.4),
       borderColor: "transparent",
       borderWidth: 0,
     } as ViewStyle,
   };
 
+  // Compute text colors for each variant (use theme tokens; static mapping per request)
   const textColorMap: Record<ButtonVariant, string> = {
-    primary: colors.text,
+    primary: colors.buttonTextOnPrimary || colors.buttonText || colors.text || "#000000",
     secondary: colors.primary,
     text: colors.primary,
     danger: colors.surface || "#FFFFFF",
   };
 
   const disabledTextColorMap: Record<ButtonVariant, string> = {
-    primary: `${colors.text}66`,
-    secondary: `${colors.primary}66`,
-    text: `${colors.primary}66`,
-    danger: `${(colors.surface || "#FFFFFF") + "66"}`,
+    primary: adjustHexAlpha(textColorMap.primary, 0.4),
+    secondary: adjustHexAlpha(textColorMap.secondary, 0.4),
+    text: adjustHexAlpha(textColorMap.text, 0.4),
+    danger: adjustHexAlpha(textColorMap.danger, 0.4),
   };
 
   const buttonStyle = isDisabled ? disabledVariantStyles[variant] : variantStyles[variant];
@@ -199,7 +201,6 @@ export const Button: React.FC<ButtonProps> = ({
 
         <Text
           variant='button'
-          color='primary'
           numberOfLines={2}
           adjustsFontSizeToFit={true}
           minimumFontScale={0.8}

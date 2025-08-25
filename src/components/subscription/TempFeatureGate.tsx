@@ -7,6 +7,7 @@
 import React, { useState, useEffect } from "react";
 import { View, TouchableOpacity, StyleSheet, Animated } from "react-native";
 import { Text } from "../ui/Text";
+import useTheme from "@/hooks/useTheme";
 import { useFeatureGate } from "../../hooks/useFeatureAccess";
 import { TempUpgradePrompt } from "./TempUpgradePrompt";
 import type { FeatureKey } from "../../constants/subscriptionTiers";
@@ -37,6 +38,7 @@ interface FeatureLockOverlayProps {
   onStartPreview: () => void;
   onEndPreview: () => void;
   upgrading: boolean;
+  styles?: any;
 }
 
 // ============================================================================
@@ -53,6 +55,7 @@ function FeatureLockOverlay({
   onStartPreview,
   onEndPreview,
   upgrading,
+  styles,
 }: FeatureLockOverlayProps) {
   const [fadeAnim] = useState(new Animated.Value(0));
 
@@ -129,7 +132,7 @@ function FeatureLockOverlay({
 // PREVIEW TIMER COMPONENT
 // ============================================================================
 
-function PreviewTimer({ timeRemaining, onEnd }: { timeRemaining: number; onEnd: () => void }) {
+function PreviewTimer({ timeRemaining, onEnd, styles }: { timeRemaining: number; onEnd: () => void; styles?: any }) {
   const [progress] = useState(new Animated.Value(1));
 
   useEffect(() => {
@@ -192,6 +195,9 @@ export function TempFeatureGate({
 }: TempFeatureGateProps) {
   const [showUpgradeModal, setShowUpgradeModal] = useState(false);
 
+  const { colors } = useTheme();
+  const styles = createStyles(colors);
+
   const {
     hasAccess,
     accessResult,
@@ -248,7 +254,9 @@ export function TempFeatureGate({
     return (
       <View style={[styles.container, style]}>
         {/* Show preview timer if in preview mode */}
-        {isPreviewActive && <PreviewTimer timeRemaining={previewTimeRemaining} onEnd={handlePreviewEnd} />}
+        {isPreviewActive && (
+          <PreviewTimer timeRemaining={previewTimeRemaining} onEnd={handlePreviewEnd} styles={styles} />
+        )}
         {children}
       </View>
     );
@@ -276,6 +284,7 @@ export function TempFeatureGate({
         onStartPreview={handlePreviewStart}
         onEndPreview={handlePreviewEnd}
         upgrading={upgrading}
+        styles={styles}
       />
 
       {/* Upgrade modal */}
@@ -298,185 +307,186 @@ export function TempFeatureGate({
 // STYLES
 // ============================================================================
 
-const styles = StyleSheet.create({
-  container: {
-    position: "relative",
-  },
-  loadingContainer: {
-    padding: 20,
-    alignItems: "center",
-    justifyContent: "center",
-    backgroundColor: "#F8FAFD",
-    borderRadius: 12,
-  },
-  loadingText: {
-    fontSize: 15,
-    color: "#8E8E93",
-  },
-  lockedContent: {
-    opacity: 0.3,
-    pointerEvents: "none",
-  },
-  overlay: {
-    position: "absolute",
-    top: 0,
-    left: 0,
-    right: 0,
-    bottom: 0,
-    justifyContent: "center",
-    alignItems: "center",
-    zIndex: 10,
-  },
-  overlayBackground: {
-    position: "absolute",
-    top: 0,
-    left: 0,
-    right: 0,
-    bottom: 0,
-    backgroundColor: "rgba(255, 255, 255, 0.95)",
-    borderRadius: 12,
-  },
-  lockContainer: {
-    alignItems: "center",
-    padding: 24,
-    maxWidth: 280,
-  },
-  lockIcon: {
-    width: 60,
-    height: 60,
-    borderRadius: 30,
-    backgroundColor: "#F2F2F7",
-    alignItems: "center",
-    justifyContent: "center",
-    marginBottom: 16,
-  },
-  lockIconText: {
-    fontSize: 24,
-  },
-  featureName: {
-    fontSize: 20,
-    fontWeight: "700",
-    color: "#000000",
-    textAlign: "center",
-    marginBottom: 8,
-  },
-  featureDescription: {
-    fontSize: 15,
-    color: "#8E8E93",
-    textAlign: "center",
-    lineHeight: 20,
-    marginBottom: 20,
-  },
-  previewStatus: {
-    alignItems: "center",
-    marginBottom: 20,
-    padding: 16,
-    backgroundColor: "#F0FDF4",
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: "#34C759",
-  },
-  previewLabel: {
-    fontSize: 13,
-    fontWeight: "600",
-    color: "#34C759",
-    marginBottom: 4,
-  },
-  previewTime: {
-    fontSize: 17,
-    fontWeight: "700",
-    color: "#34C759",
-    marginBottom: 12,
-  },
-  endPreviewButton: {
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-    backgroundColor: "#34C759",
-    borderRadius: 8,
-  },
-  endPreviewText: {
-    fontSize: 13,
-    fontWeight: "600",
-    color: "#FFFFFF",
-  },
-  actionButtons: {
-    width: "100%",
-    gap: 12,
-  },
-  previewButton: {
-    paddingVertical: 12,
-    paddingHorizontal: 20,
-    backgroundColor: "#F8FAFD",
-    borderRadius: 12,
-    borderWidth: 2,
-    borderColor: "#B5CFF8",
-    alignItems: "center",
-  },
-  previewButtonText: {
-    fontSize: 15,
-    fontWeight: "600",
-    color: "#B5CFF8",
-  },
-  upgradeButton: {
-    paddingVertical: 16,
-    paddingHorizontal: 20,
-    backgroundColor: "#B5CFF8",
-    borderRadius: 12,
-    alignItems: "center",
-  },
-  upgradeButtonLoading: {
-    opacity: 0.6,
-  },
-  upgradeButtonText: {
-    fontSize: 17,
-    fontWeight: "600",
-    color: "#1C1C1E",
-  },
-  testingNote: {
-    marginTop: 16,
-    paddingHorizontal: 16,
-  },
-  testingNoteText: {
-    fontSize: 13,
-    color: "#B5CFF8",
-    textAlign: "center",
-    fontWeight: "500",
-  },
-  previewTimer: {
-    backgroundColor: "#F0FDF4",
-    borderRadius: 8,
-    padding: 12,
-    marginBottom: 12,
-    borderWidth: 1,
-    borderColor: "#34C759",
-  },
-  previewTimerHeader: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    marginBottom: 8,
-  },
-  previewTimerLabel: {
-    fontSize: 13,
-    fontWeight: "600",
-    color: "#34C759",
-  },
-  previewTimerTime: {
-    fontSize: 15,
-    fontWeight: "700",
-    color: "#34C759",
-  },
-  previewProgressBar: {
-    height: 4,
-    backgroundColor: "rgba(52, 199, 89, 0.2)",
-    borderRadius: 2,
-    overflow: "hidden",
-  },
-  previewProgress: {
-    height: "100%",
-    backgroundColor: "#34C759",
-    borderRadius: 2,
-  },
-});
+const createStyles = (colors: any) =>
+  StyleSheet.create({
+    container: {
+      position: "relative",
+    },
+    loadingContainer: {
+      padding: 20,
+      alignItems: "center",
+      justifyContent: "center",
+      backgroundColor: colors.surfaceElevated || colors.surface,
+      borderRadius: 12,
+    },
+    loadingText: {
+      fontSize: 15,
+      color: colors.subtext,
+    },
+    lockedContent: {
+      opacity: 0.3,
+      pointerEvents: "none",
+    },
+    overlay: {
+      position: "absolute",
+      top: 0,
+      left: 0,
+      right: 0,
+      bottom: 0,
+      justifyContent: "center",
+      alignItems: "center",
+      zIndex: 10,
+    },
+    overlayBackground: {
+      position: "absolute",
+      top: 0,
+      left: 0,
+      right: 0,
+      bottom: 0,
+      backgroundColor: colors.surface,
+      borderRadius: 12,
+    },
+    lockContainer: {
+      alignItems: "center",
+      padding: 24,
+      maxWidth: 280,
+    },
+    lockIcon: {
+      width: 60,
+      height: 60,
+      borderRadius: 30,
+      backgroundColor: colors.border,
+      alignItems: "center",
+      justifyContent: "center",
+      marginBottom: 16,
+    },
+    lockIconText: {
+      fontSize: 24,
+    },
+    featureName: {
+      fontSize: 20,
+      fontWeight: "700",
+      color: colors.text,
+      textAlign: "center",
+      marginBottom: 8,
+    },
+    featureDescription: {
+      fontSize: 15,
+      color: colors.subtext,
+      textAlign: "center",
+      lineHeight: 20,
+      marginBottom: 20,
+    },
+    previewStatus: {
+      alignItems: "center",
+      marginBottom: 20,
+      padding: 16,
+      backgroundColor: colors.successBackground || colors.surfaceElevated || colors.surface,
+      borderRadius: 12,
+      borderWidth: 1,
+      borderColor: colors.success,
+    },
+    previewLabel: {
+      fontSize: 13,
+      fontWeight: "600",
+      color: colors.success,
+      marginBottom: 4,
+    },
+    previewTime: {
+      fontSize: 17,
+      fontWeight: "700",
+      color: colors.success,
+      marginBottom: 12,
+    },
+    endPreviewButton: {
+      paddingHorizontal: 16,
+      paddingVertical: 8,
+      backgroundColor: colors.success,
+      borderRadius: 8,
+    },
+    endPreviewText: {
+      fontSize: 13,
+      fontWeight: "600",
+      color: colors.buttonTextOnPrimary || colors.buttonText || colors.text,
+    },
+    actionButtons: {
+      width: "100%",
+      gap: 12,
+    },
+    previewButton: {
+      paddingVertical: 12,
+      paddingHorizontal: 20,
+      backgroundColor: colors.surfaceElevated || colors.surface,
+      borderRadius: 12,
+      borderWidth: 2,
+      borderColor: colors.primary,
+      alignItems: "center",
+    },
+    previewButtonText: {
+      fontSize: 15,
+      fontWeight: "600",
+      color: colors.primary,
+    },
+    upgradeButton: {
+      paddingVertical: 16,
+      paddingHorizontal: 20,
+      backgroundColor: colors.primary,
+      borderRadius: 12,
+      alignItems: "center",
+    },
+    upgradeButtonLoading: {
+      opacity: 0.6,
+    },
+    upgradeButtonText: {
+      fontSize: 17,
+      fontWeight: "600",
+      color: colors.buttonTextOnPrimary || colors.buttonText || colors.text,
+    },
+    testingNote: {
+      marginTop: 16,
+      paddingHorizontal: 16,
+    },
+    testingNoteText: {
+      fontSize: 13,
+      color: colors.primary,
+      textAlign: "center",
+      fontWeight: "500",
+    },
+    previewTimer: {
+      backgroundColor: colors.successBackground || colors.surfaceElevated || colors.surface,
+      borderRadius: 8,
+      padding: 12,
+      marginBottom: 12,
+      borderWidth: 1,
+      borderColor: colors.success,
+    },
+    previewTimerHeader: {
+      flexDirection: "row",
+      justifyContent: "space-between",
+      alignItems: "center",
+      marginBottom: 8,
+    },
+    previewTimerLabel: {
+      fontSize: 13,
+      fontWeight: "600",
+      color: colors.success,
+    },
+    previewTimerTime: {
+      fontSize: 15,
+      fontWeight: "700",
+      color: colors.success,
+    },
+    previewProgressBar: {
+      height: 4,
+      backgroundColor: colors.success + "33",
+      borderRadius: 2,
+      overflow: "hidden",
+    },
+    previewProgress: {
+      height: "100%",
+      backgroundColor: colors.success,
+      borderRadius: 2,
+    },
+  });
 
 export default TempFeatureGate;

@@ -1,159 +1,179 @@
 # Implementation Plan
 
 [Overview]
-Add a "Sign Out" button to the Preferences tab of the profile edit screen that immediately signs the user out using the app's existing Supabase singleton and auth services/hooks, shows an appropriate loading state, and relies on existing Redux/auth flows to clear local state and navigate back to unauthenticated routes.
+Fix dark-mode theming issues on the authentication screens and implement a PWA-friendly splash screen display (minimum 2s) while preserving the existing design system and accessibility requirements. The work will replace hardcoded colors in auth screens and input styles with theme tokens, adjust the dark palette for improved legibility, add deterministic button text-contrast behavior, and add a splash-screen timing hook that ensures the PWA splash shows for at least two seconds while the app initializes.
 
-This change is small, scoped to the profile edit UI, and uses existing auth primitives (the supabase client, authService/logout thunk, and useAuth hook). The implementation will add a sign-out control to the Preferences section of `src/screens/profile/ProfileEditScreen.tsx`, call the existing logout flow, show a loading state while logout is in progress, and avoid duplicating token/session cleanup logic. No server-side changes are required. The UI will not show a confirmation dialog per the user's instruction; sign-out should occur immediately.
+This change is needed because multiple auth screens currently use hardcoded hex values (white backgrounds, cornflower blue links/buttons, and black labels) which bypass the centralized Theme system. That leads to visual inconsistencies and poor contrast in dark mode. The plan keeps the ThemeProvider and theme shapes intact, expands semantic tokens where necessary, updates components to be theme-aware, and provides automated contrast rules so button text remains readable across light/dark modes and palette changes. The splash-screen implementation will be deterministic and reusable for both native and web (PWA) flows.
 
 [Types]  
-Single sentence describing the type system changes.
+Add/adjust theme and splash-screen related types for consistent, typed usage across the app.
 
-Additions to the type system are not required; the existing types and hooks already expose the necessary logout function and loading state.
+- Expand `src/types/theme.ts` (ThemeColors) with the following new semantic tokens:
+  - `buttonText: string` — recommended text color to use on primary button backgrounds.
+  - `buttonTextOnPrimary?: string` — explicit override for primary button text when needed.
+  - `primaryOnDark?: string` — color to use for primary elements when on dark surfaces.
+  - `surfaceElevated: string` — for cards and elevated surfaces in dark mode.
+  - `lightBackground?: string` — small lighter background variant for dark mode groups.
+- Add a new type file or extend an existing types file for splash config:
+  - In `src/types/theme.ts` (or add `src/types/splash.ts`):
+    - export type `SplashScreenState = 'loading' | 'ready' | 'hidden'`
+    - export interface `SplashScreenConfig { minimumDisplayTimeMs: number; showProgressIndicator?: boolean; }`
 
-Detailed type definitions, interfaces, enums, or data structures with complete specifications:
+Validation / rules:
 
-- No new interfaces, enums, or types required.
-- Will use existing `UseAuthReturn` and `AuthLoadingStates` from `src/types/auth.ts`.
-- Validation rules: none required for the sign-out action.
+- All new color fields are required in concrete theme objects (light/dark) to avoid runtime undefined access.
+- Color strings must be valid 6- or 8-digit hex (#RRGGBB or #RRGGBBAA). The implementation should not enforce hex format at runtime but tests will assert valid tokens.
 
 [Files]  
-Single sentence describing file modifications.
+All changes reference exact paths. The plan modifies existing files and adds a small reusable hook file and tests.
 
-Modify the existing ProfileEditScreen to import the auth hook and add a Sign Out control in the Preferences section.
+- New files to create:
+  - `src/hooks/useSplashScreen.ts` - Hook to coordinate splash-screen minimum display time and loading state. Exports `useSplashScreen(config?: Partial<SplashScreenConfig>)`.
+  - `__tests__/hooks/useSplashScreen.test.tsx` - Unit tests for the hook.
+  - `__tests__/components/SplashScreen.test.tsx` - Component tests ensuring minimum display time and theme integration.
+- Existing files to be modified (exact edits listed under Functions and Classes):
 
-Detailed breakdown:
+  - `src/types/theme.ts` — add new theme tokens and exports (buttonText, surfaceElevated, lightBackground, splash config types).
+  - `src/config/constants.ts` — update `COLORS` block to include new semantic tokens and add a tuned dark palette (lighter dark background).
+  - `src/styles/themes/dark.ts` — replace color mappings to include the new tokens and lighten background from `#0D1117` to `#15171B` (or `#1A1A1A`) and add `surfaceElevated`.
+  - `src/styles/themes/light.ts` — ensure new semantic tokens are present, clarify button text behavior (primary button uses dark text).
+  - `src/styles/inputStyles.ts` — convert hardcoded color constants to dynamic functions accepting a `colors` theme object (or switch to exported functions `getInputStyle(colors, variant?, state?)`).
+  - `src/components/ui/Button.tsx` — refine color computation, use a new `getButtonTextColor(backgroundColor, colors)` helper; remove concatenation tricks relying on hex alpha strings where hex may be 6-digit; ensure ActivityIndicator color and disabled state compute colors from theme tokens.
+  - `src/components/ui/Text.tsx` — ensure color map uses `colors` fields and remove any hardcoded `"#FFFFFF"` fallback for `white` mapping (use `colors.functional.lightText`).
+  - `src/components/ui/SplashScreen.tsx` — integrate `useSplashScreen` and use theme tokens for background/logo color; export an optional `minimumDisplayTimeMs` prop.
+  - `App.tsx` — update app initialization to coordinate with `useSplashScreen` and ensure the `PersistGate` loading splash and AppContent splash respect the minimum display time. The `SplashScreen` component used in `PersistGate` will remain but we will ensure it is shown for at least the configured time on web.
+  - Authentication screens (replace exact hardcoded color usage with theme tokens):
+    - `src/screens/auth/LoginScreen.tsx`
+    - `src/screens/auth/RegisterScreen.tsx`
+    - `src/screens/auth/ForgotPasswordScreen.tsx`
+    - `src/screens/auth/EmailVerificationScreen.tsx`
+    - `src/screens/auth/OnboardingScreen.tsx`
+  - `src/styles/themes/index.ts` — no path changes, but ensure exported `getTheme` returns object satisfying new type.
 
-- New files to be created (with full paths and purpose)
-  - None.
-- Existing files to be modified (with specific changes)
-  - src/screens/profile/ProfileEditScreen.tsx
-    - Imports:
-      - Add `import useAuth from "@/hooks/useAuth";`
-    - Inside component:
-      - Destructure `logout` and `loading` from `useAuth()`:
-        - `const { logout, loading: authLoading } = useAuth();`
-      - Add a new handler:
-        - `const handleSignOut = useCallback(async () => { const result = await logout(); if (!result.success) Alert.alert("Error", result.error?.message || "Failed to sign out"); }, [logout]);`
-      - Add a Sign Out button to the Preferences section UI (below the Units switch). Use existing `LoadingButton` or `Button`:
-        - Example:
-          ```tsx
-          <LoadingButton
-            loading={Boolean(authLoading.logout)}
-            onPress={handleSignOut}
-            style={styles.signOutButton}
-            testID='profile-signout-button'>
-            Sign Out
-          </LoadingButton>
-          ```
-      - Add a small style entry `signOutButton` to the `styles` object for spacing and optional destructive color.
-    - Rationale:
-      - Use the central `useAuth` hook and Redux flow for sign-out to ensure consistent behavior and centralized token cleanup.
-- Files to be deleted or moved
-  - None.
-- Configuration file updates
-  - None.
+- Files to be deleted: None.
+- Files to be moved: None.
+- Configuration updates:
+  - No new dependencies required. If you prefer an external contrast library (e.g., `tinycolor2`), this plan intentionally avoids new runtime deps and implements a small contrast helper in `src/utils/colorUtils.ts`.
+  - Add tests to jest config if not already included; update test-runner to include new tests.
 
 [Functions]  
-Single sentence describing function modifications.
+Precise function signatures and responsibilities. Include new helper utilities.
 
-Add a local `handleSignOut` async function in `ProfileEditScreen` and wire the Sign Out button to call it; no existing functions need internal modifications.
+- New functions/hooks:
 
-Detailed breakdown:
+  - `export function useSplashScreen(config?: Partial<SplashScreenConfig>): { state: SplashScreenState; show: () => void; hide: () => void; }`
+    - File: `src/hooks/useSplashScreen.ts`
+    - Purpose: Centralize logic to ensure the splash is shown for at least `minimumDisplayTimeMs` while app initialization (or PWA hydration) happens. Should support `show()` and `hide()` calls. The hook will internally track startedAt timestamp and defer `hide()` until `startedAt + minimumDisplayTimeMs`.
+  - `export function getButtonTextColor(backgroundHex: string, colors: ThemeColors): string`
+    - File: `src/utils/colorUtils.ts` (create new)
+    - Purpose: Return either `colors.buttonText` or `colors.text` or `#000`/`#FFF` depending on computed contrast ratio. Implementation: compute luminance/contrast using standard WCAG formula; threshold at 4.5:1 for normal text; if `colors.buttonTextOnPrimary` is defined use that override.
+  - `export function adjustHexAlpha(hex: string, alphaDecimal: number): string`
+    - File: `src/utils/colorUtils.ts`
+    - Purpose: Helper to produce 8-digit hex for disabled states; prefer to compute rgba strings for clarity when necessary.
 
-- New functions
-  - handleSignOut(): Promise<void>
-    - Signature: `const handleSignOut = useCallback(async () => Promise<void>, [logout])`
-    - File path: `src/screens/profile/ProfileEditScreen.tsx`
-    - Purpose: Call the `logout` method from `useAuth()`; display an Alert on failure; rely on global state changes for navigation and cleanup.
-    - Behavior:
-      - Call `await logout()`.
-      - If result.success is true: do nothing further (global auth state drives navigation).
-      - If result.success is false: display an Alert.alert with the error message or a generic message.
-    - Loading state: Use `authLoading.logout` to disable the button and show spinner.
-- Modified functions
-  - None.
-- Removed functions
-  - None.
+- Modified functions:
+
+  - `getInputStyle(variant, state)` → `getInputStyle(colors, variant?, state?)`
+    - File: `src/styles/inputStyles.ts`
+    - Changes:
+      - Accept `colors: ThemeColors` as first arg, return TextStyle[] using theme tokens (e.g., backgroundColor: colors.surface or colors.card depending on mode).
+      - Use `colors.primary` for focused border color instead of hardcoded `#B5CFF8`.
+  - Button internals:
+    - In `src/components/ui/Button.tsx`, the internal color maps become dynamic:
+      - `variantStyles.primary.backgroundColor = colors.primary;`
+      - `textColorMap.primary = getButtonTextColor(colors.primary, colors);`
+      - Disabled styles should use `adjustHexAlpha` or rgba strings using `colors` tokens to produce consistent disabled appearances.
+  - `SplashScreen`:
+    - Add props: `minimumDisplayTimeMs?: number` (default 2000), `message?: string`.
+    - Use `useSplashScreen` to prevent unmounting before minimum time.
+
+- Removed functions:
+  - None. Existing small helpers remain but will be updated to accept `colors` where necessary.
 
 [Classes]  
-Single sentence describing class modifications.
+No new ES6 classes will be introduced; changes are functional component and hook oriented.
 
-No new classes or class modifications are required.
-
-Detailed breakdown:
-
-- New classes
-  - None.
-- Modified classes
-  - None.
-- Removed classes
-  - None.
+- New components/hook classes (functional components):
+  - New hook `useSplashScreen` (file: `src/hooks/useSplashScreen.ts`).
+- Modified components (file path + exact modifications):
+  - `src/components/ui/Button.tsx`:
+    - Replace inline `textColorMap` with `getButtonTextColor` to ensure proper contrast per user's preference (for pale blue background use dark text instead of white).
+    - Ensure `Text` child uses `color` prop derived from `textColor`.
+    - Use theme `colors.surface` for `danger` text fallback rather than `"#FFFFFF"` hardcoding.
+  - `src/components/ui/Text.tsx`:
+    - Ensure `white` color alias maps to `colors.functional.lightText` rather than hardcoded "#FFFFFF".
+  - Auth screens:
+    - Remove all hardcoded hex color strings in style objects (e.g., `backgroundColor: "#FFFFFF"`) and change to theme usage:
+      - e.g., `safeArea` style becomes `style={[styles.safeArea, { backgroundColor: colors.background }]}` (as already used in some screens).
+      - Any static style referencing `#B5CFF8` should use `colors.primary` or `colors.primaryVariant` depending on desired background vs emphasis.
+    - Ensure link-like text uses `colors.primary` token and uses `Text` component with proper variant so color is applied theme-wise.
 
 [Dependencies]  
-Single sentence describing dependency modifications.
+Single-sentence summary: no external packages needed; implement all behavior using existing React Native / Expo APIs.
 
-No new package dependencies; changes use existing dependencies (React, React Native, Supabase, Redux).
-
-Details of new packages, version changes, and integration requirements:
-
-- No new npm packages.
-- No supabase or backend changes required.
-- Integration: Ensure `useAuth` is imported correctly (default export).
+- No new npm packages will be added by default.
+- Optional (developer choice): `tinycolor2` or `color` for robust color manipulation and contrast calculations if you prefer an external library. If accepted, add to package.json: `tinycolor2@^1.4.2`.
+- Use existing `@react-native-async-storage/async-storage` and `expo-splash-screen` already present in repo (the ThemeContext already conditionally uses AsyncStorage).
 
 [Testing]  
-Single sentence describing testing approach.
+Single-sentence summary: add unit tests for new hook and component behavior, and integration tests for auth screens in both modes.
 
-Manual and basic unit/integration checks to verify the Sign Out button calls logout, shows loading, and results in unauthenticated UI state; include test instructions and an optional simple unit test stub.
-
-Test file requirements, existing test modifications, and validation strategies:
-
-- Manual QA steps:
-  1. Launch app and sign in with a test user.
-  2. Open Profile > Edit Profile > Preferences.
-  3. Confirm the Sign Out button is visible below Units toggle.
-  4. Tap Sign Out.
-     - The button should show loading immediately.
-     - After sign-out completes, app should navigate to Auth flow (or show unauthenticated UI).
-     - No confirmation dialog should appear.
-  5. Verify tokens/local data cleared (e.g., re-open app should require sign-in).
-- Automated tests (optional):
-  - Add a test file: `src/screens/profile/__tests__/ProfileEditScreen.signout.test.tsx`
-  - Test outline:
-    - Mock `useAuth` to provide `logout` (jest.fn()) and `loading.logout`.
-    - Render `ProfileEditScreen` with necessary providers/mocks.
-    - Press the Sign Out button and assert `logout` was called.
-    - Assert LoadingButton receives `loading` prop while pending (mocked).
-  - Add test only if project test infra is already in place.
+- Unit tests:
+  - `__tests__/hooks/useSplashScreen.test.tsx`:
+    - Test that `hide()` is deferred until `minimumDisplayTimeMs` has elapsed.
+    - Simulate `show()` then immediate `hide()` and validate deferred hide logic.
+  - `__tests__/utils/colorUtils.test.ts`:
+    - Test `getButtonTextColor` returns dark text for `#B5CFF8` and white text for darker blue variants; test edge contrast cases.
+- Component tests:
+  - `__tests__/components/SplashScreen.test.tsx`:
+    - Render the splash component, assert initial render and that it remains visible for at least minimum time.
+- Manual testing checklist:
+  - Switch app to dark mode (web and native) and verify:
+    - Labels are not black; they use `colors.text` mapped from theme.
+    - Login page buttons and link colors are consistent across Login/Register pages.
+    - Primary button on pale blue background uses dark text for good contrast (specifically change button text to `#1C1C1E` when background is `#B5CFF8`).
+    - Forgot password & confirm email pages use dark backgrounds/surfaces as per theme (not white).
+    - Dark background lighten change is visible and improves legibility.
+    - PWA behavior: splash screen displays on initial load for at least 2000ms while the app begins initialization.
 
 [Implementation Order]  
-Single sentence describing the implementation sequence.
+Single-sentence summary: apply theme/type changes first, then component updates, then splash timing, then tests and verification.
 
-Make a small incremental change: import the auth hook, add sign-out handler, add button UI, run manual tests, then add automated test (optional) and commit.
+1. Update theme and constants
+   - Edit `src/types/theme.ts` to add new tokens and splash types.
+   - Edit `src/config/constants.ts` to include new color tokens and tuned dark palette. Use `#15171B` or `#1A1A1A` as the new `backgroundDark` and add `surfaceElevated: "#23262B"` or `#21262D` variant.
+   - Update `src/styles/themes/dark.ts` and `src/styles/themes/light.ts` to include required tokens and ensure `buttonText` is set to `#1C1C1E` for pale blue primary backgrounds.
+2. Make input styles theme-aware
+   - Modify `src/styles/inputStyles.ts` to accept `colors` as first parameter and replace hardcoded colors with theme tokens. Update imports in auth screens to pass `colors` from `useTheme()`.
+3. Fix button text contrast
+   - Add `src/utils/colorUtils.ts` with `getButtonTextColor` and `adjustHexAlpha`.
+   - Update `src/components/ui/Button.tsx` to use `getButtonTextColor(colors.primary, colors)` for primary variant text color; ensure the `Text` child uses the computed text color.
+   - Replace any direct white-on-blue text in auth screens with theme-driven `Button` usage.
+4. Update auth screens
+   - For each auth screen listed earlier:
+     - Replace style fields using hardcoded hex values with theme-based values (use the `colors` object from `useTheme()`).
+     - Move inline style properties to use style arrays when they depend on runtime theme (e.g., `style={[styles.safeArea, { backgroundColor: colors.background }]}`).
+     - Ensure label text uses the `Text` component color tokens (primary/subtext) rather than raw style color text.
+5. Implement splash timing
+   - Add `src/hooks/useSplashScreen.ts`.
+   - Update `src/components/ui/SplashScreen.tsx` to accept `minimumDisplayTimeMs` prop and use `useSplashScreen`.
+   - Update `App.tsx` to coordinate `PersistGate` and `AppContent` with `useSplashScreen` so splash is shown at least 2000ms on web/PWA init.
+6. Tests and validation
+   - Add the tests described earlier and run the test suite.
+   - Manually test on web in dark mode (PWA) to verify 2s splash and theming.
+7. Polish & PR
+   - Run lint/format; update any snapshots; add a short comment in changelog/PR describing changes and the reasoning behind contrast decisions.
 
-Numbered steps showing the logical order of changes:
+---
 
-1. Add import for `useAuth` at top of `src/screens/profile/ProfileEditScreen.tsx`.
-   - `import useAuth from "@/hooks/useAuth";`
-2. Inside the `ProfileEditScreen` component, add:
-   - `const { logout, loading: authLoading } = useAuth();`
-   - `const handleSignOut = useCallback(async () => { const result = await logout(); if (!result.success) Alert.alert("Error", result.error?.message || "Failed to sign out"); }, [logout]);`
-3. Update `renderPreferencesSection` to include a Sign Out control placed below the Units switch:
-   - Use `LoadingButton` with `loading={Boolean(authLoading.logout)}` and `onPress={handleSignOut}`.
-   - Add `testID="profile-signout-button"` for e2e testing.
-   - Add `styles.signOutButton` to `styles` for spacing and optional destructive coloring.
-4. Run TypeScript/ESLint checks and build the app to validate compilation.
-5. Perform manual QA steps described above.
-6. (Optional) Add unit test at `src/screens/profile/__tests__/ProfileEditScreen.signout.test.tsx` mocking `useAuth`.
-7. Commit changes with message: `feat(profile): add Sign Out button to ProfileEditScreen (Preferences tab)`.
+Notes on specific contrast decision (your requested minor detail):
 
-Additional notes and rationale:
+- For the primary button on the default (light) theme the background is `#B5CFF8` (pale cornflower) and the plan will set the button text color to `#1C1C1E` (dark) to satisfy WCAG AA (contrast target >= 4.5:1 for normal text). This will be computed by `getButtonTextColor` so if the primary color changes in the future the function will pick the appropriate text color automatically.
+- In dark mode, if `colors.primary` is the lighter adapted primary (e.g., `#87B1F3`), we will compute contrast and fall back to white (`colors.functional.lightText`) when that yields better contrast. The `buttonTextOnPrimary` token can be provided per-theme for overrides.
 
-- Use the central `useAuth` hook instead of calling `authService` directly to preserve Redux flow and show a consistent loading state.
-- Avoid adding navigation logic in the handler; the app's auth state change should drive navigation to the unauthenticated flow.
-- The button triggers immediate sign-out with no confirmation per the user's instruction.
-- If a destructive style is desired, reuse `Button` props or add a style override.
+---
 
-Plan Document Navigation Commands (for the implementation agent)
+Plan Document Navigation Commands
 
 # Read Overview section
 
@@ -186,13 +206,3 @@ sed -n '/[Testing]/,/[Implementation Order]/p' implementation_plan.md | head -n 
 # Read Implementation Order section
 
 sed -n '/[Implementation Order]/,$p' implementation_plan.md | cat
-
-Task Progress Items:
-
-- [x] Step 1: Create implementation_plan.md
-- [ ] Step 2: Add `useAuth` import and destructure `logout` & `loading` in ProfileEditScreen
-- [ ] Step 3: Implement handleSignOut in ProfileEditScreen
-- [ ] Step 4: Add Sign Out button in Preferences section (wire to handleSignOut)
-- [ ] Step 5: Run TypeScript/ESLint and manual QA
-- [ ] Step 6: (Optional) Add unit test for sign-out behavior
-- [ ] Step 7: Commit changes and push branch

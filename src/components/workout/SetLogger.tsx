@@ -4,10 +4,12 @@
 // Improved set logging with direct inputs, auto-population, and compact design
 
 import React, { useState, useCallback, useRef, useEffect } from "react";
-import { View, Text, TextInput, StyleSheet, TouchableOpacity, Alert, ViewStyle } from "react-native";
+import { View, TextInput, StyleSheet, TouchableOpacity, Alert, ViewStyle } from "react-native";
+import Text from "../ui/Text";
 import Icon from "react-native-vector-icons/MaterialIcons";
 import { useHapticFeedback } from "../../hooks/useHapticFeedback";
 import useUnitPreferences from "../../hooks/useUnitPreferences";
+import useTheme from "@/hooks/useTheme";
 import RPESelector from "./RPESelector";
 import { Button } from "../ui/Button";
 import { logger } from "../../utils/logger";
@@ -52,16 +54,7 @@ interface SetLoggerState {
 // CONSTANTS
 // ============================================================================
 
-const COLORS = {
-  primary: "#B5CFF8",
-  success: "#34C759",
-  warning: "#FF9500",
-  error: "#FF3B30",
-  text: "#1C1C1E",
-  textSecondary: "#8E8E93",
-  background: "#FFFFFF",
-  backgroundLight: "#F8FAFD",
-} as const;
+/* Theme tokens will be used via useTheme within the component. */
 
 const DEFAULT_REST_TIMES = {
   warmup: 60, // 1 minute
@@ -90,6 +83,8 @@ export const SetLogger: React.FC<SetLoggerProps> = ({
 
   const { triggerHaptic, triggerSetCompleteHaptic } = useHapticFeedback();
   const { isImperial } = useUnitPreferences();
+  const { colors } = useTheme();
+  const styles = createStyles(colors);
 
   const [state, setState] = useState<SetLoggerState>({
     weight: "",
@@ -409,10 +404,10 @@ export const SetLogger: React.FC<SetLoggerProps> = ({
       {/* Weight and Reps Row */}
       <View style={styles.inputRow}>
         <View style={[FIELD_STYLES.container, styles.inputColumn]}>
-          <Text style={LABEL_STYLES.base}>{weightLabel}</Text>
+          <Text style={[LABEL_STYLES.base, { color: colors.subtext }]}>{weightLabel}</Text>
           <TextInput
             ref={weightInputRef}
-            style={getInputStyle(undefined, getInputState(focusedField === "weight", !!errors.weight))}
+            style={getInputStyle(colors, undefined, getInputState(focusedField === "weight", !!errors.weight))}
             value={state.weight}
             onChangeText={handleWeightChange}
             onFocus={() => setFocusedField("weight")}
@@ -421,14 +416,16 @@ export const SetLogger: React.FC<SetLoggerProps> = ({
             {...getInputProps("number")}
             accessibilityLabel={`Exercise weight in ${isImperial() ? "pounds" : "kilograms"}`}
           />
-          {errors.weight && <Text style={ERROR_STYLES.text}>{errors.weight}</Text>}
+          {errors.weight && <Text style={[ERROR_STYLES.text, { color: colors.error }]}>{errors.weight}</Text>}
         </View>
 
         <View style={[FIELD_STYLES.container, styles.inputColumn]}>
-          <Text style={LABEL_STYLES.base}>Reps *</Text>
+          <Text style={[LABEL_STYLES.base, { color: colors.subtext }]}>
+            Reps <Text style={[LABEL_STYLES.required, { color: colors.error }]}>*</Text>
+          </Text>
           <TextInput
             ref={repsInputRef}
-            style={getInputStyle(undefined, getInputState(focusedField === "reps", !!errors.reps))}
+            style={getInputStyle(colors, undefined, getInputState(focusedField === "reps", !!errors.reps))}
             value={state.reps}
             onChangeText={handleRepsChange}
             onFocus={() => setFocusedField("reps")}
@@ -437,21 +434,23 @@ export const SetLogger: React.FC<SetLoggerProps> = ({
             {...getInputProps("number")}
             accessibilityLabel='Number of repetitions'
           />
-          {errors.reps && <Text style={ERROR_STYLES.text}>{errors.reps}</Text>}
+          {errors.reps && <Text style={[ERROR_STYLES.text, { color: colors.error }]}>{errors.reps}</Text>}
         </View>
       </View>
 
       {/* RPE Row */}
       <View style={FIELD_STYLES.container}>
         <View style={styles.rpeHeader}>
-          <Text style={LABEL_STYLES.base}>RPE {!state.isWarmup && <Text style={LABEL_STYLES.required}>*</Text>}</Text>
+          <Text style={[LABEL_STYLES.base, { color: colors.subtext }]}>
+            RPE {!state.isWarmup && <Text style={[LABEL_STYLES.required, { color: colors.error }]}>*</Text>}
+          </Text>
           <TouchableOpacity style={styles.infoButton} onPress={handleRPEInfoPress} accessibilityLabel='RPE information'>
-            <Icon name='info' size={16} color={COLORS.textSecondary} />
+            <Icon name='info' size={16} color={colors.subtext} />
           </TouchableOpacity>
         </View>
         <TextInput
           ref={rpeInputRef}
-          style={getInputStyle(undefined, getInputState(focusedField === "rpe", !!errors.rpe))}
+          style={getInputStyle(colors, undefined, getInputState(focusedField === "rpe", !!errors.rpe))}
           value={state.rpe}
           onChangeText={handleRPEChange}
           onFocus={() => setFocusedField("rpe")}
@@ -460,20 +459,21 @@ export const SetLogger: React.FC<SetLoggerProps> = ({
           {...getInputProps("number")}
           accessibilityLabel='Rate of perceived exertion from 1 to 10'
         />
-        {errors.rpe && <Text style={ERROR_STYLES.text}>{errors.rpe}</Text>}
+        {errors.rpe && <Text style={[ERROR_STYLES.text, { color: colors.error }]}>{errors.rpe}</Text>}
       </View>
 
       {/* Notes Row */}
       <View style={FIELD_STYLES.container}>
-        <Text style={LABEL_STYLES.base}>Notes</Text>
+        <Text style={[LABEL_STYLES.base, { color: colors.subtext }]}>Notes</Text>
         <TextInput
           ref={notesInputRef}
-          style={getInputStyle("textarea", getInputState(focusedField === "notes", false))}
+          style={getInputStyle(colors, "textarea", getInputState(focusedField === "notes", false))}
           value={state.notes}
           onChangeText={handleNotesChange}
           onFocus={() => setFocusedField("notes")}
           onBlur={() => setFocusedField(null)}
           placeholder='Optional notes about this set...'
+          {...getInputProps()}
           multiline
           numberOfLines={2}
           textAlignVertical='top'
@@ -498,7 +498,7 @@ export const SetLogger: React.FC<SetLoggerProps> = ({
         disabled={submitting}
         style={styles.logButton}
         accessibilityLabel={`Log set`}>
-        <Text style={styles.logButtonText}>{submitting ? "Logging..." : `Log Set`}</Text>
+        {submitting ? "Logging..." : "Log Set"}
       </Button>
 
       {showRPESelector && (
@@ -516,95 +516,96 @@ export const SetLogger: React.FC<SetLoggerProps> = ({
 // STYLES
 // ============================================================================
 
-const styles = StyleSheet.create({
-  container: {
-    backgroundColor: COLORS.background,
-    borderRadius: 16,
-    padding: 20,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.05,
-    shadowRadius: 4,
-    elevation: 2,
-  },
+const createStyles = (colors: any) =>
+  StyleSheet.create({
+    container: {
+      backgroundColor: colors.background,
+      borderRadius: 16,
+      padding: 20,
+      shadowColor: "#000",
+      shadowOffset: { width: 0, height: 1 },
+      shadowOpacity: 0.05,
+      shadowRadius: 4,
+      elevation: 2,
+    },
 
-  header: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    marginBottom: 20,
-  },
+    header: {
+      flexDirection: "row",
+      justifyContent: "space-between",
+      alignItems: "center",
+      marginBottom: 20,
+    },
 
-  setTitle: {
-    fontSize: 20,
-    fontWeight: "700",
-    color: COLORS.text,
-  },
+    setTitle: {
+      fontSize: 20,
+      fontWeight: "700",
+      color: colors.text,
+    },
 
-  warmupBadge: {
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 6,
-    borderWidth: 1,
-    borderColor: COLORS.textSecondary,
-    backgroundColor: "transparent",
-  },
+    warmupBadge: {
+      paddingHorizontal: 8,
+      paddingVertical: 4,
+      borderRadius: 6,
+      borderWidth: 1,
+      borderColor: colors.subtext,
+      backgroundColor: "transparent",
+    },
 
-  warmupBadgeActive: {
-    borderColor: COLORS.warning,
-    backgroundColor: "rgba(255, 149, 0, 0.1)",
-  },
+    warmupBadgeActive: {
+      borderColor: colors.warning,
+      backgroundColor: "transparent",
+    },
 
-  warmupBadgeText: {
-    fontSize: 10,
-    fontWeight: "600",
-    color: COLORS.textSecondary,
-    letterSpacing: 0.5,
-  },
+    warmupBadgeText: {
+      fontSize: 10,
+      fontWeight: "600",
+      color: colors.subtext,
+      letterSpacing: 0.5,
+    },
 
-  warmupBadgeTextActive: {
-    color: COLORS.warning,
-  },
+    warmupBadgeTextActive: {
+      color: colors.warning,
+    },
 
-  inputsContainer: {
-    marginBottom: 20,
-  },
+    inputsContainer: {
+      marginBottom: 20,
+    },
 
-  inputRow: {
-    flexDirection: "row",
-    gap: 16,
-  },
+    inputRow: {
+      flexDirection: "row",
+      gap: 16,
+    },
 
-  inputColumn: {
-    flex: 1,
-  },
+    inputColumn: {
+      flex: 1,
+    },
 
-  rpeHeader: {
-    flexDirection: "row",
-    alignItems: "center",
-    marginBottom: 8,
-  },
+    rpeHeader: {
+      flexDirection: "row",
+      alignItems: "center",
+      marginBottom: 8,
+    },
 
-  infoButton: {
-    marginLeft: 8,
-    width: 20,
-    height: 20,
-    justifyContent: "center",
-    alignItems: "center",
-  },
+    infoButton: {
+      marginLeft: 8,
+      width: 20,
+      height: 20,
+      justifyContent: "center",
+      alignItems: "center",
+    },
 
-  infoButtonText: {
-    fontSize: 14,
-  },
+    infoButtonText: {
+      fontSize: 14,
+    },
 
-  logButton: {
-    height: 56,
-  },
+    logButton: {
+      height: 56,
+    },
 
-  logButtonText: {
-    fontSize: 18,
-    fontWeight: "700",
-  },
-});
+    logButtonText: {
+      fontSize: 18,
+      fontWeight: "700",
+    },
+  });
 
 export default SetLogger;

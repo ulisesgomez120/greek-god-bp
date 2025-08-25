@@ -10,6 +10,7 @@ import { RouteProp } from "@react-navigation/native";
 
 // Components
 import Text from "../../components/ui/Text";
+import useTheme from "@/hooks/useTheme";
 
 // Services
 import workoutPlanService, { WorkoutPlanSummary } from "../../services/workoutPlan.service";
@@ -36,9 +37,10 @@ interface ProgramSelectionScreenProps {
 interface ProgramCardProps {
   program: WorkoutPlanSummary;
   onPress: () => void;
+  styles?: any;
 }
 
-const ProgramCard: React.FC<ProgramCardProps> = ({ program, onPress }) => {
+const ProgramCard: React.FC<ProgramCardProps> = ({ program, onPress, styles }) => {
   const difficultyLabel = `Level ${program.difficulty}`;
 
   return (
@@ -92,6 +94,9 @@ const ProgramCard: React.FC<ProgramCardProps> = ({ program, onPress }) => {
 // ============================================================================
 
 const ProgramSelectionScreen: React.FC<ProgramSelectionScreenProps> = ({ navigation }) => {
+  const { colors } = useTheme();
+  const styles = createStyles(colors);
+
   const [plans, setPlans] = useState<WorkoutPlanSummary[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
@@ -129,7 +134,7 @@ const ProgramSelectionScreen: React.FC<ProgramSelectionScreenProps> = ({ navigat
   if (loading) {
     return (
       <View style={styles.containerCentered}>
-        <ActivityIndicator size='large' color='#B5CFF8' />
+        <ActivityIndicator size='large' color={colors.primary} />
       </View>
     );
   }
@@ -162,7 +167,12 @@ const ProgramSelectionScreen: React.FC<ProgramSelectionScreenProps> = ({ navigat
         <View style={styles.programList}>
           {plans.length > 0 ? (
             plans.map((program) => (
-              <ProgramCard key={program.id} program={program} onPress={() => handleProgramSelect(program.id)} />
+              <ProgramCard
+                key={program.id}
+                program={program}
+                onPress={() => handleProgramSelect(program.id)}
+                styles={styles}
+              />
             ))
           ) : (
             <View style={styles.emptyState}>
@@ -184,92 +194,97 @@ const ProgramSelectionScreen: React.FC<ProgramSelectionScreenProps> = ({ navigat
 // STYLES
 // ============================================================================
 
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: "#FFFFFF",
-  },
-  containerCentered: {
-    flex: 1,
-    alignItems: "center",
-    justifyContent: "center",
-    backgroundColor: "#FFFFFF",
-  },
-  scrollView: {
-    flex: 1,
-  },
-  scrollContent: {
-    padding: 20,
-  },
-  header: {
-    marginBottom: 32,
-  },
-  title: {
-    marginBottom: 8,
-  },
-  subtitle: {
-    lineHeight: 22,
-  },
-  programList: {
-    gap: 16,
-  },
-  programCard: {
-    backgroundColor: "#FFFFFF",
-    borderRadius: 16,
-    padding: 20,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.08,
-    shadowRadius: 10,
-    elevation: 2,
-    borderWidth: 1,
-    borderColor: "#F2F2F7",
-  },
-  cardHeader: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "flex-start",
-    marginBottom: 12,
-  },
-  programName: {
-    flex: 1,
-    marginRight: 12,
-  },
-  difficultyBadge: {
-    backgroundColor: "#F8FAFD",
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 6,
-    borderWidth: 1,
-    borderColor: "#B5CFF8",
-  },
-  difficultyText: {
-    color: "#B5CFF8",
-    fontWeight: "600",
-  },
-  programDescription: {
-    marginBottom: 16,
-    lineHeight: 20,
-  },
-  programDetails: {
-    flexDirection: "row",
-    gap: 24,
-  },
-  detailItem: {
-    flex: 1,
-  },
-  detailLabel: {
-    marginBottom: 2,
-    textTransform: "uppercase",
-    letterSpacing: 0.5,
-  },
-  detailValue: {
-    fontWeight: "600",
-  },
-  emptyState: {
-    padding: 24,
-    alignItems: "center",
-  },
-});
+const createStyles = (colors: any) =>
+  StyleSheet.create({
+    container: {
+      flex: 1,
+      backgroundColor: colors.background,
+    },
+    containerCentered: {
+      flex: 1,
+      alignItems: "center",
+      justifyContent: "center",
+      backgroundColor: colors.background,
+    },
+    scrollView: {
+      flex: 1,
+    },
+    scrollContent: {
+      padding: 20,
+    },
+    header: {
+      marginBottom: 32,
+    },
+    title: {
+      marginBottom: 8,
+    },
+    subtitle: {
+      lineHeight: 22,
+      color: colors.subtext,
+    },
+    programList: {
+      gap: 16,
+    },
+    programCard: {
+      backgroundColor: colors.surface,
+      borderRadius: 16,
+      padding: 20,
+      shadowColor: "#000",
+      shadowOffset: { width: 0, height: 1 },
+      shadowOpacity: 0.08,
+      shadowRadius: 10,
+      elevation: 2,
+      borderWidth: 1,
+      borderColor: colors.surfaceElevated,
+    },
+    cardHeader: {
+      flexDirection: "row",
+      justifyContent: "space-between",
+      alignItems: "flex-start",
+      marginBottom: 12,
+    },
+    programName: {
+      flex: 1,
+      marginRight: 12,
+    },
+    difficultyBadge: {
+      backgroundColor: colors.lightBackground,
+      paddingHorizontal: 8,
+      paddingVertical: 4,
+      borderRadius: 6,
+      borderWidth: 1,
+      borderColor: colors.primary,
+    },
+    difficultyText: {
+      color: colors.primary,
+      fontWeight: "600",
+    },
+    programDescription: {
+      marginBottom: 16,
+      lineHeight: 20,
+      color: colors.subtext,
+    },
+    programDetails: {
+      flexDirection: "row",
+      gap: 24,
+    },
+    detailItem: {
+      flex: 1,
+    },
+    detailLabel: {
+      marginBottom: 2,
+      textTransform: "uppercase",
+      letterSpacing: 0.5,
+      color: colors.subtext,
+    },
+    detailValue: {
+      fontWeight: "600",
+      color: colors.text,
+    },
+    emptyState: {
+      padding: 24,
+      alignItems: "center",
+    },
+  });
 
 export default ProgramSelectionScreen;

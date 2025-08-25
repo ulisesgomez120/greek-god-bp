@@ -24,6 +24,12 @@ const darkTheme: Theme = {
     success: COLORS.accent.successGreen,
     error: COLORS.accent.errorRed,
     warning: COLORS.accent.warningAmber,
+    // Additional semantic tokens (new)
+    buttonText: COLORS.functional.lightText,
+    buttonTextOnPrimary: COLORS.functional.buttonText,
+    primaryOnDark: COLORS.primary.primaryOnDark,
+    surfaceElevated: COLORS.backgrounds.surfaceElevated,
+    lightBackground: COLORS.backgrounds.lightBackground,
   },
   typography: TYPOGRAPHY,
   spacing: SPACING,

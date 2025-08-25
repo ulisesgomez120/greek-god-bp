@@ -12,6 +12,7 @@ import { RouteProp } from "@react-navigation/native";
 
 // Components
 import Text from "../../components/ui/Text";
+import useTheme from "@/hooks/useTheme";
 
 // Services
 import workoutPlanService from "../../services/workoutPlan.service";
@@ -49,6 +50,9 @@ const looksLikeUuid = (s?: string) => {
 
 const ExerciseListScreen: React.FC<ExerciseListScreenProps> = ({ navigation, route }) => {
   const { programId, phaseId, dayId, workoutName } = route.params;
+
+  const { colors } = useTheme();
+  const styles = createStyles(colors);
 
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
@@ -114,7 +118,7 @@ const ExerciseListScreen: React.FC<ExerciseListScreenProps> = ({ navigation, rou
   if (loading) {
     return (
       <View style={styles.containerCentered}>
-        <ActivityIndicator size='large' color='#B5CFF8' />
+        <ActivityIndicator size='large' color={colors.primary} />
       </View>
     );
   }
@@ -194,11 +198,6 @@ const ExerciseListScreen: React.FC<ExerciseListScreenProps> = ({ navigation, rou
               }
               activeOpacity={0.7}>
               <View style={styles.exerciseHeader}>
-                <View style={styles.exerciseNumber}>
-                  <Text variant='bodySmall' color='primary'>
-                    {index + 1}
-                  </Text>
-                </View>
                 <View style={styles.exerciseInfo}>
                   <Text variant='h3' color='primary' style={styles.exerciseName}>
                     {exercise.name}
@@ -255,88 +254,80 @@ const ExerciseListScreen: React.FC<ExerciseListScreenProps> = ({ navigation, rou
 // STYLES
 // ============================================================================
 
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: "#FFFFFF",
-  },
-  containerCentered: {
-    flex: 1,
-    alignItems: "center",
-    justifyContent: "center",
-    backgroundColor: "#FFFFFF",
-  },
-  scrollView: {
-    flex: 1,
-  },
-  scrollContent: {
-    paddingBottom: 20,
-  },
-  header: {
-    padding: 20,
-    borderBottomWidth: 1,
-    borderBottomColor: "#F2F2F7",
-  },
-  title: {
-    marginBottom: 4,
-  },
-  subtitle: {
-    marginBottom: 20,
-  },
-  workoutInfo: {
-    flexDirection: "row",
-    justifyContent: "space-around",
-  },
-  infoItem: {
-    alignItems: "center",
-  },
-  exerciseList: {
-    padding: 20,
-  },
-  sectionTitle: {
-    marginBottom: 16,
-  },
-  exerciseCard: {
-    backgroundColor: "#FFFFFF",
-    borderRadius: 12,
-    padding: 16,
-    marginBottom: 12,
-    borderWidth: 1,
-    borderColor: "#F2F2F7",
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.05,
-    shadowRadius: 4,
-    elevation: 1,
-  },
-  exerciseHeader: {
-    flexDirection: "row",
-    alignItems: "center",
-    marginBottom: 12,
-  },
-  exerciseNumber: {
-    width: 24,
-    height: 24,
-    borderRadius: 12,
-    backgroundColor: "#F8FAFD",
-    alignItems: "center",
-    justifyContent: "center",
-    marginRight: 12,
-  },
-  exerciseInfo: {
-    flex: 1,
-  },
-  exerciseName: {
-    marginBottom: 2,
-  },
-  exerciseDetails: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-  },
-  detailItem: {
-    alignItems: "center",
-    flex: 1,
-  },
-});
+const createStyles = (colors: any) =>
+  StyleSheet.create({
+    container: {
+      flex: 1,
+      backgroundColor: colors.background,
+    },
+    containerCentered: {
+      flex: 1,
+      alignItems: "center",
+      justifyContent: "center",
+      backgroundColor: colors.background,
+    },
+    scrollView: {
+      flex: 1,
+    },
+    scrollContent: {
+      paddingBottom: 20,
+    },
+    header: {
+      padding: 20,
+      borderBottomWidth: 1,
+      borderBottomColor: colors.border,
+    },
+    title: {
+      marginBottom: 4,
+    },
+    subtitle: {
+      marginBottom: 20,
+    },
+    workoutInfo: {
+      flexDirection: "row",
+      justifyContent: "space-around",
+    },
+    infoItem: {
+      alignItems: "center",
+    },
+    exerciseList: {
+      padding: 20,
+    },
+    sectionTitle: {
+      marginBottom: 16,
+    },
+    exerciseCard: {
+      backgroundColor: colors.surface,
+      borderRadius: 12,
+      padding: 16,
+      marginBottom: 12,
+      borderWidth: 1,
+      borderColor: colors.border,
+      shadowColor: "#000",
+      shadowOffset: { width: 0, height: 1 },
+      shadowOpacity: 0.05,
+      shadowRadius: 4,
+      elevation: 1,
+    },
+    exerciseHeader: {
+      flexDirection: "row",
+      alignItems: "center",
+      marginBottom: 12,
+    },
+    exerciseInfo: {
+      flex: 1,
+    },
+    exerciseName: {
+      marginBottom: 2,
+    },
+    exerciseDetails: {
+      flexDirection: "row",
+      justifyContent: "space-between",
+    },
+    detailItem: {
+      alignItems: "center",
+      flex: 1,
+    },
+  });
 
 export default ExerciseListScreen;

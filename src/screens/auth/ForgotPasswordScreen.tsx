@@ -19,6 +19,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { useAuth } from "@/hooks/useAuth";
 import { AUTH_FLOWS } from "@/constants/auth";
 import Text from "@/components/ui/Text";
+import useTheme from "@/hooks/useTheme";
 import {
   getInputStyle,
   getInputState,
@@ -49,6 +50,7 @@ type ResetState = "form" | "sending" | "sent" | "error";
 
 export const ForgotPasswordScreen: React.FC<ForgotPasswordScreenProps> = ({ navigation, route }) => {
   const { resetPassword, loading, error, clearError } = useAuth();
+  const { colors } = useTheme();
   const [resetState, setResetState] = useState<ResetState>("form");
   const [resetEmail, setResetEmail] = useState("");
   const [resendCooldown, setResendCooldown] = useState(0);
@@ -199,7 +201,7 @@ export const ForgotPasswordScreen: React.FC<ForgotPasswordScreenProps> = ({ navi
     <View style={styles.formContainer}>
       {/* Email Field */}
       <View style={FIELD_STYLES.container}>
-        <Text style={LABEL_STYLES.base}>Email Address *</Text>
+        <Text style={[LABEL_STYLES.base, { color: colors.text }]}>Email Address *</Text>
         <TextInput
           style={getInputStyle(undefined, getInputState(focusedField === "email", !!errors.email))}
           value={email}
@@ -326,7 +328,7 @@ export const ForgotPasswordScreen: React.FC<ForgotPasswordScreenProps> = ({ navi
   // ============================================================================
 
   return (
-    <SafeAreaView style={styles.safeArea}>
+    <SafeAreaView style={[styles.safeArea, { backgroundColor: colors.background }]}>
       <KeyboardAvoidingView style={styles.keyboardAvoidingView} behavior={Platform.OS === "ios" ? "padding" : "height"}>
         <ScrollView
           style={styles.scrollView}
@@ -349,10 +351,18 @@ export const ForgotPasswordScreen: React.FC<ForgotPasswordScreenProps> = ({ navi
             {/* Submit Button - Only show in form state */}
             {resetState === "form" && (
               <TouchableOpacity
-                style={[styles.submitButton, (isSubmitting || loading.passwordReset) && styles.submitButtonDisabled]}
+                style={[
+                  styles.submitButton,
+                  { backgroundColor: colors.primary },
+                  (isSubmitting || loading.passwordReset) && styles.submitButtonDisabled,
+                ]}
                 onPress={onSubmit}
                 disabled={isSubmitting || loading.passwordReset}>
-                <Text style={styles.submitButtonText}>
+                <Text
+                  style={[
+                    styles.submitButtonText,
+                    { color: colors.buttonTextOnPrimary || colors.buttonText || colors.text },
+                  ]}>
                   {isSubmitting || loading.passwordReset ? "Sending..." : AUTH_FLOWS.forgotPassword.submitText}
                 </Text>
               </TouchableOpacity>
@@ -367,7 +377,7 @@ export const ForgotPasswordScreen: React.FC<ForgotPasswordScreenProps> = ({ navi
 
             {/* Back to Sign In */}
             <TouchableOpacity style={styles.secondaryButton} onPress={navigateToLogin}>
-              <Text style={styles.secondaryButtonText}>Back to Sign In</Text>
+              <Text style={[styles.secondaryButtonText, { color: colors.primary }]}>Back to Sign In</Text>
             </TouchableOpacity>
 
             {/* Global Error - Only show in form state */}

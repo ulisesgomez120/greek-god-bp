@@ -1,6 +1,7 @@
 import React, { useMemo, useState } from "react";
 import { View, Text, TouchableOpacity, Modal, FlatList, StyleSheet, GestureResponderEvent } from "react-native";
 import { formatCmToFtIn, feetInchesToCm } from "@/utils/unitConversions";
+import useTheme from "@/hooks/useTheme";
 
 interface Props {
   valueCm?: number | null;
@@ -22,6 +23,8 @@ interface Props {
  */
 export default function HeightPicker({ valueCm, onChange, unitIsMetric, style, testID }: Props) {
   const [open, setOpen] = useState(false);
+  const { colors } = useTheme();
+  const styles = createStyles(colors);
 
   const heights = useMemo(() => {
     // Metric: generate a simple 100-220cm list
@@ -99,60 +102,62 @@ export default function HeightPicker({ valueCm, onChange, unitIsMetric, style, t
   );
 }
 
-const styles = StyleSheet.create({
-  container: {
-    minWidth: 120,
-  },
-  control: {
-    paddingVertical: 12,
-    paddingHorizontal: 12,
-    borderRadius: 8,
-    borderWidth: 1,
-    borderColor: "#E0E0E0",
-    backgroundColor: "#FFF",
-  },
-  controlText: {
-    fontSize: 16,
-    color: "#111",
-  },
-  modal: {
-    flex: 1,
-    paddingTop: 48,
-    paddingHorizontal: 16,
-    backgroundColor: "#FFF",
-  },
-  modalTitle: {
-    fontSize: 18,
-    fontWeight: "600",
-    marginBottom: 12,
-  },
-  list: {
-    paddingBottom: 24,
-  },
-  option: {
-    paddingVertical: 12,
-    paddingHorizontal: 8,
-    borderBottomWidth: 1,
-    borderBottomColor: "#F1F1F1",
-  },
-  optionText: {
-    fontSize: 16,
-    color: "#111",
-  },
-  customText: {
-    fontStyle: "italic",
-    color: "#555",
-  },
-  closeButton: {
-    marginTop: 18,
-    alignSelf: "center",
-    paddingVertical: 10,
-    paddingHorizontal: 20,
-    borderRadius: 8,
-    backgroundColor: "#F2F2F2",
-  },
-  closeButtonText: {
-    fontSize: 16,
-    color: "#333",
-  },
-});
+const createStyles = (colors: any) =>
+  StyleSheet.create({
+    container: {
+      minWidth: 120,
+    },
+    control: {
+      paddingVertical: 12,
+      paddingHorizontal: 12,
+      borderRadius: 8,
+      borderWidth: 1,
+      borderColor: colors.border,
+      backgroundColor: colors.surface,
+    },
+    controlText: {
+      fontSize: 16,
+      color: colors.text,
+    },
+    modal: {
+      flex: 1,
+      paddingTop: 48,
+      paddingHorizontal: 16,
+      backgroundColor: colors.background,
+    },
+    modalTitle: {
+      fontSize: 18,
+      fontWeight: "600",
+      marginBottom: 12,
+      color: colors.text,
+    },
+    list: {
+      paddingBottom: 24,
+    },
+    option: {
+      paddingVertical: 12,
+      paddingHorizontal: 8,
+      borderBottomWidth: 1,
+      borderBottomColor: colors.border,
+    },
+    optionText: {
+      fontSize: 16,
+      color: colors.text,
+    },
+    customText: {
+      fontStyle: "italic",
+      color: colors.subtext,
+    },
+    closeButton: {
+      marginTop: 18,
+      alignSelf: "center",
+      paddingVertical: 10,
+      paddingHorizontal: 20,
+      borderRadius: 8,
+      backgroundColor: colors.surfaceElevated || colors.surface,
+    },
+    closeButtonText: {
+      fontSize: 16,
+      color: colors.text,
+    },
+  });

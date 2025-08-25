@@ -76,6 +76,8 @@ export const COLORS = {
     blue: "#B5CFF8",
     white: "#FFFFFF",
     dark: "#1C1C1E",
+    // Adapted primary for dark surfaces (use for emphasis in dark mode)
+    primaryOnDark: "#87B1F3",
   },
 
   // Secondary Colors
@@ -98,14 +100,20 @@ export const COLORS = {
     neutralGray: "#8E8E93",
     darkText: "#000000",
     lightText: "#FFFFFF",
+    // Recommended button text color when placed on pale primary backgrounds (e.g., #B5CFF8)
+    buttonText: "#1C1C1E",
   },
 
   // Backgrounds
   backgrounds: {
     backgroundWhite: "#FFFFFF",
     backgroundLight: "#F8FAFD",
-    backgroundDark: "#0D1117",
+    lightBackground: "#F8FAFD",
+    // Slightly lightened dark background for improved legibility
+    backgroundDark: "#15171B",
     surfaceDark: "#21262D",
+    // Elevated surface tone for cards and elevated containers in dark mode
+    surfaceElevated: "#23262B",
   },
 
   // Semantic Colors

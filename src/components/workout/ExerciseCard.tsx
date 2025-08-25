@@ -24,6 +24,7 @@ import { SetLogger } from "./SetLogger";
 import { Button } from "../ui/Button";
 import { selectUser } from "../../store/auth/authSlice";
 import type { Exercise, ExerciseSet, ExerciseSetFormData } from "../../types";
+import useTheme from "@/hooks/useTheme";
 
 // ============================================================================
 // TYPES
@@ -65,6 +66,9 @@ export const ExerciseCard: React.FC<ExerciseCardProps> = ({
   isActive,
   style,
 }) => {
+  const { colors } = useTheme();
+  const styles = createStyles(colors);
+
   // ============================================================================
   // HOOKS & STATE
   // ============================================================================
@@ -423,279 +427,280 @@ export const ExerciseCard: React.FC<ExerciseCardProps> = ({
 // STYLES
 // ============================================================================
 
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: COLORS.background,
-  },
+const createStyles = (colors: any) =>
+  StyleSheet.create({
+    container: {
+      flex: 1,
+      backgroundColor: colors.background,
+    },
 
-  containerInactive: {
-    justifyContent: "center",
-    alignItems: "center",
-  },
+    containerInactive: {
+      justifyContent: "center",
+      alignItems: "center",
+    },
 
-  inactiveText: {
-    fontSize: 17,
-    color: COLORS.textSecondary,
-    textAlign: "center",
-  },
+    inactiveText: {
+      fontSize: 17,
+      color: colors.subtext,
+      textAlign: "center",
+    },
 
-  header: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "flex-start",
-    marginBottom: 16,
-    paddingHorizontal: 4,
-  },
+    header: {
+      flexDirection: "row",
+      justifyContent: "space-between",
+      alignItems: "flex-start",
+      marginBottom: 16,
+      paddingHorizontal: 4,
+    },
 
-  titleContainer: {
-    flex: 1,
-  },
+    titleContainer: {
+      flex: 1,
+    },
 
-  exerciseName: {
-    fontSize: 24,
-    fontWeight: "700",
-    color: COLORS.text,
-    marginBottom: 4,
-  },
+    exerciseName: {
+      fontSize: 24,
+      fontWeight: "700",
+      color: colors.text,
+      marginBottom: 4,
+    },
 
-  muscleGroups: {
-    flexDirection: "row",
-    flexWrap: "wrap",
-  },
+    muscleGroups: {
+      flexDirection: "row",
+      flexWrap: "wrap",
+    },
 
-  muscleGroup: {
-    fontSize: 14,
-    color: COLORS.textSecondary,
-    textTransform: "capitalize",
-  },
+    muscleGroup: {
+      fontSize: 14,
+      color: colors.subtext,
+      textTransform: "capitalize",
+    },
 
-  headerButtons: {
-    flexDirection: "row",
-    gap: 8,
-  },
+    headerButtons: {
+      flexDirection: "row",
+      gap: 8,
+    },
 
-  infoButton: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
-    backgroundColor: COLORS.backgroundLight,
-    justifyContent: "center",
-    alignItems: "center",
-  },
+    infoButton: {
+      width: 32,
+      height: 32,
+      borderRadius: 16,
+      backgroundColor: colors.surfaceElevated || colors.lightBackground || colors.surface,
+      justifyContent: "center",
+      alignItems: "center",
+    },
 
-  infoButtonText: {
-    fontSize: 16,
-  },
+    infoButtonText: {
+      fontSize: 16,
+    },
 
-  instructionsContainer: {
-    backgroundColor: COLORS.backgroundLight,
-    borderRadius: 12,
-    padding: 16,
-    marginBottom: 16,
-  },
+    instructionsContainer: {
+      backgroundColor: colors.surfaceElevated || colors.lightBackground || colors.surface,
+      borderRadius: 12,
+      padding: 16,
+      marginBottom: 16,
+    },
 
-  instructionsTitle: {
-    fontSize: 16,
-    fontWeight: "600",
-    color: COLORS.text,
-    marginBottom: 12,
-  },
+    instructionsTitle: {
+      fontSize: 16,
+      fontWeight: "600",
+      color: colors.text,
+      marginBottom: 12,
+    },
 
-  instructionText: {
-    fontSize: 15,
-    color: COLORS.text,
-    lineHeight: 20,
-    marginBottom: 8,
-  },
+    instructionText: {
+      fontSize: 15,
+      color: colors.text,
+      lineHeight: 20,
+      marginBottom: 8,
+    },
 
-  tipsTitle: {
-    fontSize: 16,
-    fontWeight: "600",
-    color: COLORS.text,
-    marginTop: 12,
-    marginBottom: 8,
-  },
+    tipsTitle: {
+      fontSize: 16,
+      fontWeight: "600",
+      color: colors.text,
+      marginTop: 12,
+      marginBottom: 8,
+    },
 
-  tipText: {
-    fontSize: 15,
-    color: COLORS.textSecondary,
-    lineHeight: 20,
-    marginBottom: 4,
-  },
+    tipText: {
+      fontSize: 15,
+      color: colors.subtext,
+      lineHeight: 20,
+      marginBottom: 4,
+    },
 
-  progressionTip: {
-    borderRadius: 12,
-    padding: 16,
-    marginBottom: 16,
-  },
+    progressionTip: {
+      borderRadius: 12,
+      padding: 16,
+      marginBottom: 16,
+    },
 
-  progressionTipPositive: {
-    backgroundColor: "rgba(52, 199, 89, 0.1)",
-    borderWidth: 1,
-    borderColor: COLORS.success,
-  },
+    progressionTipPositive: {
+      backgroundColor: colors.surfaceElevated || colors.lightBackground || colors.surface,
+      borderWidth: 1,
+      borderColor: colors.success,
+    },
 
-  progressionTipNeutral: {
-    backgroundColor: "rgba(181, 207, 248, 0.1)",
-    borderWidth: 1,
-    borderColor: COLORS.primary,
-  },
+    progressionTipNeutral: {
+      backgroundColor: colors.surfaceElevated || colors.lightBackground || colors.surface,
+      borderWidth: 1,
+      borderColor: colors.primary,
+    },
 
-  progressionTipTitle: {
-    fontSize: 16,
-    fontWeight: "600",
-    color: COLORS.text,
-    marginBottom: 4,
-  },
+    progressionTipTitle: {
+      fontSize: 16,
+      fontWeight: "600",
+      color: colors.text,
+      marginBottom: 4,
+    },
 
-  progressionTipText: {
-    fontSize: 14,
-    color: COLORS.textSecondary,
-    marginBottom: 8,
-  },
+    progressionTipText: {
+      fontSize: 14,
+      color: colors.subtext,
+      marginBottom: 8,
+    },
 
-  progressionTipSuggestion: {
-    fontSize: 15,
-    fontWeight: "600",
-    color: COLORS.success,
-  },
+    progressionTipSuggestion: {
+      fontSize: 15,
+      fontWeight: "600",
+      color: colors.success,
+    },
 
-  previousDataContainer: {
-    marginBottom: 16,
-  },
+    previousDataContainer: {
+      marginBottom: 16,
+    },
 
-  previousDataTitle: {
-    fontSize: 16,
-    fontWeight: "600",
-    color: COLORS.text,
-    marginBottom: 12,
-  },
+    previousDataTitle: {
+      fontSize: 16,
+      fontWeight: "600",
+      color: colors.text,
+      marginBottom: 12,
+    },
 
-  previousSetsScroll: {
-    flexDirection: "row",
-  },
+    previousSetsScroll: {
+      flexDirection: "row",
+    },
 
-  previousSetCard: {
-    backgroundColor: COLORS.backgroundLight,
-    borderRadius: 8,
-    padding: 12,
-    marginRight: 8,
-    minWidth: 80,
-    alignItems: "center",
-  },
+    previousSetCard: {
+      backgroundColor: colors.surfaceElevated || colors.lightBackground || colors.surface,
+      borderRadius: 8,
+      padding: 12,
+      marginRight: 8,
+      minWidth: 80,
+      alignItems: "center",
+    },
 
-  previousSetNumber: {
-    fontSize: 12,
-    color: COLORS.textSecondary,
-    marginBottom: 4,
-  },
+    previousSetNumber: {
+      fontSize: 12,
+      color: colors.subtext,
+      marginBottom: 4,
+    },
 
-  previousSetData: {
-    fontSize: 14,
-    fontWeight: "600",
-    color: COLORS.text,
-    marginBottom: 2,
-  },
+    previousSetData: {
+      fontSize: 14,
+      fontWeight: "600",
+      color: colors.text,
+      marginBottom: 2,
+    },
 
-  previousSetRpe: {
-    fontSize: 12,
-    color: COLORS.primary,
-  },
+    previousSetRpe: {
+      fontSize: 12,
+      color: colors.primary,
+    },
 
-  currentSetsContainer: {
-    marginBottom: 16,
-  },
+    currentSetsContainer: {
+      marginBottom: 16,
+    },
 
-  currentSetsTitle: {
-    fontSize: 16,
-    fontWeight: "600",
-    color: COLORS.text,
-    marginBottom: 12,
-  },
+    currentSetsTitle: {
+      fontSize: 16,
+      fontWeight: "600",
+      color: colors.text,
+      marginBottom: 12,
+    },
 
-  warmupSetsContainer: {
-    marginBottom: 12,
-  },
+    warmupSetsContainer: {
+      marginBottom: 12,
+    },
 
-  warmupSetsTitle: {
-    fontSize: 14,
-    fontWeight: "500",
-    color: COLORS.textSecondary,
-    marginBottom: 8,
-  },
+    warmupSetsTitle: {
+      fontSize: 14,
+      fontWeight: "500",
+      color: colors.subtext,
+      marginBottom: 8,
+    },
 
-  workingSetsContainer: {
-    marginBottom: 12,
-  },
+    workingSetsContainer: {
+      marginBottom: 12,
+    },
 
-  workingSetsTitle: {
-    fontSize: 14,
-    fontWeight: "500",
-    color: COLORS.text,
-    marginBottom: 8,
-  },
+    workingSetsTitle: {
+      fontSize: 14,
+      fontWeight: "500",
+      color: colors.text,
+      marginBottom: 8,
+    },
 
-  completedSetRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    paddingVertical: 8,
-    paddingHorizontal: 12,
-    backgroundColor: COLORS.backgroundLight,
-    borderRadius: 8,
-    marginBottom: 4,
-  },
+    completedSetRow: {
+      flexDirection: "row",
+      alignItems: "center",
+      paddingVertical: 8,
+      paddingHorizontal: 12,
+      backgroundColor: colors.surfaceElevated || colors.lightBackground || colors.surface,
+      borderRadius: 8,
+      marginBottom: 4,
+    },
 
-  completedSetNumber: {
-    fontSize: 14,
-    fontWeight: "600",
-    color: COLORS.textSecondary,
-    width: 32,
-  },
+    completedSetNumber: {
+      fontSize: 14,
+      fontWeight: "600",
+      color: colors.subtext,
+      width: 32,
+    },
 
-  completedSetData: {
-    flex: 1,
-    fontSize: 15,
-    fontWeight: "500",
-    color: COLORS.text,
-  },
+    completedSetData: {
+      flex: 1,
+      fontSize: 15,
+      fontWeight: "500",
+      color: colors.text,
+    },
 
-  completedSetRpe: {
-    fontSize: 13,
-    color: COLORS.primary,
-    marginRight: 8,
-  },
+    completedSetRpe: {
+      fontSize: 13,
+      color: colors.primary,
+      marginRight: 8,
+    },
 
-  completedSetCheck: {
-    fontSize: 16,
-    color: COLORS.success,
-  },
+    completedSetCheck: {
+      fontSize: 16,
+      color: colors.success,
+    },
 
-  actionButtons: {
-    flexDirection: "row",
-    justifyContent: "center",
-    gap: 24,
-    marginBottom: 20,
-  },
+    actionButtons: {
+      flexDirection: "row",
+      justifyContent: "center",
+      gap: 24,
+      marginBottom: 20,
+    },
 
-  actionButton: {
-    paddingHorizontal: 0,
-  },
+    actionButton: {
+      paddingHorizontal: 0,
+    },
 
-  actionButtonText: {
-    fontSize: 15,
-    color: COLORS.primary,
-  },
+    actionButtonText: {
+      fontSize: 15,
+      color: colors.primary,
+    },
 
-  actionButtonTextPositive: {
-    color: COLORS.success,
-    fontWeight: "600",
-  },
+    actionButtonTextPositive: {
+      color: colors.success,
+      fontWeight: "600",
+    },
 
-  setLoggerContainer: {
-    marginTop: 8,
-    paddingBottom: 20,
-  },
-});
+    setLoggerContainer: {
+      marginTop: 8,
+      paddingBottom: 20,
+    },
+  });
 
 export default ExerciseCard;

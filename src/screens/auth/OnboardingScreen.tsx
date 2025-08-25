@@ -11,6 +11,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { EXPERIENCE_LEVELS, FITNESS_GOALS } from "@/constants/auth";
 import Text from "@/components/ui/Text";
 import Button from "@/components/ui/Button";
+import useTheme from "@/hooks/useTheme";
 import {
   getInputStyle,
   getInputState,
@@ -37,6 +38,7 @@ type OnboardingStep = "welcome" | "profile" | "goals" | "complete";
 
 export const OnboardingScreen: React.FC<OnboardingScreenProps> = ({ navigation, onOnboardingComplete }) => {
   const { updateProfile, loading, error, clearError, user } = useAuth();
+  const { colors } = useTheme();
   const [currentStep, setCurrentStep] = useState<OnboardingStep>("welcome");
   const [selectedGoals, setSelectedGoals] = useState<string[]>([]);
   const [experienceLevel, setExperienceLevel] = useState<string>(
@@ -155,7 +157,7 @@ export const OnboardingScreen: React.FC<OnboardingScreenProps> = ({ navigation, 
   // ============================================================================
 
   const renderWelcomeStep = () => (
-    <SafeAreaView style={styles.safeArea}>
+    <SafeAreaView style={[styles.safeArea, { backgroundColor: colors.background }]}>
       <KeyboardAvoidingView style={styles.keyboardAvoidingView} behavior={Platform.OS === "ios" ? "padding" : "height"}>
         <ScrollView
           style={styles.scrollView}
@@ -248,10 +250,16 @@ export const OnboardingScreen: React.FC<OnboardingScreenProps> = ({ navigation, 
             {/* Form Content */}
             <View style={styles.formContent}>
               <View style={FIELD_STYLES.container}>
-                <Text style={LABEL_STYLES.base}>Display Name *</Text>
+                <Text style={[LABEL_STYLES.base, { color: colors.text }]}>Display Name *</Text>
                 <TextInput
-                  style={getInputStyle(undefined, getInputState(focusedField === "displayName", !!errors.displayName))}
+                  style={getInputStyle(
+                    colors,
+                    undefined,
+                    getInputState(focusedField === "displayName", !!errors.displayName)
+                  )}
                   value={displayName}
+                  placeholderTextColor={colors.placeholder}
+                  selectionColor={colors.primary}
                   onChangeText={handleDisplayNameChange}
                   onFocus={() => setFocusedField("displayName")}
                   onBlur={() => setFocusedField(null)}

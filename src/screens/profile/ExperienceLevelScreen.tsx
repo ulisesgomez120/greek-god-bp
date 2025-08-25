@@ -9,6 +9,7 @@ import { View, ScrollView, StyleSheet, Alert, KeyboardAvoidingView, Platform, Te
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useNavigation, useRoute } from "@react-navigation/native";
 import { Text } from "@/components/ui/Text";
+import useTheme from "@/hooks/useTheme";
 import { Button } from "@/components/ui/Button";
 import { LoadingButton } from "@/components/ui/LoadingButton";
 import {
@@ -93,9 +94,11 @@ interface StepProps {
   canGoNext: boolean;
   isFirst: boolean;
   isLast: boolean;
+  colors: any;
 }
 
-const TrainingHistoryStep: React.FC<StepProps> = ({ assessment, onUpdate, onNext, canGoNext }) => {
+const TrainingHistoryStep: React.FC<StepProps> = ({ assessment, onUpdate, onNext, canGoNext, colors }) => {
+  const styles = createStyles(colors);
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [focusedField, setFocusedField] = useState<string | null>(null);
 
@@ -142,7 +145,11 @@ const TrainingHistoryStep: React.FC<StepProps> = ({ assessment, onUpdate, onNext
         <View style={FIELD_STYLES.container}>
           <Text style={LABEL_STYLES.base}>How many months have you been training consistently? *</Text>
           <TextInput
-            style={getInputStyle(undefined, getInputState(focusedField === "monthsTraining", !!errors.monthsTraining))}
+            style={getInputStyle(
+              colors,
+              undefined,
+              getInputState(focusedField === "monthsTraining", !!errors.monthsTraining)
+            )}
             value={assessment.monthsTraining?.toString() || ""}
             onChangeText={(text: string) => {
               onUpdate({ monthsTraining: text ? parseInt(text) : undefined });
@@ -167,7 +174,7 @@ const TrainingHistoryStep: React.FC<StepProps> = ({ assessment, onUpdate, onNext
           <Text style={LABEL_STYLES.base}>How many days per week do you typically train? *</Text>
           <TextInput
             style={getInputStyle(
-              undefined,
+              colors,
               getInputState(focusedField === "trainingFrequency", !!errors.trainingFrequency)
             )}
             value={assessment.trainingFrequency?.toString() || ""}
@@ -193,7 +200,7 @@ const TrainingHistoryStep: React.FC<StepProps> = ({ assessment, onUpdate, onNext
         <View style={FIELD_STYLES.container}>
           <Text style={LABEL_STYLES.base}>What type of program are you currently following?</Text>
           <TextInput
-            style={getInputStyle(undefined, getInputState(focusedField === "currentProgram", false))}
+            style={getInputStyle(colors, getInputState(focusedField === "currentProgram", false))}
             value={assessment.currentProgram || ""}
             onChangeText={(text: string) => onUpdate({ currentProgram: text })}
             onFocus={() => setFocusedField("currentProgram")}
@@ -210,7 +217,8 @@ const TrainingHistoryStep: React.FC<StepProps> = ({ assessment, onUpdate, onNext
   );
 };
 
-const StrengthStandardsStep: React.FC<StepProps> = ({ assessment, onUpdate, onNext, canGoNext }) => {
+const StrengthStandardsStep: React.FC<StepProps> = ({ assessment, onUpdate, onNext, canGoNext, colors }) => {
+  const styles = createStyles(colors);
   const [focusedField, setFocusedField] = useState<string | null>(null);
 
   // Unit-aware helpers
@@ -239,7 +247,7 @@ const StrengthStandardsStep: React.FC<StepProps> = ({ assessment, onUpdate, onNe
             {isImperial() ? "Current body weight (lbs)" : "Current body weight (kg)"}
           </Text>
           <TextInput
-            style={getInputStyle(undefined, getInputState(focusedField === "bodyWeight", false))}
+            style={getInputStyle(colors, getInputState(focusedField === "bodyWeight", false))}
             value={
               isImperial()
                 ? assessment.bodyWeight
@@ -261,7 +269,7 @@ const StrengthStandardsStep: React.FC<StepProps> = ({ assessment, onUpdate, onNe
             {isImperial() ? "Bench Press working weight (lbs)" : "Bench Press working weight (kg)"}
           </Text>
           <TextInput
-            style={getInputStyle(undefined, getInputState(focusedField === "benchPressWeight", false))}
+            style={getInputStyle(colors, getInputState(focusedField === "benchPressWeight", false))}
             value={
               isImperial()
                 ? assessment.benchPressWeight
@@ -283,7 +291,7 @@ const StrengthStandardsStep: React.FC<StepProps> = ({ assessment, onUpdate, onNe
             {isImperial() ? "Squat working weight (lbs)" : "Squat working weight (kg)"}
           </Text>
           <TextInput
-            style={getInputStyle(undefined, getInputState(focusedField === "squatWeight", false))}
+            style={getInputStyle(colors, getInputState(focusedField === "squatWeight", false))}
             value={
               isImperial()
                 ? assessment.squatWeight
@@ -305,7 +313,7 @@ const StrengthStandardsStep: React.FC<StepProps> = ({ assessment, onUpdate, onNe
             {isImperial() ? "Deadlift working weight (lbs)" : "Deadlift working weight (kg)"}
           </Text>
           <TextInput
-            style={getInputStyle(undefined, getInputState(focusedField === "deadliftWeight", false))}
+            style={getInputStyle(colors, getInputState(focusedField === "deadliftWeight", false))}
             value={
               isImperial()
                 ? assessment.deadliftWeight
@@ -334,7 +342,8 @@ const StrengthStandardsStep: React.FC<StepProps> = ({ assessment, onUpdate, onNe
   );
 };
 
-const KnowledgeAssessmentStep: React.FC<StepProps> = ({ assessment, onUpdate, onNext, canGoNext }) => {
+const KnowledgeAssessmentStep: React.FC<StepProps> = ({ assessment, onUpdate, onNext, canGoNext, colors }) => {
+  const styles = createStyles(colors);
   const knowledgeQuestions = [
     {
       key: "formConfidence" as keyof ExperienceLevelAssessment,
@@ -384,7 +393,9 @@ const KnowledgeAssessmentStep: React.FC<StepProps> = ({ assessment, onUpdate, on
 const RecommendationStep: React.FC<StepProps & { recommendation: ExperienceLevelRecommendation | null }> = ({
   recommendation,
   onNext,
+  colors,
 }) => {
+  const styles = createStyles(colors);
   if (!recommendation) {
     return (
       <View style={styles.stepContainer}>
@@ -464,6 +475,8 @@ export const ExperienceLevelScreen: React.FC<ExperienceLevelScreenProps> = () =>
   const navigation = useNavigation();
   const route = useRoute();
   const { profile, updateProfile, assessExperienceLevel } = useProfile();
+  const { colors } = useTheme();
+  const styles = createStyles ? createStyles(colors) : ({} as any);
 
   const [currentStepIndex, setCurrentStepIndex] = useState(0);
   const [assessment, setAssessment] = useState<ExperienceLevelAssessment>({});
@@ -574,6 +587,7 @@ export const ExperienceLevelScreen: React.FC<ExperienceLevelScreenProps> = () =>
       canGoNext: canGoNext(),
       isFirst: currentStepIndex === 0,
       isLast: currentStepIndex === ASSESSMENT_STEPS.length - 1,
+      colors,
     };
 
     switch (currentStep.component) {
@@ -645,244 +659,245 @@ export const ExperienceLevelScreen: React.FC<ExperienceLevelScreenProps> = () =>
 // STYLES
 // ============================================================================
 
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: "#FFFFFF",
-  },
-  keyboardAvoidingView: {
-    flex: 1,
-  },
-  loadingContainer: {
-    flex: 1,
-    justifyContent: "center",
-    alignItems: "center",
-    padding: 20,
-  },
-  loadingText: {
-    fontSize: 18,
-    fontWeight: "600",
-    color: "#1C1C1E",
-    marginBottom: 20,
-  },
-  header: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    paddingHorizontal: 20,
-    paddingVertical: 16,
-    borderBottomWidth: 1,
-    borderBottomColor: "#F2F2F7",
-  },
-  headerButton: {
-    minWidth: 80,
-  },
-  headerTitle: {
-    fontSize: 18,
-    fontWeight: "600",
-    color: "#1C1C1E",
-  },
-  progressContainer: {
-    paddingHorizontal: 20,
-    paddingVertical: 16,
-    borderBottomWidth: 1,
-    borderBottomColor: "#F2F2F7",
-  },
-  progressBar: {
-    height: 4,
-    backgroundColor: "#F2F2F7",
-    borderRadius: 2,
-    marginBottom: 8,
-  },
-  progressFill: {
-    height: "100%",
-    backgroundColor: "#B5CFF8",
-    borderRadius: 2,
-  },
-  progressText: {
-    fontSize: 13,
-    color: "#8E8E93",
-    textAlign: "center",
-  },
-  scrollView: {
-    flex: 1,
-  },
-  scrollViewContent: {
-    flexGrow: 1,
-  },
-  stepContainer: {
-    flex: 1,
-    padding: 20,
-  },
-  stepTitle: {
-    fontSize: 28,
-    fontWeight: "700",
-    color: "#1C1C1E",
-    marginBottom: 8,
-  },
-  stepDescription: {
-    fontSize: 17,
-    color: "#8E8E93",
-    marginBottom: 32,
-    lineHeight: 22,
-  },
-  formContainer: {
-    flex: 1,
-    marginBottom: 32,
-  },
-  hintText: {
-    fontSize: 15,
-    color: "#8E8E93",
-    fontStyle: "italic",
-    marginTop: 16,
-    lineHeight: 20,
-  },
-  knowledgeQuestion: {
-    marginBottom: 32,
-  },
-  questionText: {
-    fontSize: 17,
-    fontWeight: "500",
-    color: "#1C1C1E",
-    marginBottom: 8,
-  },
-  scaleText: {
-    fontSize: 13,
-    color: "#8E8E93",
-    marginBottom: 16,
-    lineHeight: 18,
-  },
-  ratingContainer: {
-    flexDirection: "row",
-    flexWrap: "wrap",
-    gap: 8,
-  },
-  ratingButton: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-  },
-  recommendationCard: {
-    backgroundColor: "#F8FAFD",
-    borderRadius: 16,
-    padding: 20,
-    marginBottom: 24,
-    borderWidth: 2,
-    borderColor: "#B5CFF8",
-  },
-  recommendationHeader: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    marginBottom: 12,
-  },
-  recommendedLevel: {
-    fontSize: 24,
-    fontWeight: "700",
-    color: "#B5CFF8",
-  },
-  confidenceBadge: {
-    backgroundColor: "#34C759",
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 16,
-  },
-  confidenceText: {
-    fontSize: 12,
-    fontWeight: "600",
-    color: "#FFFFFF",
-  },
-  levelDescription: {
-    fontSize: 17,
-    color: "#1C1C1E",
-    marginBottom: 8,
-    lineHeight: 22,
-  },
-  levelDuration: {
-    fontSize: 15,
-    color: "#8E8E93",
-    marginBottom: 16,
-  },
-  strategyContainer: {
-    marginBottom: 16,
-  },
-  strategyTitle: {
-    fontSize: 16,
-    fontWeight: "600",
-    color: "#1C1C1E",
-    marginBottom: 8,
-  },
-  strategyText: {
-    fontSize: 15,
-    color: "#B5CFF8",
-    fontWeight: "500",
-    lineHeight: 20,
-  },
-  characteristicsContainer: {
-    marginBottom: 16,
-  },
-  characteristicsTitle: {
-    fontSize: 16,
-    fontWeight: "600",
-    color: "#1C1C1E",
-    marginBottom: 8,
-  },
-  characteristicItem: {
-    fontSize: 15,
-    color: "#1C1C1E",
-    marginBottom: 4,
-    lineHeight: 20,
-  },
-  reasoningContainer: {
-    backgroundColor: "#FFFFFF",
-    borderRadius: 12,
-    padding: 16,
-    marginBottom: 16,
-    borderWidth: 1,
-    borderColor: "#F2F2F7",
-  },
-  reasoningTitle: {
-    fontSize: 16,
-    fontWeight: "600",
-    color: "#1C1C1E",
-    marginBottom: 8,
-  },
-  reasoningItem: {
-    fontSize: 15,
-    color: "#8E8E93",
-    marginBottom: 4,
-    lineHeight: 20,
-  },
-  alternativesContainer: {
-    backgroundColor: "#FFFFFF",
-    borderRadius: 12,
-    padding: 16,
-    marginBottom: 24,
-    borderWidth: 1,
-    borderColor: "#F2F2F7",
-  },
-  alternativesTitle: {
-    fontSize: 16,
-    fontWeight: "600",
-    color: "#1C1C1E",
-    marginBottom: 12,
-  },
-  alternativeItem: {
-    marginBottom: 8,
-  },
-  alternativeLevel: {
-    fontSize: 15,
-    fontWeight: "500",
-    color: "#B5CFF8",
-  },
-  alternativeReason: {
-    fontSize: 13,
-    color: "#8E8E93",
-    lineHeight: 18,
-  },
-  primaryButton: {
-    marginTop: "auto",
-  },
-});
+const createStyles = (colors: any) =>
+  StyleSheet.create({
+    container: {
+      flex: 1,
+      backgroundColor: colors.background,
+    },
+    keyboardAvoidingView: {
+      flex: 1,
+    },
+    loadingContainer: {
+      flex: 1,
+      justifyContent: "center",
+      alignItems: "center",
+      padding: 20,
+    },
+    loadingText: {
+      fontSize: 18,
+      fontWeight: "600",
+      color: colors.text,
+      marginBottom: 20,
+    },
+    header: {
+      flexDirection: "row",
+      alignItems: "center",
+      justifyContent: "space-between",
+      paddingHorizontal: 20,
+      paddingVertical: 16,
+      borderBottomWidth: 1,
+      borderBottomColor: colors.border,
+    },
+    headerButton: {
+      minWidth: 80,
+    },
+    headerTitle: {
+      fontSize: 18,
+      fontWeight: "600",
+      color: colors.text,
+    },
+    progressContainer: {
+      paddingHorizontal: 20,
+      paddingVertical: 16,
+      borderBottomWidth: 1,
+      borderBottomColor: colors.border,
+    },
+    progressBar: {
+      height: 4,
+      backgroundColor: colors.border,
+      borderRadius: 2,
+      marginBottom: 8,
+    },
+    progressFill: {
+      height: "100%",
+      backgroundColor: colors.primary,
+      borderRadius: 2,
+    },
+    progressText: {
+      fontSize: 13,
+      color: colors.subtext,
+      textAlign: "center",
+    },
+    scrollView: {
+      flex: 1,
+    },
+    scrollViewContent: {
+      flexGrow: 1,
+    },
+    stepContainer: {
+      flex: 1,
+      padding: 20,
+    },
+    stepTitle: {
+      fontSize: 28,
+      fontWeight: "700",
+      color: colors.text,
+      marginBottom: 8,
+    },
+    stepDescription: {
+      fontSize: 17,
+      color: colors.subtext,
+      marginBottom: 32,
+      lineHeight: 22,
+    },
+    formContainer: {
+      flex: 1,
+      marginBottom: 32,
+    },
+    hintText: {
+      fontSize: 15,
+      color: colors.subtext,
+      fontStyle: "italic",
+      marginTop: 16,
+      lineHeight: 20,
+    },
+    knowledgeQuestion: {
+      marginBottom: 32,
+    },
+    questionText: {
+      fontSize: 17,
+      fontWeight: "500",
+      color: colors.text,
+      marginBottom: 8,
+    },
+    scaleText: {
+      fontSize: 13,
+      color: colors.subtext,
+      marginBottom: 16,
+      lineHeight: 18,
+    },
+    ratingContainer: {
+      flexDirection: "row",
+      flexWrap: "wrap",
+      gap: 8,
+    },
+    ratingButton: {
+      width: 44,
+      height: 44,
+      borderRadius: 22,
+    },
+    recommendationCard: {
+      backgroundColor: colors.surfaceElevated || colors.surface,
+      borderRadius: 16,
+      padding: 20,
+      marginBottom: 24,
+      borderWidth: 2,
+      borderColor: colors.primary,
+    },
+    recommendationHeader: {
+      flexDirection: "row",
+      justifyContent: "space-between",
+      alignItems: "center",
+      marginBottom: 12,
+    },
+    recommendedLevel: {
+      fontSize: 24,
+      fontWeight: "700",
+      color: colors.primary,
+    },
+    confidenceBadge: {
+      backgroundColor: colors.success || "#34C759",
+      paddingHorizontal: 12,
+      paddingVertical: 6,
+      borderRadius: 16,
+    },
+    confidenceText: {
+      fontSize: 12,
+      fontWeight: "600",
+      color: colors.buttonTextOnPrimary || "#FFFFFF",
+    },
+    levelDescription: {
+      fontSize: 17,
+      color: colors.text,
+      marginBottom: 8,
+      lineHeight: 22,
+    },
+    levelDuration: {
+      fontSize: 15,
+      color: colors.subtext,
+      marginBottom: 16,
+    },
+    strategyContainer: {
+      marginBottom: 16,
+    },
+    strategyTitle: {
+      fontSize: 16,
+      fontWeight: "600",
+      color: colors.text,
+      marginBottom: 8,
+    },
+    strategyText: {
+      fontSize: 15,
+      color: colors.primary,
+      fontWeight: "500",
+      lineHeight: 20,
+    },
+    characteristicsContainer: {
+      marginBottom: 16,
+    },
+    characteristicsTitle: {
+      fontSize: 16,
+      fontWeight: "600",
+      color: colors.text,
+      marginBottom: 8,
+    },
+    characteristicItem: {
+      fontSize: 15,
+      color: colors.text,
+      marginBottom: 4,
+      lineHeight: 20,
+    },
+    reasoningContainer: {
+      backgroundColor: colors.surface,
+      borderRadius: 12,
+      padding: 16,
+      marginBottom: 16,
+      borderWidth: 1,
+      borderColor: colors.border,
+    },
+    reasoningTitle: {
+      fontSize: 16,
+      fontWeight: "600",
+      color: colors.text,
+      marginBottom: 8,
+    },
+    reasoningItem: {
+      fontSize: 15,
+      color: colors.subtext,
+      marginBottom: 4,
+      lineHeight: 20,
+    },
+    alternativesContainer: {
+      backgroundColor: colors.surface,
+      borderRadius: 12,
+      padding: 16,
+      marginBottom: 24,
+      borderWidth: 1,
+      borderColor: colors.border,
+    },
+    alternativesTitle: {
+      fontSize: 16,
+      fontWeight: "600",
+      color: colors.text,
+      marginBottom: 12,
+    },
+    alternativeItem: {
+      marginBottom: 8,
+    },
+    alternativeLevel: {
+      fontSize: 15,
+      fontWeight: "500",
+      color: colors.primary,
+    },
+    alternativeReason: {
+      fontSize: 13,
+      color: colors.subtext,
+      lineHeight: 18,
+    },
+    primaryButton: {
+      marginTop: "auto",
+    },
+  });
 
 export default ExperienceLevelScreen;

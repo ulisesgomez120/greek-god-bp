@@ -22,6 +22,13 @@ export type ThemeColors = {
   success: string;
   error: string;
   warning: string;
+  // Buttons and actionable text
+  buttonText: string;
+  buttonTextOnPrimary?: string;
+  // Colors tuned for dark surfaces
+  primaryOnDark?: string;
+  surfaceElevated: string;
+  lightBackground?: string;
   // add other semantic colors as needed
 };
 
@@ -35,3 +42,13 @@ export type Theme = {
   // StatusBar barStyle strings used by react-native
   statusBarStyle: "dark-content" | "light-content" | "default";
 };
+
+/**
+ * Splash screen configuration & state used by the splash hook/component.
+ */
+export type SplashScreenState = "loading" | "ready" | "hidden";
+
+export interface SplashScreenConfig {
+  minimumDisplayTimeMs: number;
+  showProgressIndicator?: boolean;
+}
