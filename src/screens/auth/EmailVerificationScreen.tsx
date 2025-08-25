@@ -170,13 +170,18 @@ export const EmailVerificationScreen: React.FC<EmailVerificationScreenProps> = (
           style={[styles.resendButton, resendCooldown > 0 && styles.resendButtonDisabled]}
           onPress={handleResendEmail}
           disabled={resendCooldown > 0}>
-          <Text style={[styles.resendButtonText, resendCooldown > 0 && styles.resendButtonTextDisabled]}>
+          <Text
+            style={[
+              styles.resendButtonText,
+              resendCooldown > 0 && styles.resendButtonTextDisabled,
+              { color: colors.primary },
+            ]}>
             {resendCooldown > 0 ? `Resend in ${resendCooldown}s` : AUTH_FLOWS.emailVerification.resendText}
           </Text>
         </TouchableOpacity>
       </View>
 
-      <View style={styles.changeEmailContainer}>
+      <View style={[styles.changeEmailContainer, { borderTopColor: colors.border }]}>
         <Text variant='bodySmall' color='secondary' align='center' style={styles.changeEmailText}>
           Wrong email address?
         </Text>
@@ -278,7 +283,7 @@ export const EmailVerificationScreen: React.FC<EmailVerificationScreenProps> = (
   // ============================================================================
 
   return (
-    <SafeAreaView style={styles.safeArea}>
+    <SafeAreaView style={[styles.safeArea, { backgroundColor: colors.background }]}>
       <KeyboardAvoidingView style={styles.keyboardAvoidingView} behavior={Platform.OS === "ios" ? "padding" : "height"}>
         <ScrollView
           style={styles.scrollView}
@@ -300,7 +305,7 @@ export const EmailVerificationScreen: React.FC<EmailVerificationScreenProps> = (
 
             {/* Back to Sign In */}
             <TouchableOpacity style={styles.secondaryButton} onPress={navigateToLogin}>
-              <Text style={styles.secondaryButtonText}>Back to Sign In</Text>
+              <Text style={[styles.secondaryButtonText, { color: colors.primary }]}>Back to Sign In</Text>
             </TouchableOpacity>
           </View>
         </ScrollView>
@@ -316,7 +321,6 @@ export const EmailVerificationScreen: React.FC<EmailVerificationScreenProps> = (
 const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
-    backgroundColor: "#FFFFFF",
   },
   keyboardAvoidingView: {
     flex: 1,
@@ -397,7 +401,6 @@ const styles = StyleSheet.create({
   },
   resendButtonText: {
     fontSize: 15,
-    color: "#B5CFF8",
     textDecorationLine: "underline",
   },
   resendButtonTextDisabled: {
@@ -407,7 +410,6 @@ const styles = StyleSheet.create({
     alignItems: "center",
     paddingTop: 16,
     borderTopWidth: 1,
-    borderTopColor: "#F2F2F7",
   },
   changeEmailText: {
     marginBottom: 8,
@@ -419,7 +421,6 @@ const styles = StyleSheet.create({
   },
   changeEmailButtonText: {
     fontSize: 15,
-    color: "#B5CFF8",
     textDecorationLine: "underline",
   },
   loadingContainer: {
@@ -457,7 +458,6 @@ const styles = StyleSheet.create({
   },
   actionButton: {
     height: 50,
-    backgroundColor: "#B5CFF8",
     borderRadius: 12,
     alignItems: "center",
     justifyContent: "center",
@@ -467,7 +467,6 @@ const styles = StyleSheet.create({
   actionButtonText: {
     fontSize: 17,
     fontWeight: "500",
-    color: "#1C1C1E",
   },
   errorStateContainer: {
     flex: 1,
@@ -505,7 +504,6 @@ const styles = StyleSheet.create({
   },
   secondaryButtonText: {
     fontSize: 15,
-    color: "#B5CFF8",
     textDecorationLine: "underline",
   },
 });
