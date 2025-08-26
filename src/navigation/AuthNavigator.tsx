@@ -89,6 +89,9 @@ const AuthNavigator: React.FC<AuthNavigatorProps> = ({ authState }) => {
 
   return (
     <AuthStack.Navigator
+      key={`${isAuthenticated ? "auth-authenticated" : "auth-guest"}-${
+        isOnboardingComplete ? "onboarded" : "onboarding"
+      }`}
       initialRouteName={getInitialRouteName()}
       screenOptions={{
         headerShown: false,
@@ -108,7 +111,24 @@ const AuthNavigator: React.FC<AuthNavigatorProps> = ({ authState }) => {
           };
         },
       }}>
-      <AuthStack.Screen name='Login'>{(props) => <LoginScreen {...props} authState={authState} />}</AuthStack.Screen>
+      <AuthStack.Screen name='Login'>
+        {(props) => (
+          <LoginScreen
+            {...props}
+            authState={authState}
+            onLoginSuccess={() => {
+              try {
+                // Post-login: always navigate to Onboarding as a safe landing.
+                // If the user has already completed onboarding the root navigator
+                // will immediately switch to the Main stack so this is safe.
+                props.navigation.replace("Onboarding");
+              } catch (err) {
+                console.warn("AuthNavigator: onLoginSuccess navigation failed", err);
+              }
+            }}
+          />
+        )}
+      </AuthStack.Screen>
       <AuthStack.Screen name='Register' component={RegisterScreen} />
       <AuthStack.Screen name='ForgotPassword' component={ForgotPasswordScreen} />
       <AuthStack.Screen name='EmailVerification' component={EmailVerificationScreen} />

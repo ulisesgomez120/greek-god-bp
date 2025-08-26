@@ -7,6 +7,8 @@ import React, { useEffect, useRef } from "react";
 import { View, StyleSheet, Animated, Dimensions, Image } from "react-native";
 import Text from "./Text";
 import useTheme from "@/hooks/useTheme";
+import store, { waitForRehydration } from "@/store";
+import { syncAuthState } from "@/utils/authValidation";
 
 // ============================================================================
 // TYPES
@@ -75,6 +77,38 @@ const SplashScreen: React.FC<SplashScreenProps> = ({
       pulseAnimation.stop();
     };
   }, [fadeAnim, scaleAnim, pulseAnim]);
+
+  // When the splash screen mounts, perform a conservative auth validation so the
+  // app doesn't transition away from the splash until auth state consistency is
+  // checked. This is best-effort and will not block for long — failures are
+  // handled gracefully by the auth layer.
+  useEffect(() => {
+    let isMounted = true;
+
+    const validate = async () => {
+      try {
+        // Wait for store rehydration so Redux is available for sync actions.
+        await waitForRehydration();
+
+        // Attempt to sync client + Redux auth state. This may trigger a refresh
+        // or a forceLogout if the tokens are invalid.
+        await syncAuthState(store);
+      } catch (err) {
+        // Non-fatal: log and continue. syncAuthState will have forced logout
+        // if it detected unrecoverable issues.
+        if (isMounted) {
+          // eslint-disable-next-line no-console
+          console.warn("SplashScreen: auth validation failed", err);
+        }
+      }
+    };
+
+    validate();
+
+    return () => {
+      isMounted = false;
+    };
+  }, []);
 
   return (
     <View style={styles.container}>

@@ -85,6 +85,7 @@ async function mergeUserWithProfile(user: SupabaseUser, accessToken?: string): P
 
         profileResult = { success: true, data: profile };
       } else {
+        // Profile missing - attempt client-side creation if email is verified.
         profileResult = {
           success: false,
           error: {
@@ -92,6 +93,88 @@ async function mergeUserWithProfile(user: SupabaseUser, accessToken?: string): P
             message: "User profile not found",
           },
         };
+
+        try {
+          const isEmailConfirmed =
+            !!(user as any).email_confirmed_at ||
+            !!(user as any).confirmed_at ||
+            !!user.user_metadata?.email_confirmed_at;
+
+          if (isEmailConfirmed) {
+            logger.info(
+              "Profile missing for verified user - attempting to create profile",
+              { userId: user.id },
+              "auth"
+            );
+
+            // Build minimal profile payload from available user metadata
+            let displayNameCandidate =
+              (user.user_metadata && (user.user_metadata.display_name || user.user_metadata.displayName)) ||
+              (user as any).raw_user_meta_data?.display_name ||
+              "";
+
+            // Normalize and trim candidate
+            displayNameCandidate = (displayNameCandidate || "").toString().trim();
+
+            // If displayName is missing or too short, try deriving from email local-part
+            if (!displayNameCandidate || displayNameCandidate.length < 2) {
+              const emailLocal = (user.email || "").split("@")[0] || "";
+              if (emailLocal && emailLocal.length >= 2) {
+                displayNameCandidate = emailLocal;
+              } else if (user.email && user.email.length >= 2) {
+                // fallback to entire email if it meets length requirement
+                displayNameCandidate = user.email;
+              } else {
+                // last-resort fallback using user id
+                displayNameCandidate = `user-${(user.id || "").slice(0, 8)}`;
+              }
+
+              logger.warn(
+                "mergeUserWithProfile: displayName was missing/too-short — using fallback",
+                { userId: user.id, chosenDisplayName: displayNameCandidate },
+                "auth",
+                user.id
+              );
+            }
+
+            const profilePayload = {
+              email: user.email || "",
+              displayName: displayNameCandidate,
+              experienceLevel:
+                (user.user_metadata && (user.user_metadata.experience_level || user.user_metadata.experienceLevel)) ||
+                "untrained",
+            };
+
+            // Use authenticated client to create profile so RLS allows it
+            const createResult = await profileService.createProfile(
+              user.id,
+              profilePayload as any,
+              authenticatedClient
+            );
+
+            if (createResult.success && createResult.data) {
+              logger.info("Auto-created user profile successfully", { userId: user.id }, "auth", user.id);
+              profileResult = { success: true, data: createResult.data };
+            } else {
+              logger.warn(
+                "Auto-create profile attempt failed",
+                {
+                  userId: user.id,
+                  errorMessage: createResult.error?.message,
+                  errorDetails: createResult.error?.details,
+                },
+                "auth",
+                user.id
+              );
+              // keep PROFILE_NOT_FOUND result — caller will handle it gracefully
+            }
+          } else {
+            logger.info("Profile missing but email not verified; skipping auto-create", { userId: user.id }, "auth");
+          }
+        } catch (createErr) {
+          logger.error("Error attempting to auto-create user profile", createErr, "auth", user.id);
+          // Don't throw — fail gracefully and let caller handle absence of profile
+        }
       }
     } else {
       // Fallback to profile service (less reliable due to RLS)
@@ -336,15 +419,30 @@ export const signupUser = createAsyncThunk("auth/signup", async (signupData: Sig
         expiresAt: new Date(data.session.expires_at! * 1000).toISOString(),
       });
 
+      // Attempt to merge/create profile for the newly signed-up user using the active session.
+      // This ensures users who are auto-signed-in after signup get a profile created when appropriate.
+      let returnedUser = data.user;
+      try {
+        const merged = await mergeUserWithProfile(data.user, data.session.access_token);
+        returnedUser = merged || data.user;
+      } catch (mergeErr) {
+        logger.warn(
+          "Failed to merge/create profile after signup; continuing with auth state",
+          mergeErr,
+          "auth",
+          data.user.id
+        );
+      }
+
       logger.info("User signed up and logged in successfully", { userId: data.user.id }, "auth", data.user.id);
 
       return {
-        user: data.user,
+        user: returnedUser,
         session: {
           accessToken: data.session.access_token,
           refreshToken: data.session.refresh_token,
           expiresAt: new Date(data.session.expires_at! * 1000).toISOString(),
-          user: data.user,
+          user: returnedUser,
         },
       };
     } else {

@@ -24,6 +24,7 @@ import { reduxLoggerMiddleware } from "../middleware/reduxLoggerMiddleware";
 // Utils
 import { logger } from "../utils/logger";
 import { DEV_CONSTANTS } from "../config/constants";
+import { registerAuthDispatch } from "@/utils/tokenManager";
 
 // ============================================================================
 // PERSISTENCE CONFIGURATION
@@ -174,6 +175,14 @@ export const persistor = persistStore(store, null, () => {
 
 // Setup RTK Query listeners for refetchOnFocus/refetchOnReconnect
 setupListeners(store.dispatch);
+
+// Register TokenManager with Redux dispatch so it can dispatch forceLogout when needed.
+// This keeps TokenManager and Redux in sync when TokenManager clears tokens.
+try {
+  registerAuthDispatch(store.dispatch);
+} catch (err) {
+  logger.warn("Failed to register TokenManager dispatch", err);
+}
 
 // ============================================================================
 // TYPE DEFINITIONS

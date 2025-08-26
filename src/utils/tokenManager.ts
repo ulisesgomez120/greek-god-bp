@@ -9,6 +9,7 @@ import { getAsyncItem, setAsyncItem, removeAsyncItem } from "@/utils/storage";
 import { ENV_CONFIG, STORAGE_KEYS } from "@/config/constants";
 import supabase from "@/lib/supabase";
 import { logger } from "@/utils/logger";
+import { forceLogout } from "@/store/auth/authSlice";
 import type { TokenData, TokenValidationResult } from "@/types/auth";
 
 // ============================================================================
@@ -30,6 +31,9 @@ export class TokenManager {
   private refreshTimer?: ReturnType<typeof setTimeout>;
   private isRefreshing = false;
   private refreshPromise?: Promise<TokenData | null>;
+  // Optional Redux dispatch registered by app initialization to keep auth state in sync.
+  // Register with tokenManager.registerDispatch(dispatch) during app bootstrap.
+  private reduxDispatch?: ((action: any) => void) | null;
 
   private constructor() {
     // Use the shared Supabase client instance so session state is consistent across the app
@@ -137,6 +141,25 @@ export class TokenManager {
         removeAsyncItem("token_expires_at").catch(() => {}),
         removeAsyncItem("token_stored_at").catch(() => {}),
       ]);
+
+      // Ensure Supabase client session is cleared as well (best-effort)
+      try {
+        await supabase.auth.signOut();
+        logger.debug("TokenManager: Supabase signOut called during clearTokens");
+      } catch (signOutErr) {
+        logger.warn("TokenManager: Supabase signOut failed during clearTokens", signOutErr);
+      }
+
+      // If a Redux dispatch was registered, notify the store to force logout so
+      // app-level state does not remain authenticated after tokens are cleared.
+      try {
+        if (this.reduxDispatch) {
+          this.reduxDispatch(forceLogout());
+          logger.debug("TokenManager: Dispatched forceLogout via registered reduxDispatch");
+        }
+      } catch (dispatchErr) {
+        logger.warn("TokenManager: Failed to dispatch forceLogout from clearTokens", dispatchErr);
+      }
 
       logger.info("TokenManager: Tokens cleared successfully", undefined, "auth");
     } catch (error) {
@@ -434,6 +457,21 @@ export class TokenManager {
   // ============================================================================
 
   /**
+   * Register a Redux dispatch function so TokenManager can keep Redux auth state
+   * in sync when it clears tokens or performs critical session operations.
+   * Passing `undefined` will unregister the dispatch.
+   */
+  registerDispatch(dispatch?: (action: any) => void): void {
+    if (dispatch) {
+      this.reduxDispatch = dispatch;
+      logger.debug("TokenManager: Registered redux dispatch for auth sync");
+    } else {
+      this.reduxDispatch = undefined;
+      logger.debug("TokenManager: Unregistered redux dispatch for auth sync");
+    }
+  }
+
+  /**
    * Cleanup resources
    */
   destroy(): void {
@@ -443,6 +481,7 @@ export class TokenManager {
     }
     this.isRefreshing = false;
     this.refreshPromise = undefined;
+    this.reduxDispatch = undefined;
   }
 }
 
@@ -496,6 +535,18 @@ export const refreshTokens = (): Promise<TokenData | null> => {
  */
 export const validateTokens = (): Promise<TokenValidationResult> => {
   return tokenManager.validateTokens();
+};
+
+/**
+ * Register a Redux dispatch function so TokenManager can keep Redux auth state
+ * in sync when it clears tokens or performs critical session operations.
+ *
+ * Usage:
+ *   import { registerAuthDispatch } from '@/utils/tokenManager';
+ *   registerAuthDispatch(store.dispatch);
+ */
+export const registerAuthDispatch = (dispatch: (action: any) => void): void => {
+  tokenManager.registerDispatch(dispatch);
 };
 
 export default tokenManager;

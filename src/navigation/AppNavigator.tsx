@@ -13,6 +13,8 @@ import * as Linking from "expo-linking";
 // Hooks
 import { useAuth } from "../hooks/useAuth";
 import useTheme from "@/hooks/useTheme";
+import store from "@/store";
+import { syncAuthState } from "@/utils/authValidation";
 
 // Navigators
 import AuthNavigator from "./AuthNavigator";
@@ -76,6 +78,19 @@ const AppNavigator: React.FC = () => {
 
   useEffect(() => {
     console.log("AppNavigator: mounted");
+
+    // Perform a best-effort sync of client + Redux auth state when the navigator mounts.
+    // This helps catch edge cases where auth state might have desynchronized after the
+    // splash or during background operation. syncAuthState may dispatch forceLogout()
+    // if it finds unrecoverable token issues.
+    (async () => {
+      try {
+        await syncAuthState(store);
+      } catch (err) {
+        console.warn("AppNavigator: syncAuthState failed", err);
+      }
+    })();
+
     return () => {
       console.log("AppNavigator: unmounted");
     };

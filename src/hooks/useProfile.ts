@@ -4,11 +4,13 @@
 // React hook for profile management with caching, optimistic updates,
 // and comprehensive state management
 
-import { useState, useEffect, useCallback, useMemo } from "react";
+import { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import { useSelector, useDispatch } from "react-redux";
 import { profileService } from "@/services/profile.service";
 import { useAuth } from "@/hooks/useAuth";
 import { logger } from "@/utils/logger";
+import store from "@/store";
+import { syncAuthState } from "@/utils/authValidation";
 import type {
   UserProfile,
   ProfileSetupData,
@@ -94,6 +96,10 @@ export function useProfile(): UseProfileReturn {
   // PROFILE CRUD OPERATIONS
   // ============================================================================
 
+  // Track per-user retry attempts to prevent infinite loops when auth is inconsistent
+  const fetchRetryCountsRef = useRef<Record<string, number>>({});
+  const MAX_PROFILE_FETCH_RETRIES = 3;
+
   const fetchProfile = useCallback(
     async (useCache: boolean = true): Promise<void> => {
       if (!user?.id) {
@@ -101,12 +107,18 @@ export function useProfile(): UseProfileReturn {
         return;
       }
 
+      const userId = user.id;
+
+      // Prevent repeated concurrent fetches
       setState((prev) => ({ ...prev, loading: true, error: null }));
 
       try {
-        const response = await profileService.getProfile(user.id, useCache);
+        const response = await profileService.getProfile(userId, useCache);
 
         if (response.success && response.data) {
+          // Reset retry count on success
+          fetchRetryCountsRef.current[userId] = 0;
+
           setState((prev) => ({
             ...prev,
             profile: response.data!,
@@ -114,15 +126,68 @@ export function useProfile(): UseProfileReturn {
             lastSyncAt: new Date().toISOString(),
           }));
 
-          logger.info("Profile fetched successfully", { userId: user.id }, "profile");
+          logger.info("Profile fetched successfully", { userId }, "profile");
+          return;
+        }
+
+        // Handle categorized errors from ProfileService
+        const errorCode = response.error?.code;
+
+        if (errorCode === "AUTH_FAILURE") {
+          // Authentication/permission issue — attempt to sync auth state once or retry a few times
+          const attempts = (fetchRetryCountsRef.current[userId] || 0) + 1;
+          fetchRetryCountsRef.current[userId] = attempts;
+
+          logger.warn(
+            "Profile fetch blocked by auth/permission error — attempting auth sync",
+            { userId, attempt: attempts },
+            "profile"
+          );
+
+          // Attempt to sync auth state (this may dispatch forceLogout if tokens are invalid)
+          try {
+            await syncAuthState(store);
+          } catch (syncErr) {
+            logger.warn("syncAuthState failed during profile fetch handling", syncErr, "profile", userId);
+          }
+
+          // If we still haven't exceeded retries, try fetching again (force server fetch)
+          if (attempts < MAX_PROFILE_FETCH_RETRIES) {
+            // Delay slightly before retrying to avoid tight loops
+            await new Promise((resolve) => setTimeout(resolve, 300 * attempts));
+            await fetchProfile(false);
+            return;
+          }
+
+          // Exceeded retries — surface auth error and stop retrying to avoid infinite loop.
+          setState((prev) => ({
+            ...prev,
+            loading: false,
+            error: response.error?.message || "Authentication failed while fetching profile",
+          }));
+
+          logger.error("Profile fetch aborted after repeated auth failures", response.error, "profile", userId);
+          return;
+        } else if (errorCode === "PROFILE_NOT_FOUND") {
+          // Profile genuinely missing — surface a helpful message but do not logout
+          setState((prev) => ({
+            ...prev,
+            loading: false,
+            error: response.error?.message || "Profile not found",
+          }));
+
+          logger.warn("Profile not found", response.error, "profile", userId);
+          return;
         } else {
+          // Generic fetch failure (network/other) — surface error but avoid retries to prevent loops
           setState((prev) => ({
             ...prev,
             loading: false,
             error: response.error?.message || "Failed to fetch profile",
           }));
 
-          logger.error("Failed to fetch profile", response.error, "profile");
+          logger.error("Failed to fetch profile", response.error, "profile", userId);
+          return;
         }
       } catch (error) {
         setState((prev) => ({
@@ -131,7 +196,8 @@ export function useProfile(): UseProfileReturn {
           error: "An unexpected error occurred",
         }));
 
-        logger.error("Profile fetch error", error, "profile");
+        logger.error("Profile fetch error", error, "profile", user?.id);
+        return;
       }
     },
     [user?.id]

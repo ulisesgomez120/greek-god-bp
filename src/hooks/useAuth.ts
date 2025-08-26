@@ -5,7 +5,7 @@
 // token refresh handling for React components
 
 import { useEffect, useCallback, useMemo } from "react";
-import { createClient } from "@supabase/supabase-js";
+import { getAuthenticatedClient } from "@/lib/supabase";
 import { useAppDispatch, useAppSelector } from "./redux";
 import { authService } from "@/services/auth.service";
 import { profileService } from "@/services/profile.service";
@@ -41,6 +41,8 @@ import {
   selectHasBeenInitialized,
   selectIsInitializing,
 } from "@/store/auth/authSlice";
+import store from "@/store";
+import { syncAuthState } from "@/utils/authValidation";
 
 // ============================================================================
 // USE AUTH HOOK
@@ -327,25 +329,106 @@ export function useAuth(): UseAuthReturn {
 
         logger.info("useAuth: Profile update attempt", { userId: user.id }, "auth", user.id);
 
-        // Ensure a profile already exists. Manual profile creation is disabled:
-        // profiles must be created automatically during auth (signup/login) for verified emails.
+        // Ensure a profile already exists. If missing, attempt client-side creation
+        // for users with verified emails (fallback in case creation didn't occur earlier).
         const existingProfileResp = await profileService.getProfile(user.id, false);
+
         if (!existingProfileResp.success || !existingProfileResp.data) {
-          logger.error(
-            "useAuth: Profile not found during update; manual creation is disabled",
+          logger.warn(
+            "useAuth: Profile not found during update; attempting auto-create where possible",
             existingProfileResp.error,
             "auth",
             user.id
           );
-          return {
-            success: false,
-            error: {
-              code: "PROFILE_NOT_FOUND",
-              message:
-                "User profile not found. Profiles are created automatically after email verification; please reauthenticate after verifying your email.",
-              type: "auth",
-            },
+
+          const isEmailConfirmed = !!(user as any).email_confirmed_at || !!user.user_metadata?.email_confirmed_at;
+
+          if (!isEmailConfirmed) {
+            logger.error(
+              "useAuth: Profile not found and email not verified; blocking update",
+              existingProfileResp.error,
+              "auth",
+              user.id
+            );
+            return {
+              success: false,
+              error: {
+                code: "PROFILE_NOT_FOUND",
+                message:
+                  "User profile not found. Profiles are created automatically after email verification; please verify your email and reauthenticate.",
+                type: "auth",
+              },
+            };
+          }
+
+          // Build minimal profile payload from available user metadata
+          // Normalize/trim and provide safe fallbacks so validation doesn't fail.
+          let displayNameCandidate =
+            (user.user_metadata && (user.user_metadata.display_name || user.user_metadata.displayName)) ||
+            (user as any).raw_user_meta_data?.display_name ||
+            "";
+
+          // Normalize and trim
+          displayNameCandidate = (displayNameCandidate || "").toString().trim();
+
+          // If displayName is missing or too short, derive from email local-part or fallback to user id
+          if (!displayNameCandidate || displayNameCandidate.length < 2) {
+            const emailLocal = (user.email || "").split("@")[0] || "";
+            if (emailLocal && emailLocal.length >= 2) {
+              displayNameCandidate = emailLocal;
+            } else if (user.email && user.email.length >= 2) {
+              displayNameCandidate = user.email;
+            } else {
+              displayNameCandidate = `user-${(user.id || "").slice(0, 8)}`;
+            }
+
+            logger.warn(
+              "useAuth: displayName missing/too-short during auto-create; using fallback",
+              { userId: user.id, chosenDisplayName: displayNameCandidate },
+              "auth",
+              user.id
+            );
+          }
+
+          const profilePayload = {
+            email: user.email || "",
+            displayName: displayNameCandidate,
+            experienceLevel:
+              (user.user_metadata && (user.user_metadata.experience_level || user.user_metadata.experienceLevel)) ||
+              "untrained",
           };
+
+          // Keep a lightweight info log for production (avoid logging user payloads)
+          logger.info("useAuth: auto-create profile payload prepared", { userId: user.id }, "auth", user.id);
+
+          try {
+            const authenticatedClient = getAuthenticatedClient(session?.accessToken);
+            const createResp = await profileService.createProfile(user.id, profilePayload as any, authenticatedClient);
+
+            if (createResp.success && createResp.data) {
+              logger.info("useAuth: Auto-created profile during update", { userId: user.id }, "auth", user.id);
+            } else {
+              logger.error("useAuth: Auto-create profile failed during update", createResp.error, "auth", user.id);
+              return {
+                success: false,
+                error: {
+                  code: "PROFILE_CREATE_FAILED",
+                  message: createResp.error?.message || "Failed to create user profile",
+                  type: "network",
+                },
+              };
+            }
+          } catch (createErr) {
+            logger.error("useAuth: Exception while auto-creating profile during update", createErr, "auth", user.id);
+            return {
+              success: false,
+              error: {
+                code: "PROFILE_CREATE_ERROR",
+                message: "Failed to create user profile",
+                type: "network",
+              },
+            };
+          }
         }
 
         // Prepare update payload mapping from ProfileUpdateRequest to ProfileEditData
@@ -477,6 +560,14 @@ export function useAuth(): UseAuthReturn {
         }
 
         logger.info("useAuth: Initializing authentication", undefined, "auth");
+
+        // Ensure local client + Redux auth state are in sync before initialization.
+        // This will attempt a token refresh if necessary and force logout on failure.
+        try {
+          await syncAuthState(store);
+        } catch (err) {
+          logger.warn("useAuth: syncAuthState failed", err, "auth");
+        }
 
         // Initialize auth state from stored tokens
         const result = await dispatch(initializeAuth() as any).unwrap();

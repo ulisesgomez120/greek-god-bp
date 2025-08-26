@@ -76,6 +76,23 @@ export class ProfileService {
 
       if (error) {
         logger.error("Failed to fetch profile", error, "profile", userId);
+
+        // Classify authentication/permission errors (RLS) separately so callers
+        // can react (e.g., trigger session validation or logout).
+        const status = (error as any)?.status;
+        const message = ((error as any)?.message || "").toString().toLowerCase();
+
+        if (status === 401 || status === 403 || message.includes("permission") || message.includes("forbidden")) {
+          return {
+            success: false,
+            error: {
+              code: "AUTH_FAILURE",
+              message: "Authentication or permission error when fetching profile",
+              details: error,
+            },
+          };
+        }
+
         return {
           success: false,
           error: {
@@ -162,6 +179,20 @@ export class ProfileService {
       return { success: true, data: profile };
     } catch (error) {
       logger.error("Profile fetch error", error, "profile", userId);
+
+      const msg = (error as any)?.message?.toString?.().toLowerCase?.() || "";
+
+      if (msg.includes("permission") || msg.includes("forbidden")) {
+        return {
+          success: false,
+          error: {
+            code: "AUTH_FAILURE",
+            message: "Permission or authentication error when fetching profile",
+            details: error,
+          },
+        };
+      }
+
       return {
         success: false,
         error: {
@@ -187,6 +218,13 @@ export class ProfileService {
       // Validate profile data
       const validation = this.validateProfileSetup(profileData);
       if (!validation.isValid) {
+        // Reduce verbosity in production: log validation errors without including payload preview
+        logger.warn(
+          "Profile validation failed during createProfile",
+          { userId, validationErrors: validation.errors?.map((e: any) => e.code) || validation.errors },
+          "profile"
+        );
+
         return {
           success: false,
           error: {
@@ -222,7 +260,7 @@ export class ProfileService {
         privacy_workout_sharing: DEFAULT_PRIVACY_SETTINGS.workoutSharing,
         privacy_progress_sharing: DEFAULT_PRIVACY_SETTINGS.progressSharing,
         use_metric: DEFAULT_PROFILE_PREFERENCES.useMetric,
-        onboarding_completed: true,
+        onboarding_completed: false,
         // ensure display_name is present
         display_name: (dbProfileCore as any).display_name ?? profileData.displayName,
       };
@@ -232,7 +270,25 @@ export class ProfileService {
       const { data, error } = await client.from("user_profiles").insert(insertData).select().single();
 
       if (error) {
-        logger.error("Failed to create profile", error, "profile", userId);
+        // Log rich debug info to help diagnose why profile creation failed
+        const errStatus = (error as any)?.status ?? null;
+        const errMessage = ((error as any)?.message || "").toString();
+        logger.error(
+          "Failed to create profile (DB insert failed)",
+          {
+            userId,
+            status: errStatus,
+            message: errMessage,
+            insertPayloadPreview: {
+              id: insertData.id,
+              email: insertData.email,
+              display_name: insertData.display_name,
+              experience_level: insertData.experience_level,
+              onboarding_completed: insertData.onboarding_completed,
+            },
+          },
+          "profile"
+        );
         return {
           success: false,
           error: {
