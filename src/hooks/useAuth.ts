@@ -327,62 +327,70 @@ export function useAuth(): UseAuthReturn {
 
         logger.info("useAuth: Profile update attempt", { userId: user.id }, "auth", user.id);
 
-        // Transform ProfileUpdateRequest to ProfileSetupData for the service
-        const profileSetupData = {
-          email: user.email || "",
-          displayName: data.displayName || "", // Provide default empty string if undefined
-          heightCm: data.heightCm,
-          weightKg: data.weightKg,
-          experienceLevel: data.experienceLevel || "untrained", // Provide default if undefined
-          fitnessGoals: data.fitnessGoals || [],
-          // birthDate and gender are optional in ProfileSetupData, so we can omit them
-          // if they're not provided in the ProfileUpdateRequest
-        };
-
-        // Create authenticated Supabase client
-        const authenticatedClient = createClient(ENV_CONFIG.supabaseUrl, ENV_CONFIG.supabaseAnonKey, {
-          global: {
-            headers: {
-              Authorization: `Bearer ${session?.accessToken}`,
-            },
-          },
-        });
-
-        // Create profile in database (this is during onboarding, so it's a create operation)
-        const profileResult = await profileService.createProfile(user.id, profileSetupData, authenticatedClient);
-
-        if (!profileResult.success) {
-          logger.error("useAuth: Profile creation failed", profileResult.error, "auth", user.id);
+        // Ensure a profile already exists. Manual profile creation is disabled:
+        // profiles must be created automatically during auth (signup/login) for verified emails.
+        const existingProfileResp = await profileService.getProfile(user.id, false);
+        if (!existingProfileResp.success || !existingProfileResp.data) {
+          logger.error(
+            "useAuth: Profile not found during update; manual creation is disabled",
+            existingProfileResp.error,
+            "auth",
+            user.id
+          );
           return {
             success: false,
             error: {
-              code: "PROFILE_CREATE_FAILED",
-              message: profileResult.error?.message || "Failed to create profile",
+              code: "PROFILE_NOT_FOUND",
+              message:
+                "User profile not found. Profiles are created automatically after email verification; please reauthenticate after verifying your email.",
+              type: "auth",
+            },
+          };
+        }
+
+        // Prepare update payload mapping from ProfileUpdateRequest to ProfileEditData
+        const updates: any = {};
+        if (data.displayName !== undefined) updates.displayName = data.displayName;
+        if (data.heightCm !== undefined) updates.heightCm = data.heightCm;
+        if (data.weightKg !== undefined) updates.weightKg = data.weightKg;
+        if (data.experienceLevel !== undefined) updates.experienceLevel = data.experienceLevel;
+        if (data.fitnessGoals !== undefined) updates.fitnessGoals = data.fitnessGoals;
+
+        // Use ProfileService.updateProfile for onboarding edits (no creation)
+        const response = await profileService.updateProfile(user.id, updates, { optimistic: true });
+
+        if (!response.success || !response.data) {
+          logger.error("useAuth: Profile update failed", response.error, "auth", user.id);
+          return {
+            success: false,
+            error: {
+              code: "PROFILE_UPDATE_FAILED",
+              message: response.error?.message || "Failed to update profile",
               type: "network",
             },
           };
         }
 
-        // Update user metadata to mark onboarding as complete
+        // Update user metadata to mark onboarding as complete and sync display name/experience_level
         const updatedUser = {
           ...user,
           user_metadata: {
             ...user.user_metadata,
             onboarding_complete: true,
-            display_name: data.displayName,
-            experience_level: data.experienceLevel,
+            display_name: response.data.displayName,
+            experience_level: response.data.experienceLevel,
           },
         };
 
-        // Update profile in Redux store with the created profile data
+        // Update profile in Redux store with the updated user metadata
         dispatch(updateUserProfile(updatedUser as any));
 
-        logger.info("useAuth: Profile created and updated successfully", { userId: user.id }, "auth", user.id);
+        logger.info("useAuth: Profile updated successfully", { userId: user.id }, "auth", user.id);
         return {
           success: true,
           user: updatedUser,
           session,
-          message: "Profile created successfully",
+          message: "Profile updated successfully",
         };
       } catch (error: any) {
         logger.error("useAuth: Profile update error", error, "auth", user?.id);

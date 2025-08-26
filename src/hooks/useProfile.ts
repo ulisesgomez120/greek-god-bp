@@ -137,51 +137,22 @@ export function useProfile(): UseProfileReturn {
     [user?.id]
   );
 
-  const createProfile = useCallback(
-    async (data: ProfileSetupData): Promise<boolean> => {
-      if (!user?.id) {
-        logger.warn("Cannot create profile: user not authenticated", {}, "profile");
-        return false;
-      }
-
-      setState((prev) => ({ ...prev, loading: true, error: null }));
-
-      try {
-        const response = await profileService.createProfile(user.id, data);
-
-        if (response.success && response.data) {
-          setState((prev) => ({
-            ...prev,
-            profile: response.data!,
-            loading: false,
-            lastSyncAt: new Date().toISOString(),
-          }));
-
-          logger.info("Profile created successfully", { userId: user.id }, "profile");
-          return true;
-        } else {
-          setState((prev) => ({
-            ...prev,
-            loading: false,
-            error: response.error?.message || "Failed to create profile",
-          }));
-
-          logger.error("Failed to create profile", response.error, "profile");
-          return false;
-        }
-      } catch (error) {
-        setState((prev) => ({
-          ...prev,
-          loading: false,
-          error: "An unexpected error occurred",
-        }));
-
-        logger.error("Profile creation error", error, "profile");
-        return false;
-      }
-    },
-    [user?.id]
-  );
+  const createProfile = useCallback(async (_data: ProfileSetupData): Promise<boolean> => {
+    // Manual profile creation from the client is disabled.
+    // Profiles are created automatically during the authentication flow
+    // (on sign-in/initializeAuth) for users with verified emails.
+    logger.warn(
+      "createProfile: manual profile creation is disabled. Profiles are created automatically after email verification.",
+      {},
+      "profile"
+    );
+    // Surface an actionable error via state so callers / UI can react if needed.
+    setState((prev) => ({
+      ...prev,
+      error: "Profile creation is automated; please verify your email and reauthenticate.",
+    }));
+    return false;
+  }, []);
 
   const updateProfile = useCallback(
     async (updates: ProfileEditData, options: ProfileUpdateOptions = {}): Promise<boolean> => {

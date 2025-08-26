@@ -2,6 +2,9 @@
 // AUTHENTICATION SERVICE
 // ============================================================================
 // Simplified Supabase Auth integration with essential functionality only
+// Enhanced: Single-point profile creation for verified emails during sign-in
+// and session initialization. If profile creation fails in production, the
+// user will be logged out to avoid leaving them in authentication limbo.
 
 import { ENV_CONFIG } from "@/config/constants";
 import { ERROR_MESSAGES, SUCCESS_MESSAGES } from "@/constants/auth";
@@ -17,13 +20,75 @@ import type {
   AuthError,
 } from "../types/auth";
 
-import supabase from "@/lib/supabase";
+import supabase, { getAuthenticatedClient } from "@/lib/supabase";
 import { events } from "@/utils/events";
 import { transformUserProfileToDb } from "@/types/transforms";
 
 // ============================================================================
 // AUTHENTICATION FUNCTIONS
 // ============================================================================
+
+/**
+ * Check whether a user profile exists.
+ * Returns true if a row exists in user_profiles with the provided userId.
+ */
+async function checkProfileExists(userId: string): Promise<boolean> {
+  try {
+    const { data, error } = await supabase.from("user_profiles").select("id").eq("id", userId).maybeSingle();
+    if (error) {
+      logger.warn("checkProfileExists: DB check returned error", error, "auth", userId);
+      // If we can't determine, be conservative and return false so caller may attempt creation
+      return false;
+    }
+    return !!data;
+  } catch (err) {
+    logger.warn("checkProfileExists: unexpected error", err, "auth", userId);
+    return false;
+  }
+}
+
+/**
+ * Create a user profile using data from the auth user object.
+ * Uses an authenticated client when an access token is available so RLS policies
+ * that rely on the authenticated user will work correctly.
+ *
+ * Throws on error.
+ */
+async function createProfileFromAuthUser(user: any, accessToken?: string): Promise<void> {
+  // Build minimal profile payload using available metadata / sensible defaults
+  const meta = user.user_metadata || user.raw_user_meta_data || {};
+  const displayName = meta.display_name || meta.displayName || user.email?.split("@")[0] || "New User";
+  const experienceLevel = meta.experience_level || meta.experienceLevel || "untrained";
+
+  const dbProfile = transformUserProfileToDb({
+    id: user.id,
+    email: user.email,
+    displayName,
+    experienceLevel,
+  } as any);
+
+  const insertPayload: any = {
+    ...dbProfile,
+    id: user.id,
+    email: user.email || "",
+    display_name: (dbProfile as any).display_name ?? displayName,
+    experience_level: experienceLevel,
+    fitness_goals: meta.fitness_goals || meta.fitnessGoals || [],
+    height_cm: meta.heightCm ?? null,
+    weight_kg: meta.weightKg ?? null,
+  };
+
+  // Prefer creating using an authenticated client scoped to the user's access token
+  const client = accessToken ? getAuthenticatedClient(accessToken) : supabase;
+
+  const { error } = await client.from("user_profiles").insert(insertPayload);
+  if (error) {
+    logger.error("createProfileFromAuthUser: failed to create profile", error, "auth", user.id);
+    throw error;
+  }
+
+  logger.info("createProfileFromAuthUser: profile created", { userId: user.id }, "auth", user.id);
+}
 
 /**
  * Sign up new user with profile creation
@@ -75,13 +140,21 @@ export async function signUp(signupData: SignupData): Promise<AuthResponse> {
       };
     }
 
-    // Create user profile if signup successful
+    // Create user profile if signup successful and email confirmed (or session exists)
     if (data.user) {
       try {
-        await createUserProfile(data.user.id, signupData);
+        // If Supabase returned a session (email confirmation not required), create profile now.
+        if (data.session && data.user) {
+          try {
+            // create profile with authenticated session token to respect RLS
+            await createProfileFromAuthUser(data.user, data.session.access_token);
+          } catch (profileError) {
+            logger.error("Profile creation during signup failed", profileError, "auth", data.user.id);
+            // Don't fail the signup if profile creation fails here; user can still verify email and have profile created at login.
+          }
+        }
       } catch (profileError) {
-        logger.error("Profile creation failed", profileError, "auth", data.user.id);
-        // Don't fail the signup if profile creation fails
+        logger.error("Profile creation failed in signup flow", profileError, "auth", data.user.id);
       }
     }
 
@@ -130,6 +203,12 @@ export async function signUp(signupData: SignupData): Promise<AuthResponse> {
 
 /**
  * Sign in user with email and password
+ *
+ * Enhanced behavior:
+ * - After successful sign-in, if the user's email is verified and a profile
+ *   does not exist, attempt to create the profile once using the authenticated
+ *   session. If profile creation fails, sign the user out to avoid leaving them
+ *   authenticated without a profile.
  */
 export async function signIn(credentials: LoginCredentials): Promise<AuthResponse> {
   try {
@@ -172,8 +251,43 @@ export async function signIn(credentials: LoginCredentials): Promise<AuthRespons
       };
     }
 
+    // If email is verified, ensure profile exists and create if missing
+    const user = data.user;
+    const session = data.session;
+
+    const emailVerified =
+      Boolean(user.email_confirmed_at) || Boolean((user as any).email_verified) || Boolean((user as any).confirmed_at);
+
+    if (emailVerified) {
+      const exists = await checkProfileExists(user.id);
+      if (!exists) {
+        try {
+          await createProfileFromAuthUser(user, session.access_token);
+        } catch (profileErr) {
+          // If profile creation fails in production, sign the user out to avoid leaving them stuck.
+          logger.error("signIn: profile creation failed; signing out user", profileErr, "auth", user.id);
+          try {
+            await supabase.auth.signOut();
+          } catch (signOutErr) {
+            logger.warn("signIn: signOut after profile creation failure also failed", signOutErr, "auth", user.id);
+          }
+          return {
+            success: false,
+            error: {
+              code: "PROFILE_CREATE_FAILED",
+              message: "Failed to create user profile. Please try again or contact support.",
+              type: "server",
+            },
+          };
+        }
+      }
+    } else {
+      // If email not verified, do not create a profile. Let client show verification flow.
+      logger.info("signIn: user email not verified; skipping profile creation", { userId: user.id }, "auth", user.id);
+    }
+
     // Handle successful authentication
-    await handleSuccessfulAuth(data.session);
+    await handleSuccessfulAuth(session);
 
     logger.info("User logged in successfully", { userId: data.user.id }, "auth", data.user.id);
 
@@ -475,6 +589,11 @@ export async function getCurrentUser() {
 
 /**
  * Initialize authentication state from stored tokens
+ *
+ * Enhanced behavior:
+ * - On session restoration, if user's email is verified and profile is missing,
+ *   attempt to create the profile once. If creation fails, clear local tokens
+ *   and return a failure to avoid leaving user authenticated without profile.
  */
 export async function initializeAuth(): Promise<AuthResponse> {
   try {
@@ -483,7 +602,6 @@ export async function initializeAuth(): Promise<AuthResponse> {
     // TokenManager handles migration and rehydration of stored tokens on initialization.
     // Avoid ad-hoc supabase.auth.setSession calls here to prevent race conditions.
     // TokenManager's initialization (import side-effect) will rehydrate the shared Supabase client.
-    // No-op migration/rehydration performed here.
 
     // Get current session - Supabase handles token validation automatically
     const {
@@ -510,6 +628,49 @@ export async function initializeAuth(): Promise<AuthResponse> {
         user: null,
         session: null,
       };
+    }
+
+    // Only attempt profile creation if email is confirmed
+    const user = session.user;
+    const emailVerified =
+      Boolean(user.email_confirmed_at) || Boolean((user as any).email_verified) || Boolean((user as any).confirmed_at);
+
+    if (emailVerified) {
+      const exists = await checkProfileExists(user.id);
+      if (!exists) {
+        try {
+          await createProfileFromAuthUser(user, session.access_token);
+        } catch (profileErr) {
+          // If profile creation fails during initialization, clear tokens and return error
+          logger.error(
+            "initializeAuth: profile creation failed during initialization; clearing tokens and aborting",
+            profileErr,
+            "auth",
+            user.id
+          );
+          await clearTokens();
+          try {
+            await supabase.auth.signOut();
+          } catch (signOutErr) {
+            logger.warn("initializeAuth: signOut after profile creation failure failed", signOutErr, "auth", user.id);
+          }
+          return {
+            success: false,
+            error: {
+              code: "PROFILE_CREATE_FAILED",
+              message: "Failed to create user profile during session initialization",
+              type: "server",
+            },
+          };
+        }
+      }
+    } else {
+      logger.info(
+        "initializeAuth: user email not verified; skipping profile creation during initialization",
+        { userId: user.id },
+        "auth",
+        user.id
+      );
     }
 
     // Store tokens (keep tokenManager/storage in sync)
@@ -561,6 +722,10 @@ async function handleSuccessfulAuth(session: any): Promise<void> {
 
 /**
  * Create user profile after successful signup
+ *
+ * Kept for backward compatibility during signup flows. For the single-point
+ * profile creation strategy we now favor createProfileFromAuthUser() called at
+ * signIn / initializeAuth time when the user's email is verified.
  */
 async function createUserProfile(userId: string, signupData: SignupData): Promise<void> {
   // Use the central transform for the core profile fields, but avoid passing
