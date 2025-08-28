@@ -508,7 +508,6 @@ export const OnboardingScreen: React.FC<OnboardingScreenProps> = ({ navigation, 
 const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
-    backgroundColor: "#FFFFFF",
   },
   keyboardAvoidingView: {
     flex: 1,
