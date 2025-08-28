@@ -51,6 +51,8 @@ export const OnboardingScreen: React.FC<OnboardingScreenProps> = ({ navigation, 
   // Controlled form state
   const [displayName, setDisplayName] = useState((user?.user_metadata?.display_name as string) || "");
 
+  const isWeb = Platform.OS === "web";
+
   // ============================================================================
   // STEP MANAGEMENT
   // ============================================================================
@@ -157,13 +159,15 @@ export const OnboardingScreen: React.FC<OnboardingScreenProps> = ({ navigation, 
   // ============================================================================
 
   const renderWelcomeStep = () => (
-    <SafeAreaView style={[styles.safeArea, { backgroundColor: colors.background }]}>
-      <KeyboardAvoidingView style={styles.keyboardAvoidingView} behavior={Platform.OS === "ios" ? "padding" : "height"}>
+    <SafeAreaView style={[styles.safeArea, isWeb && styles.webSafeArea, { backgroundColor: colors.background }]}>
+      <KeyboardAvoidingView
+        style={[styles.keyboardAvoidingView, isWeb && styles.webKeyboardAvoiding]}
+        behavior={Platform.OS === "ios" ? "padding" : "height"}>
         <ScrollView
-          style={styles.scrollView}
-          contentContainerStyle={styles.scrollContent}
+          style={[styles.scrollView, isWeb && styles.webScrollView]}
+          contentContainerStyle={[styles.scrollContent, isWeb && styles.webScrollContent]}
           keyboardShouldPersistTaps='handled'>
-          <View style={styles.container}>
+          <View style={[styles.container, isWeb && styles.webContainer]}>
             {/* Header */}
             <View style={styles.header}>
               <Text variant='h1' color='primary' align='center' style={styles.title}>
@@ -230,13 +234,15 @@ export const OnboardingScreen: React.FC<OnboardingScreenProps> = ({ navigation, 
   );
 
   const renderProfileStep = () => (
-    <SafeAreaView style={styles.safeArea}>
-      <KeyboardAvoidingView style={styles.keyboardAvoidingView} behavior={Platform.OS === "ios" ? "padding" : "height"}>
+    <SafeAreaView style={[styles.safeArea, isWeb && styles.webSafeArea]}>
+      <KeyboardAvoidingView
+        style={[styles.keyboardAvoidingView, isWeb && styles.webKeyboardAvoiding]}
+        behavior={Platform.OS === "ios" ? "padding" : "height"}>
         <ScrollView
-          style={styles.scrollView}
-          contentContainerStyle={styles.scrollContent}
+          style={[styles.scrollView, isWeb && styles.webScrollView]}
+          contentContainerStyle={[styles.scrollContent, isWeb && styles.webScrollContent]}
           keyboardShouldPersistTaps='handled'>
-          <View style={styles.container}>
+          <View style={[styles.container, isWeb && styles.webContainer]}>
             {/* Header */}
             <View style={styles.header}>
               <Text variant='h1' color='primary' align='center' style={styles.title}>
@@ -322,13 +328,15 @@ export const OnboardingScreen: React.FC<OnboardingScreenProps> = ({ navigation, 
   );
 
   const renderGoalsStep = () => (
-    <SafeAreaView style={styles.safeArea}>
-      <KeyboardAvoidingView style={styles.keyboardAvoidingView} behavior={Platform.OS === "ios" ? "padding" : "height"}>
+    <SafeAreaView style={[styles.safeArea, isWeb && styles.webSafeArea]}>
+      <KeyboardAvoidingView
+        style={[styles.keyboardAvoidingView, isWeb && styles.webKeyboardAvoiding]}
+        behavior={Platform.OS === "ios" ? "padding" : "height"}>
         <ScrollView
-          style={styles.scrollView}
-          contentContainerStyle={styles.scrollContent}
+          style={[styles.scrollView, isWeb && styles.webScrollView]}
+          contentContainerStyle={[styles.scrollContent, isWeb && styles.webScrollContent]}
           keyboardShouldPersistTaps='handled'>
-          <View style={styles.container}>
+          <View style={[styles.container, isWeb && styles.webContainer]}>
             {/* Header */}
             <View style={styles.header}>
               <Text variant='h1' color='primary' align='center' style={styles.title}>
@@ -402,13 +410,15 @@ export const OnboardingScreen: React.FC<OnboardingScreenProps> = ({ navigation, 
   );
 
   const renderCompleteStep = () => (
-    <SafeAreaView style={styles.safeArea}>
-      <KeyboardAvoidingView style={styles.keyboardAvoidingView} behavior={Platform.OS === "ios" ? "padding" : "height"}>
+    <SafeAreaView style={[styles.safeArea, isWeb && styles.webSafeArea]}>
+      <KeyboardAvoidingView
+        style={[styles.keyboardAvoidingView, isWeb && styles.webKeyboardAvoiding]}
+        behavior={Platform.OS === "ios" ? "padding" : "height"}>
         <ScrollView
-          style={styles.scrollView}
-          contentContainerStyle={styles.scrollContent}
+          style={[styles.scrollView, isWeb && styles.webScrollView]}
+          contentContainerStyle={[styles.scrollContent, isWeb && styles.webScrollContent]}
           keyboardShouldPersistTaps='handled'>
-          <View style={styles.container}>
+          <View style={[styles.container, isWeb && styles.webContainer]}>
             {/* Header */}
             <View style={styles.header}>
               <Text variant='h1' color='primary' align='center' style={styles.title}>
@@ -696,6 +706,26 @@ const styles = StyleSheet.create({
   motivationText: {
     fontStyle: "italic",
     lineHeight: 20,
+  },
+  webSafeArea: {
+    minHeight: "100%",
+    display: "flex",
+    flex: 1,
+  },
+  webKeyboardAvoiding: {
+    minHeight: "100%",
+    display: "flex",
+    flex: 1,
+  },
+  webScrollView: {
+    flex: 1,
+  },
+  webScrollContent: {
+    flexGrow: 1,
+    paddingBottom: 32,
+  },
+  webContainer: {
+    minHeight: "100%",
   },
 });
 

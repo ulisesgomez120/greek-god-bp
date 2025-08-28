@@ -96,6 +96,7 @@ const AuthNavigator: React.FC<AuthNavigatorProps> = ({ authState }) => {
       screenOptions={{
         headerShown: false,
         gestureEnabled: true,
+        cardStyle: { flex: 1 },
         cardStyleInterpolator: ({ current, layouts }) => {
           return {
             cardStyle: {
