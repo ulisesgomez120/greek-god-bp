@@ -383,7 +383,8 @@ export class ProfileService {
   async updateProfile(
     userId: string,
     updates: ProfileEditData,
-    options: ProfileUpdateOptions = {}
+    options: ProfileUpdateOptions = {},
+    authenticatedClient?: SupabaseClient<Database>
   ): Promise<ProfileServiceResponse<UserProfile>> {
     try {
       logger.info("Updating user profile", { userId, updates }, "profile");
@@ -410,6 +411,8 @@ export class ProfileService {
       if (updates.weightKg !== undefined) appLevelUpdates.weightKg = updates.weightKg;
       if (updates.birthDate !== undefined) appLevelUpdates.birthDate = updates.birthDate;
       if (updates.gender !== undefined) appLevelUpdates.gender = updates.gender;
+      if ((updates as any).experienceLevel !== undefined)
+        appLevelUpdates.experienceLevel = (updates as any).experienceLevel;
       if (updates.fitnessGoals !== undefined) appLevelUpdates.fitnessGoals = updates.fitnessGoals;
 
       // Transform camelCase app updates to DB format
@@ -424,6 +427,12 @@ export class ProfileService {
         if (typeof updates.preferences.useMetric !== "undefined") {
           updateData.use_metric = updates.preferences.useMetric;
         }
+      }
+
+      // Persist onboarding completion flag if provided by caller
+      // (maps app-level `onboardingCompleted` -> DB `onboarding_completed`)
+      if ((updates as any).onboardingCompleted !== undefined) {
+        updateData.onboarding_completed = (updates as any).onboardingCompleted;
       }
 
       if (updates.privacySettings !== undefined) {
@@ -449,12 +458,8 @@ export class ProfileService {
         this.profileCache.set(userId, optimisticProfile);
       }
 
-      const { data, error } = await supabase
-        .from("user_profiles")
-        .update(updateData)
-        .eq("id", userId)
-        .select()
-        .single();
+      const client = authenticatedClient || supabase;
+      const { data, error } = await client.from("user_profiles").update(updateData).eq("id", userId).select().single();
 
       if (error) {
         // Revert optimistic update on error

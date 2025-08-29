@@ -107,6 +107,7 @@ export interface ProfileUpdateRequest {
   heightCm?: number;
   weightKg?: number;
   avatarUrl?: string;
+  onboardingCompleted?: boolean;
 }
 
 // ============================================================================
@@ -361,6 +362,7 @@ export interface UseAuthReturn {
   resetPassword: (request: PasswordResetRequest) => Promise<AuthResponse>;
   resendEmailVerification: (request: EmailVerificationRequest) => Promise<AuthResponse>;
   updateProfile: (data: ProfileUpdateRequest) => Promise<AuthResponse>;
+  completeOnboarding: () => Promise<AuthResponse>;
   clearError: () => void;
 
   // Utilities

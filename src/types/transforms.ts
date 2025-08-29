@@ -63,6 +63,8 @@ export function transformUserProfileToDb(profile: Partial<UserProfile>): Partial
   if ((profile as any).birthDate !== undefined) (dbProfile as any).birth_date = (profile as any).birthDate;
   if ((profile as any).gender !== undefined) (dbProfile as any).gender = (profile as any).gender;
   if ((profile as any).fitnessGoals !== undefined) (dbProfile as any).fitness_goals = (profile as any).fitnessGoals;
+  if ((profile as any).onboardingCompleted !== undefined)
+    (dbProfile as any).onboarding_completed = (profile as any).onboardingCompleted;
 
   // Preferences (map canonical preference fields)
   if ((profile as any).preferences !== undefined) {

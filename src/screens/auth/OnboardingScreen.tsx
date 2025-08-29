@@ -39,7 +39,7 @@ type OnboardingStep = "welcome" | "profile" | "goals" | "complete";
 // ============================================================================
 
 export const OnboardingScreen: React.FC<OnboardingScreenProps> = ({ navigation, onOnboardingComplete }) => {
-  const { updateProfile, loading, error, clearError, user } = useAuth();
+  const { updateProfile, completeOnboarding, loading, error, clearError, user } = useAuth();
   const { colors } = useTheme();
   const [currentStep, setCurrentStep] = useState<OnboardingStep>("welcome");
   const [selectedGoals, setSelectedGoals] = useState<string[]>([]);
@@ -115,6 +115,10 @@ export const OnboardingScreen: React.FC<OnboardingScreenProps> = ({ navigation, 
     setSelectedGoals(newGoals);
   };
 
+  const handleSetExperienceLevel = (level: string) => {
+    setExperienceLevel(level);
+  };
+
   const onSubmit = async () => {
     try {
       // Validate display name
@@ -148,12 +152,27 @@ export const OnboardingScreen: React.FC<OnboardingScreenProps> = ({ navigation, 
     }
   };
 
-  const completeOnboarding = () => {
-    // The navigation will automatically update because the user metadata
-    // has been updated with onboarding_complete: true in the updateProfile function
-    // The AuthNavigator is watching for this change
-    console.log("OnboardingScreen: Onboarding completed, navigation should update automatically");
-    onOnboardingComplete?.();
+  const handleCompleteOnboarding = async () => {
+    try {
+      clearError();
+      setIsSubmitting(true);
+
+      const result = await completeOnboarding();
+
+      if (result.success) {
+        onOnboardingComplete?.();
+      } else {
+        Alert.alert(
+          "Start Training Failed",
+          result.error?.message || "Failed to complete onboarding. Please try again."
+        );
+      }
+    } catch (err) {
+      console.error("completeOnboarding error:", err);
+      Alert.alert("Start Training Failed", "An unexpected error occurred. Please try again.");
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   // ============================================================================
@@ -298,7 +317,7 @@ export const OnboardingScreen: React.FC<OnboardingScreenProps> = ({ navigation, 
                     variant={experienceLevel === level.level ? "primary" : "secondary"}
                     size='medium'
                     style={styles.experienceButton}
-                    onPress={() => setExperienceLevel(level.level)}>
+                    onPress={() => handleSetExperienceLevel(level.level)}>
                     <View style={styles.experienceButtonContent}>
                       <Text
                         variant='body'
@@ -488,7 +507,12 @@ export const OnboardingScreen: React.FC<OnboardingScreenProps> = ({ navigation, 
             </View>
 
             {/* Submit Button */}
-            <Button variant='primary' size='large' style={styles.submitButton} onPress={completeOnboarding}>
+            <Button
+              variant='primary'
+              size='large'
+              style={styles.submitButton}
+              onPress={handleCompleteOnboarding}
+              disabled={isSubmitting}>
               Start Training
             </Button>
           </View>

@@ -327,8 +327,6 @@ export function useAuth(): UseAuthReturn {
           };
         }
 
-        logger.info("useAuth: Profile update attempt", { userId: user.id }, "auth", user.id);
-
         // Ensure a profile already exists. If missing, attempt client-side creation
         // for users with verified emails (fallback in case creation didn't occur earlier).
         const existingProfileResp = await profileService.getProfile(user.id, false);
@@ -454,12 +452,11 @@ export function useAuth(): UseAuthReturn {
           };
         }
 
-        // Update user metadata to mark onboarding as complete and sync display name/experience_level
+        // Sync display name and experience level in user metadata (do NOT mark onboarding as complete here)
         const updatedUser = {
           ...user,
           user_metadata: {
             ...user.user_metadata,
-            onboarding_complete: true,
             display_name: response.data.displayName,
             experience_level: response.data.experienceLevel,
           },
@@ -489,6 +486,86 @@ export function useAuth(): UseAuthReturn {
     },
     [dispatch, user, session]
   );
+
+  /**
+   * Complete onboarding - persist onboarding_completed = true to the canonical profile row,
+   * then update auth user metadata and Redux store to reflect the canonical state.
+   *
+   * This ensures the "You're All Set!" screen remains visible until the DB confirms completion.
+   */
+  const completeOnboarding = useCallback(async (): Promise<AuthResponse> => {
+    try {
+      if (!user?.id) {
+        logger.error("useAuth: completeOnboarding failed - no user ID", undefined, "auth");
+        return {
+          success: false,
+          error: {
+            code: "NO_USER_ID",
+            message: "User ID not available",
+            type: "auth",
+          },
+        };
+      }
+
+      logger.info("useAuth: completeOnboarding attempt", { userId: user.id }, "auth", user.id);
+
+      // Use an authenticated client to avoid RLS permission issues when writing the profile row
+      const authenticatedClient = getAuthenticatedClient(session?.accessToken);
+
+      // Persist canonical onboarding flag to DB. We purposely skip optimistic updates here so
+      // the "complete" screen remains until the DB confirms completion.
+      const resp = await profileService.updateProfile(
+        user.id,
+        { onboardingCompleted: true } as any,
+        { optimistic: false, skipValidation: true },
+        authenticatedClient
+      );
+
+      if (!resp.success || !resp.data) {
+        logger.error("useAuth: completeOnboarding failed", resp.error, "auth", user.id);
+        return {
+          success: false,
+          error: {
+            code: "ONBOARDING_COMPLETE_FAILED",
+            message: resp.error?.message || "Failed to complete onboarding",
+            type: "network",
+          },
+        };
+      }
+
+      // Update auth user metadata to reflect canonical DB state
+      const updatedUser = {
+        ...user,
+        user_metadata: {
+          ...user.user_metadata,
+          onboarding_complete: true,
+          display_name: resp.data.displayName,
+          experience_level: resp.data.experienceLevel,
+        },
+      };
+
+      // Update profile in Redux store with the updated user metadata
+      dispatch(updateUserProfile(updatedUser as any));
+
+      logger.info("useAuth: completeOnboarding succeeded", { userId: user.id }, "auth", user.id);
+      return {
+        success: true,
+        user: updatedUser,
+        session,
+        message: "Onboarding completed successfully",
+      };
+    } catch (error: any) {
+      logger.error("useAuth: completeOnboarding error", error, "auth", user?.id);
+      return {
+        success: false,
+        error: {
+          code: "ONBOARDING_COMPLETE_ERROR",
+          message: error.message || "Failed to complete onboarding",
+          type: "network",
+        },
+      };
+    }
+  }, [dispatch, user, session]);
 
   /**
    * Clear authentication error
@@ -659,6 +736,7 @@ export function useAuth(): UseAuthReturn {
       resetPassword: resetPasswordAction,
       resendEmailVerification,
       updateProfile,
+      completeOnboarding,
       clearError: clearAuthError,
 
       // Utilities
@@ -681,6 +759,7 @@ export function useAuth(): UseAuthReturn {
       refreshSession,
       resetPasswordAction,
       updateProfile,
+      completeOnboarding,
       clearAuthError,
     ]
   );
