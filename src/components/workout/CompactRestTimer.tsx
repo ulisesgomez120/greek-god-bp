@@ -12,7 +12,7 @@ import { useHapticFeedback } from "../../hooks/useHapticFeedback";
 import { logger } from "../../utils/logger";
 import TextUI from "../ui/Text";
 import useTheme from "@/hooks/useTheme";
-import Icon from "react-native-vector-icons/MaterialIcons";
+import Icon from "@/components/ui/Icon";
 
 interface CompactRestTimerProps {
   duration: number; // seconds
@@ -233,7 +233,7 @@ export const CompactRestTimer: React.FC<CompactRestTimerProps> = ({ duration, on
         style={[styles.button, nativeTimerLaunched ? styles.buttonActive : styles.buttonIdle]}
         activeOpacity={0.8}>
         <Icon
-          name={nativeTimerLaunched ? "timer" : isStarting ? "hourglass_empty" : "play-arrow"}
+          name={nativeTimerLaunched ? "timer-outline" : isStarting ? "hourglass-outline" : "play-outline"}
           size={20}
           color={
             nativeTimerLaunched ? colors.surface : colors.buttonTextOnPrimary || colors.buttonText || colors.surface

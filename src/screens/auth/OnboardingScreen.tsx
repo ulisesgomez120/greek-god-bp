@@ -12,6 +12,7 @@ import { EXPERIENCE_LEVELS, DEFAULT_FITNESS_GOALS, getExperienceLevelInfo } from
 import type { ExperienceLevel } from "@/types/database";
 import Text from "@/components/ui/Text";
 import Button from "@/components/ui/Button";
+import Icon from "@/components/ui/Icon";
 import useTheme from "@/hooks/useTheme";
 import {
   getInputStyle,
@@ -171,9 +172,12 @@ export const OnboardingScreen: React.FC<OnboardingScreenProps> = ({ navigation, 
           <View style={[styles.container, isWeb && styles.webContainer]}>
             {/* Header */}
             <View style={styles.header}>
-              <Text variant='h1' color='primary' align='center' style={styles.title}>
-                Welcome to TrainSmart! 🎉
-              </Text>
+              <View style={{ flexDirection: "row", justifyContent: "center", alignItems: "center" }}>
+                <Text variant='h1' color='primary' align='center' style={styles.title}>
+                  Welcome to TrainSmart!
+                </Text>
+                <Icon name='star-outline' size={28} style={{ marginLeft: 8 }} accessibilityLabel='Welcome' />
+              </View>
               <Text variant='bodyLarge' color='secondary' align='center' style={styles.subtitle}>
                 Let's set up your profile to provide personalized workout recommendations
               </Text>
@@ -183,9 +187,7 @@ export const OnboardingScreen: React.FC<OnboardingScreenProps> = ({ navigation, 
             <View style={styles.formContent}>
               <View style={styles.welcomeContainer}>
                 <View style={styles.welcomeIcon}>
-                  <Text variant='h1' style={styles.welcomeEmoji}>
-                    💪
-                  </Text>
+                  <Icon name='fitness-outline' size={64} accessibilityLabel='Strength' />
                 </View>
 
                 <Text variant='bodyLarge' color='primary' align='center' style={styles.welcomeMessage}>
@@ -195,27 +197,31 @@ export const OnboardingScreen: React.FC<OnboardingScreenProps> = ({ navigation, 
 
                 <View style={styles.featuresContainer}>
                   <View style={styles.featureItem}>
-                    <Text variant='body' style={styles.featureIcon}>
-                      🎯
-                    </Text>
+                    <Icon
+                      name='fitness-outline'
+                      size={20}
+                      style={styles.featureIcon}
+                      accessibilityLabel='Personalized workout'
+                    />
                     <Text variant='body' color='primary' style={styles.featureText}>
                       Personalized workout recommendations
                     </Text>
                   </View>
 
                   <View style={styles.featureItem}>
-                    <Text variant='body' style={styles.featureIcon}>
-                      📈
-                    </Text>
+                    <Icon
+                      name='trending-up-outline'
+                      size={20}
+                      style={styles.featureIcon}
+                      accessibilityLabel='Progress tracking'
+                    />
                     <Text variant='body' color='primary' style={styles.featureText}>
                       Smart progression tracking with RPE
                     </Text>
                   </View>
 
                   <View style={styles.featureItem}>
-                    <Text variant='body' style={styles.featureIcon}>
-                      🤖
-                    </Text>
+                    <Icon name='bulb-outline' size={20} style={styles.featureIcon} accessibilityLabel='AI coaching' />
                     <Text variant='body' color='primary' style={styles.featureText}>
                       AI coaching for form and technique
                     </Text>
@@ -370,9 +376,13 @@ export const OnboardingScreen: React.FC<OnboardingScreenProps> = ({ navigation, 
                       style={styles.goalButton}
                       onPress={() => handleGoalToggle(goal.id)}>
                       <View style={styles.goalButtonContent}>
-                        <Text variant='h3' style={styles.goalIcon}>
-                          {goal.icon}
-                        </Text>
+                        <Icon
+                          name={goal.icon.name}
+                          size={28}
+                          color={selectedGoals.includes(goal.id) ? "white" : colors.primary}
+                          style={styles.goalIcon}
+                          accessibilityLabel={`${goal.name} icon`}
+                        />
                         <Text
                           variant='body'
                           color={selectedGoals.includes(goal.id) ? "white" : "primary"}
@@ -429,9 +439,12 @@ export const OnboardingScreen: React.FC<OnboardingScreenProps> = ({ navigation, 
           <View style={[styles.container, isWeb && styles.webContainer]}>
             {/* Header */}
             <View style={styles.header}>
-              <Text variant='h1' color='primary' align='center' style={styles.title}>
-                You're All Set! 🚀
-              </Text>
+              <View style={{ flexDirection: "row", justifyContent: "center", alignItems: "center" }}>
+                <Text variant='h1' color='primary' align='center' style={styles.title}>
+                  You're All Set!
+                </Text>
+                <Icon name='rocket-outline' size={28} style={{ marginLeft: 8 }} accessibilityLabel='Complete' />
+              </View>
               <Text variant='bodyLarge' color='secondary' align='center' style={styles.subtitle}>
                 Your profile has been created successfully
               </Text>
@@ -441,9 +454,7 @@ export const OnboardingScreen: React.FC<OnboardingScreenProps> = ({ navigation, 
             <View style={styles.formContent}>
               <View style={styles.completeContainer}>
                 <View style={styles.completeIcon}>
-                  <Text variant='h1' style={styles.completeEmoji}>
-                    ✨
-                  </Text>
+                  <Icon name='checkmark-circle-outline' size={64} accessibilityLabel='All set' />
                 </View>
 
                 <Text variant='bodyLarge' color='primary' align='center' style={styles.completeMessage}>

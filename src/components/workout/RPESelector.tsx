@@ -6,7 +6,7 @@
 import React, { useCallback } from "react";
 import { View, Text, StyleSheet, TouchableOpacity, Modal, ScrollView, Dimensions } from "react-native";
 import { useHapticFeedback } from "../../hooks/useHapticFeedback";
-import Icon from "react-native-vector-icons/MaterialIcons";
+import Icon from "@/components/ui/Icon";
 import useTheme from "@/hooks/useTheme";
 import { Button } from "../ui/Button";
 
@@ -164,7 +164,13 @@ export const RPESelector: React.FC<RPESelectorProps> = ({ onSelect, onClose, sel
   const renderFooter = () => (
     <View style={styles.footer}>
       <View style={styles.footerHint}>
-        <Icon name='lightbulb' size={16} color={colors.primary} style={{ marginRight: 8 }} />
+        <Icon
+          name='bulb-outline'
+          size={16}
+          color={colors.primary}
+          style={{ marginRight: 8 }}
+          accessibilityLabel='RPE info'
+        />
         <Text style={styles.footerText}>RPE helps track your training intensity and guides progression decisions.</Text>
       </View>
       <Button

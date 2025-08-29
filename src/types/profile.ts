@@ -113,7 +113,11 @@ export interface FitnessGoal {
   name: string;
   description: string;
   category: "strength" | "muscle" | "endurance" | "weight_loss" | "general";
-  icon: string;
+  // Icon is represented with a library-agnostic descriptor to enable a consistent Icon component.
+  icon: {
+    name: string;
+    library?: "ionicons";
+  };
   popular: boolean;
 }
 
@@ -336,7 +340,7 @@ export const DEFAULT_FITNESS_GOALS: FitnessGoal[] = [
     name: "Build Muscle",
     description: "Increase muscle mass and size",
     category: "muscle",
-    icon: "muscle",
+    icon: { name: "fitness-outline", library: "ionicons" },
     popular: true,
   },
   {
@@ -344,7 +348,7 @@ export const DEFAULT_FITNESS_GOALS: FitnessGoal[] = [
     name: "Get Stronger",
     description: "Increase maximum strength in key lifts",
     category: "strength",
-    icon: "barbell",
+    icon: { name: "barbell", library: "ionicons" },
     popular: true,
   },
   {
@@ -352,7 +356,7 @@ export const DEFAULT_FITNESS_GOALS: FitnessGoal[] = [
     name: "Lose Weight",
     description: "Reduce body fat while maintaining muscle",
     category: "weight_loss",
-    icon: "scale",
+    icon: { name: "scale-outline", library: "ionicons" },
     popular: true,
   },
   {
@@ -360,7 +364,7 @@ export const DEFAULT_FITNESS_GOALS: FitnessGoal[] = [
     name: "Improve Endurance",
     description: "Build cardiovascular and muscular endurance",
     category: "endurance",
-    icon: "heart",
+    icon: { name: "heart-outline", library: "ionicons" },
     popular: false,
   },
   {
@@ -368,7 +372,7 @@ export const DEFAULT_FITNESS_GOALS: FitnessGoal[] = [
     name: "General Fitness",
     description: "Overall health and fitness improvement",
     category: "general",
-    icon: "activity",
+    icon: { name: "pulse-outline", library: "ionicons" },
     popular: true,
   },
   {
@@ -376,7 +380,7 @@ export const DEFAULT_FITNESS_GOALS: FitnessGoal[] = [
     name: "Sport Performance",
     description: "Improve performance in specific sports",
     category: "strength",
-    icon: "trophy",
+    icon: { name: "trophy-outline", library: "ionicons" },
     popular: false,
   },
 ];

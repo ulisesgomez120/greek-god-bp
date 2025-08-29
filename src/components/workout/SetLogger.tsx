@@ -6,7 +6,7 @@
 import React, { useState, useCallback, useRef, useEffect } from "react";
 import { View, TextInput, StyleSheet, TouchableOpacity, Alert, ViewStyle } from "react-native";
 import Text from "../ui/Text";
-import Icon from "react-native-vector-icons/MaterialIcons";
+import Icon from "@/components/ui/Icon";
 import { useHapticFeedback } from "../../hooks/useHapticFeedback";
 import useUnitPreferences from "../../hooks/useUnitPreferences";
 import useTheme from "@/hooks/useTheme";
@@ -445,7 +445,12 @@ export const SetLogger: React.FC<SetLoggerProps> = ({
             RPE {!state.isWarmup && <Text style={[LABEL_STYLES.required, { color: colors.error }]}>*</Text>}
           </Text>
           <TouchableOpacity style={styles.infoButton} onPress={handleRPEInfoPress} accessibilityLabel='RPE information'>
-            <Icon name='info' size={16} color={colors.subtext} />
+            <Icon
+              name='information-circle-outline'
+              size={16}
+              color={colors.subtext}
+              accessibilityLabel='RPE information'
+            />
           </TouchableOpacity>
         </View>
         <TextInput
