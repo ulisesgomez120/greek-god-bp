@@ -189,43 +189,6 @@ export const EXPERIENCE_LEVELS = {
 } as const;
 
 // ============================================================================
-// FITNESS GOALS
-// ============================================================================
-
-export const FITNESS_GOALS = {
-  strength: {
-    label: "Build Strength",
-    description: "Focus on increasing maximum strength in compound lifts",
-    icon: "💪",
-  },
-  muscle: {
-    label: "Build Muscle",
-    description: "Focus on muscle growth and hypertrophy",
-    icon: "🏋️",
-  },
-  endurance: {
-    label: "Improve Endurance",
-    description: "Focus on muscular endurance and conditioning",
-    icon: "🏃",
-  },
-  weight_loss: {
-    label: "Lose Weight",
-    description: "Focus on fat loss while maintaining muscle",
-    icon: "⚖️",
-  },
-  general_fitness: {
-    label: "General Fitness",
-    description: "Overall health and fitness improvement",
-    icon: "🎯",
-  },
-  sport_specific: {
-    label: "Sport Performance",
-    description: "Training for specific sport or activity",
-    icon: "🏆",
-  },
-} as const;
-
-// ============================================================================
 // AUTH FLOW CONSTANTS
 // ============================================================================
 
@@ -363,6 +326,6 @@ export const WEBHOOK_EVENTS = {
 // ============================================================================
 
 export type ExperienceLevel = keyof typeof EXPERIENCE_LEVELS;
-export type FitnessGoal = keyof typeof FITNESS_GOALS;
+export type FitnessGoal = string;
 export type AuthFlow = keyof typeof AUTH_FLOWS;
 export type WebhookEvent = keyof typeof WEBHOOK_EVENTS;

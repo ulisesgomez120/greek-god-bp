@@ -1,149 +1,170 @@
 # Implementation Plan
 
 [Overview]
-Fix web/mobile scrolling on the onboarding flow by applying web-specific layout constraints and navigator card styles so ScrollView can properly calculate content height on mobile browsers.
+Standardize fitness goal definitions across onboarding and profile-edit flows by using the single source of truth `DEFAULT_FITNESS_GOALS` from `src/types/profile.ts`, update the onboarding UI to match the profile edit UI, and remove/deprecate legacy `FITNESS_GOALS` constants so IDs, labels, and persistence remain consistent across the app.
 
-This change targets the onboarding screens which currently render a ScrollView inside SafeAreaView and KeyboardAvoidingView without robust web-specific flex/height constraints. On web (desktop mobile emulation and real mobile browsers) the body is set to overflow: hidden (react-native-web recommended), but the ScrollView and several parent containers do not consistently occupy the available height; as a result the browser does not allow internal scrolling and bottom controls (e.g., "Get Started") are cut off. The solution is to add Platform.OS === 'web' conditional styling and ensure stack navigators use cardStyle: { flex: 1 } in their screenOptions so screens occupy available space. These changes preserve native behavior on iOS/Android while fixing web layout.
+This change addresses a runtime/data-consistency bug discovered during end-to-end testing: the onboarding flow and the profile edit flow used two separate goal definitions (different IDs, labels and icon formats), which could produce mismatched goal IDs in user profiles and inconsistent UI. The implementation will:
 
-[Types]
-Minimal to no changes to the TypeScript types; add a small helper boolean constant and augment component props only where necessary.
+- Make `src/types/profile.ts` the authoritative source for all fitness goal definitions.
+- Update `OnboardingScreen` to render and persist goals using `DEFAULT_FITNESS_GOALS` with the same visual style (card-based) used by `ProfileEditScreen`.
+- Remove or mark deprecated any legacy `FITNESS_GOALS` constants and update all references to use the default list.
+- Run type-check, automated tests and manual verification steps to ensure no regressions.
 
-Introduce a single runtime helper:
+[Types]  
+Use the existing typed `FitnessGoal` and `DEFAULT_FITNESS_GOALS` from `src/types/profile.ts` as the canonical types and runtime list.
 
-- isWeb: boolean — derived from Platform.OS === 'web' and used inside components to apply platform-specific style variants.
+Detailed type definitions and constraints:
 
-No changes to existing interfaces or exported types are required.
+- FitnessGoal (from src/types/profile.ts)
+  - id: string (canonical identifier used in user profiles; must be stable)
+  - name: string (display label)
+  - description: string (short description for UI)
+  - category: "strength" | "muscle" | "endurance" | "weight_loss" | "general"
+  - icon: string (icon name or emoji string; UI will accept either)
+  - popular: boolean
+- Validation rules:
+  - id must be kebab_case or snake_case (consistent with existing DEFAULT_FITNESS_GOALS values: e.g., "build_muscle", "get_stronger")
+  - name non-empty, <= 60 chars
+  - description <= 160 chars
+  - category must be one of the allowed enums
+  - icon is optional but encouraged for consistent visual display
+- Backwards compatibility:
+  - When migrating from legacy goal IDs, map legacy IDs to the new canonical IDs if necessary (see Migration section below).
 
 [Files]
-Single sentence describing file modifications.
+Single sentence describing file modifications:
+Modify onboarding UI and constants, ensure all references use DEFAULT_FITNESS_GOALS, and optionally remove legacy constants.
 
 Detailed breakdown:
 
-- New files to be created
+- New files to be created:
 
-  - None required.
+  - (none required for this change)
 
-- Existing files to be modified
+- Existing files to be modified (exact path + specific changes):
 
   - src/screens/auth/OnboardingScreen.tsx
+    - Replace import of legacy `FITNESS_GOALS` with `DEFAULT_FITNESS_GOALS` from `src/types/profile`.
+    - Update EXPERIENCE_LEVELS consumption to use the array/object shape exported from `src/types/profile` (or call helper `getExperienceLevelInfo`) so rendering and labels are consistent.
+    - Rework the "goals" step renderer:
+      - Replace grid Button-based rendering that used `FITNESS_GOALS` entries with card/button layout consistent with ProfileEditScreen (use same styles or copy structure).
+      - Use `goal.id`, `goal.name`, `goal.description`, `goal.popular`, `goal.icon`.
+    - Ensure state uses the same IDs `string[]` that profile edit uses and `updateProfile` payload includes `fitnessGoals: selectedGoals`.
+    - Use `getExperienceLevelInfo` to display experience-level name where appropriate.
+  - src/constants/auth.ts
+    - Remove or mark deprecated the legacy `FITNESS_GOALS` data structure.
+    - If removing, ensure any types referencing `keyof typeof FITNESS_GOALS` are updated to appropriate types (e.g., `string` or to the canonical type exported from src/types/profile).
+    - Option chosen here: deprecate by replacing value with an empty object and add a clear comment indicating the canonical list is in `src/types/profile.ts`.
+  - src/types/profile.ts
+    - No structural change required for types themselves; confirm `DEFAULT_FITNESS_GOALS` contains desired IDs and labels (it currently does).
+  - src/screens/profile/ProfileEditScreen.tsx
+    - No changes required for behavior/style (source of design). Confirm listens to `DEFAULT_FITNESS_GOALS` (already does).
+  - src/screens/profile/ProfileSetupScreen.tsx
+    - Confirm it already uses `DEFAULT_FITNESS_GOALS` (no change required) but run a grep/check and update if needed.
 
-    - Add `const isWeb = Platform.OS === 'web'` at the top of the component function.
-    - Update the JSX for each step renderer (renderWelcomeStep, renderProfileStep, renderGoalsStep, renderCompleteStep) to apply web-safe styles:
-      - SafeAreaView: `style={[styles.safeArea, isWeb && styles.webSafeArea, { backgroundColor: colors.background }]}` (or analogous usage where SafeAreaView currently receives styles).
-      - KeyboardAvoidingView: `style={[styles.keyboardAvoidingView, isWeb && styles.webKeyboardAvoiding]}`.
-      - ScrollView: ensure `style={[styles.scrollView, isWeb && styles.webScrollView]}` and `contentContainerStyle={[styles.scrollContent, isWeb && styles.webScrollContent]}`. Ensure padding/bottom spacing is provided in contentContainerStyle, not style.
-      - Container/View elements: ensure top-level container inside ScrollView uses styles that allow flex behavior to expand and push the bottom button into ScrollView content, e.g., `styles.container` updated to `minHeight: '100%'` for web or `flex: 1`.
-    - Add new style entries to the StyleSheet at the bottom:
-      - webSafeArea: { minHeight: '100%', display: 'flex', flex: 1 }
-      - webKeyboardAvoiding: { minHeight: '100%', display: 'flex', flex: 1 }
-      - webScrollView: { flex: 1 }
-      - webScrollContent: { flexGrow: 1, paddingBottom: 32 } (ensure contentContainerStyle contains padding)
-    - Replace any ScrollView style-based padding with contentContainerStyle equivalents (e.g., move paddingBottom/paddingHorizontal into contentContainerStyle).
-    - Minor JSX adjustments: add explicit style arrays where currently simple style prop used (so we can conditionally add web styles).
+- Files to be deleted or moved:
 
-  - src/navigation/AuthNavigator.tsx
+  - Optionally remove legacy `FITNESS_GOALS` entries from `src/constants/auth.ts` once all references are updated across the repo and external packages are verified not to rely on it. For safety, prefer deprecation + empty export first, then permanent removal in a follow-up PR.
 
-    - Update the `AuthStack.Navigator`'s `screenOptions` to include `cardStyle: { flex: 1 }`.
-    - This ensures the navigator's screen container stretches to full height on web and allows child ScrollView to size correctly.
-
-  - src/navigation/AppNavigator.tsx (and other stack navigators in src/navigation/\* that use createStackNavigator)
-    - OPTIONAL but recommended: add `cardStyle: { flex: 1 }` to each stack navigator's `screenOptions` where missing:
-      - src/navigation/AppNavigator.tsx
-      - src/navigation/WorkoutNavigator.tsx
-      - src/navigation/ProfileNavigator.tsx
-      - src/navigation/ProgressNavigator.tsx
-      - src/navigation/AICoachNavigator.tsx
-      - src/navigation/ProgressNavigator.tsx
-    - If some navigators already have cardStyle set, verify value is `flex: 1` and unify.
-
-- Files to be deleted or moved
-
-  - None.
-
-- Configuration file updates
-  - No changes to public/index.html are required (it already contains the Expo/react-native-web style reset with `body { overflow: hidden }` and #root height). Keep as-is.
+- Configuration file updates:
+  - None required.
 
 [Functions]
-Single sentence describing function modifications.
+Single sentence describing function modifications:
+Update the goal rendering and toggling functions in onboarding so they operate on canonical goal IDs and adopt the same interaction semantics as profile edit.
 
 Detailed breakdown:
 
-- New functions
+- Modified functions (file path and exact change):
+  - src/screens/auth/OnboardingScreen.tsx
+    - handleGoalToggle(goalKey: string)
+      - No logic change required (toggle semantics identical) but ensure it receives goal.id strings and updates local state `selectedGoals: string[]` accordingly.
+    - renderGoalsStep()
+      - Replace map over legacy FITNESS_GOALS with DEFAULT_FITNESS_GOALS.map and adopt card structure identical to ProfileEditScreen (show Popular badge, name, description, icon).
+    - onSubmit()
+      - Ensure payload uses `fitnessGoals: selectedGoals` and that `updateProfile` call persists the canonical goal IDs.
+    - Rendering of experience level labels — replace any usage of EXPERIENCE_LEVELS object keyed by string with `getExperienceLevelInfo` (or map from array) for consistent label/description.
+- New helper functions:
 
-  - None global; changes are purely local to components and styles. No new exported functions required.
+  - (optional) mapLegacyGoalIdToCanonical(legacyId: string): string | null — used only if user DB contains legacy IDs and you need to convert them on the fly (only implement after discovery of legacy values; recommended as a follow-up).
 
-- Modified functions
-
-  - OnboardingScreen component (export const OnboardingScreen: React.FC<OnboardingScreenProps>)
-
-    - Add `const isWeb = Platform.OS === 'web'` immediately after hooks initialization.
-    - Update renderWelcomeStep, renderProfileStep, renderGoalsStep, renderCompleteStep to apply style arrays with web variants as described in Files section.
-    - Ensure ScrollView uses `contentContainerStyle` for layout/padding and `style` only for container-level sizing like `flex: 1`.
-    - Move any direct padding from ScrollView.style to contentContainerStyle.
-
-  - AuthNavigator component (export default AuthNavigator)
-    - Add `cardStyle: { flex: 1 }` to the `screenOptions` object passed to `<AuthStack.Navigator>`.
-
-- Removed functions
+- Removed functions:
   - None.
 
 [Classes]
-Single sentence describing class modifications.
+Single sentence describing class modifications:
+No classes are modified; only functional React components are changed.
 
 Detailed breakdown:
 
-- New classes
-
-  - None.
-
-- Modified classes
-
-  - None (React functional components only; style object changes only).
-
-- Removed classes
-  - None.
+- New classes: none
+- Modified classes: none
+- Removed classes: none
 
 [Dependencies]
-Single sentence describing dependency modifications.
+Single sentence describing dependency modifications:
+No new npm packages required; changes are internal imports and type updates.
 
-No new npm packages are required. Changes rely on existing react-native and react-native-web behavior. No version updates are planned. If edge-case polyfills are needed for specific browsers, we will document and pull them later, but initial fix should not require additional dependencies.
+Details:
+
+- New import lines:
+  - OnboardingScreen.tsx: import { DEFAULT_FITNESS_GOALS, getExperienceLevelInfo, EXPERIENCE_LEVELS } from "@/types/profile";
+  - Replace any import of FITNESS_GOALS from "@/constants/auth" with the types/profile import.
+- No new package additions or version bumps.
 
 [Testing]
-Single sentence describing testing approach.
+Single sentence describing testing approach:
+Run TypeScript type-check, run unit tests, and perform manual e2e validation covering onboarding → profile flows to confirm goal IDs, labels and UI are consistent and persist correctly.
 
-Testing will include local web dev server checks and mobile browser verification steps, using Chrome DevTools mobile emulation and a real mobile browser (Safari/Chrome) if available.
+Test file requirements and validation strategy:
 
-Test file requirements, existing test modifications, and validation strategies:
-
-- Manual tests:
-  - Start the app in web mode (e.g., `expo start --web` or `npm run web`) and open in desktop Chrome.
-  - Enable mobile device emulation in DevTools (e.g., iPhone X) and verify the Onboarding welcome screen:
-    - Confirm the "Get Started" button is visible and the screen scrolls to reveal it.
-    - Verify ScrollView scrolls when content exceeds viewport.
-    - Go through steps (press "Get Started", then "Continue" on profile step, etc.) to ensure subsequent screens also scroll.
-  - Open in a real mobile browser (Safari on iPhone and Chrome on Android if available) and verify the same behaviors.
-  - Verify PWA and iPhone simulator behavior remains unchanged.
-- Automated tests:
-  - No unit tests required for style-only change. If desired, add a snapshot test to confirm OnboardingScreen renders with the new style props on web, but this is optional.
+- Automated:
+  - Run `npm run type-check` (tsc --noEmit).
+  - Run unit tests: `npm test` (if relevant tests exist).
+  - Run linting: `npm run lint` (optional).
+- Manual end-to-end tests:
+  1. Fresh user sign-up → complete onboarding:
+     - On the "Goals" step, select multiple goals (e.g., Build Muscle, Get Stronger).
+     - Complete onboarding and verify onboarding completion screen/state.
+  2. Navigate to Edit Profile:
+     - Confirm the goals selected during onboarding appear and are checked/selected in the Profile Edit view.
+     - Toggle goals in Profile Edit, save, and verify saved state persists (reload app if necessary).
+  3. Back-compat check:
+     - If older users exist with legacy goal IDs (pre-change), login with a test user that has legacy IDs (if available) and ensure goal rendering falls back or is mapped correctly. If mapping is required, create a mapping test.
+  4. Visual regression:
+     - Compare Onboarding Goals UI to Profile Edit Goals UI to confirm card appearance, badge, and styles match (colors, spacing).
+  5. Accessibility:
+     - Ensure buttons are reachable by accessibility tools (labels, testIDs). Preserve existing `testID` props where present.
 
 [Implementation Order]
-Single sentence describing the implementation sequence.
-
-Apply small, reversible changes in a specific order to minimize regressions and make rollback easy.
+Single sentence describing the implementation sequence:
+Apply changes in small, verifiable steps: update onboarding imports and UI, deprecate legacy constants, run type-check and tests, then remove legacy code after verification.
 
 Numbered steps:
 
-1. Create the implementation_plan.md (this document) and create the implementation task (new_task) so the work is tracked.
-2. Update `src/navigation/AuthNavigator.tsx` to add `cardStyle: { flex: 1 }` in `screenOptions`. Commit this small change and run the web app to see if layout improves (quick verification).
-3. Modify `src/screens/auth/OnboardingScreen.tsx`:
-   - Add `const isWeb = Platform.OS === 'web'`.
-   - Add web-specific styles to StyleSheet and apply them to SafeAreaView, KeyboardAvoidingView, ScrollView (style + contentContainerStyle), and top-level container.
-   - Move padding from ScrollView.style into contentContainerStyle where appropriate.
-   - Commit changes.
-4. (Optional) Add `cardStyle: { flex: 1 }` to other stack navigators in `src/navigation/` that use createStackNavigator if step 2 shows incomplete coverage.
-5. Run the web app (`npm run web` or `expo start --web`) and perform manual verification in Chrome DevTools mobile emulation and a real device browser.
-6. If issues remain, iterate:
-   - Add `minHeight: '100%'` to problematic containers
-   - Ensure no nested FlatList or other virtualized lists are inside ScrollView
-   - Re-check contentContainerStyle usage
-7. Finalize and push commits with descriptive messages and update release notes if required.
+1. Update imports in OnboardingScreen
+   - Replace `FITNESS_GOALS` import from `src/constants/auth.ts` with `DEFAULT_FITNESS_GOALS` (and related helpers) from `src/types/profile.ts`.
+2. Update EXPERIENCE_LEVELS usage in OnboardingScreen
+   - Use the array/object shape provided in `src/types/profile.ts` and `getExperienceLevelInfo` when rendering labels/descriptions.
+3. Replace renderGoalsStep() in OnboardingScreen
+   - Re-implement using the card layout pattern from `src/screens/profile/ProfileEditScreen.tsx`.
+   - Ensure `onPress` toggles use `goal.id` and that UI shows `goal.popular` badge.
+4. Persist canonical IDs
+   - Ensure `onSubmit()` sends `fitnessGoals: selectedGoals` to `updateProfile`.
+5. Deprecate legacy constant
+   - Replace `FITNESS_GOALS` in `src/constants/auth.ts` with an empty export and a comment pointing to `src/types/profile.ts`.
+6. Search and update remaining references
+   - Run a repo-wide search for `FITNESS_GOALS` and `FitnessGoal` references; replace with `DEFAULT_FITNESS_GOALS` or the canonical type.
+7. Type-check and tests
+   - Run `npm run type-check`, `npm test`, and `npm run lint`.
+8. Manual verification
+   - Perform the end-to-end tests described in [Testing].
+9. Final cleanup (optional)
+   - After verification, remove the deprecated `FITNESS_GOALS` export entirely and update any types that referenced it (make a separate commit/PR).
+10. Release
+
+- Merge changes and run a smoke test in staging.
+
+Migration notes:
+
+- If you find user data using legacy goal IDs in production, prepare a small migration mapping legacy IDs to canonical IDs, or add runtime mapping in the profile read layer to normalize data on load. Avoid silent data loss — prefer mapping or logging unmapped IDs for manual review.

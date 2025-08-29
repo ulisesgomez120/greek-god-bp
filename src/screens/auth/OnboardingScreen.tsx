@@ -8,7 +8,8 @@ import React, { useState } from "react";
 import { View, StyleSheet, Alert, TextInput, ScrollView, KeyboardAvoidingView, Platform } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useAuth } from "@/hooks/useAuth";
-import { EXPERIENCE_LEVELS, FITNESS_GOALS } from "@/constants/auth";
+import { EXPERIENCE_LEVELS, DEFAULT_FITNESS_GOALS, getExperienceLevelInfo } from "@/types/profile";
+import type { ExperienceLevel } from "@/types/database";
 import Text from "@/components/ui/Text";
 import Button from "@/components/ui/Button";
 import useTheme from "@/hooks/useTheme";
@@ -285,20 +286,23 @@ export const OnboardingScreen: React.FC<OnboardingScreenProps> = ({ navigation, 
                   This helps us customize your workout recommendations
                 </Text>
 
-                {Object.entries(EXPERIENCE_LEVELS).map(([key, level]) => (
+                {EXPERIENCE_LEVELS.map((level) => (
                   <Button
-                    key={key}
-                    variant={experienceLevel === key ? "primary" : "secondary"}
+                    key={level.level}
+                    variant={experienceLevel === level.level ? "primary" : "secondary"}
                     size='medium'
                     style={styles.experienceButton}
-                    onPress={() => setExperienceLevel(key)}>
+                    onPress={() => setExperienceLevel(level.level)}>
                     <View style={styles.experienceButtonContent}>
-                      <Text variant='body' color={experienceLevel === key ? "white" : "primary"} weight='medium'>
-                        {level.label}
+                      <Text
+                        variant='body'
+                        color={experienceLevel === level.level ? "white" : "primary"}
+                        weight='medium'>
+                        {level.name}
                       </Text>
                       <Text
                         variant='bodySmall'
-                        color={experienceLevel === key ? "white" : "secondary"}
+                        color={experienceLevel === level.level ? "white" : "secondary"}
                         style={styles.experienceDescription}>
                         {level.description}
                       </Text>
@@ -358,29 +362,33 @@ export const OnboardingScreen: React.FC<OnboardingScreenProps> = ({ navigation, 
                 </Text>
 
                 <View style={styles.goalsGrid}>
-                  {Object.entries(FITNESS_GOALS).map(([key, goal]) => (
+                  {DEFAULT_FITNESS_GOALS.map((goal) => (
                     <Button
-                      key={key}
-                      variant={selectedGoals.includes(key) ? "primary" : "secondary"}
+                      key={goal.id}
+                      variant={selectedGoals.includes(goal.id) ? "primary" : "secondary"}
                       size='medium'
                       style={styles.goalButton}
-                      onPress={() => handleGoalToggle(key)}>
+                      onPress={() => handleGoalToggle(goal.id)}>
                       <View style={styles.goalButtonContent}>
                         <Text variant='h3' style={styles.goalIcon}>
                           {goal.icon}
                         </Text>
                         <Text
                           variant='body'
-                          color={selectedGoals.includes(key) ? "white" : "primary"}
+                          color={selectedGoals.includes(goal.id) ? "white" : "primary"}
                           weight='medium'
-                          align='center'>
-                          {goal.label}
+                          align='center'
+                          numberOfLines={1}
+                          ellipsizeMode='tail'>
+                          {goal.name}
                         </Text>
                         <Text
                           variant='bodySmall'
-                          color={selectedGoals.includes(key) ? "white" : "secondary"}
+                          color={selectedGoals.includes(goal.id) ? "white" : "secondary"}
                           align='center'
-                          style={styles.goalDescription}>
+                          style={[styles.goalDescription, { flexShrink: 1 }]}
+                          numberOfLines={2}
+                          ellipsizeMode='tail'>
                           {goal.description}
                         </Text>
                       </View>
@@ -449,7 +457,7 @@ export const OnboardingScreen: React.FC<OnboardingScreenProps> = ({ navigation, 
 
                   <View style={styles.summaryItem}>
                     <Text variant='body' color='primary' weight='medium'>
-                      Experience Level: {EXPERIENCE_LEVELS[experienceLevel as keyof typeof EXPERIENCE_LEVELS]?.label}
+                      Experience Level: {getExperienceLevelInfo(experienceLevel as ExperienceLevel).name}
                     </Text>
                   </View>
 
