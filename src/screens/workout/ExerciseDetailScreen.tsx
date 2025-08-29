@@ -4,7 +4,7 @@
 // Full exercise logging interface with set tracking, rest timer, history, and navigation
 
 import React, { useState, useEffect, useCallback } from "react";
-import { View, ScrollView, StyleSheet, TouchableOpacity, Alert, ActivityIndicator } from "react-native";
+import { View, ScrollView, StyleSheet, TouchableOpacity, Alert, ActivityIndicator, Keyboard } from "react-native";
 import useUnitPreferences from "../../hooks/useUnitPreferences";
 import { formatKgToLbsDisplay } from "../../utils/unitConversions";
 import { StackNavigationProp } from "@react-navigation/stack";
@@ -45,6 +45,7 @@ interface ExerciseLoggerState {
   restDuration: number;
   currentSetNumber: number;
   nextExercise: NextExerciseInfo | null;
+  keyboardVisible: boolean;
 }
 
 interface ExerciseHistorySession {
@@ -86,6 +87,7 @@ export const ExerciseDetailScreen: React.FC<ExerciseDetailScreenProps> = ({ navi
     restDuration: exerciseData.restSeconds,
     currentSetNumber: 1,
     nextExercise: null,
+    keyboardVisible: false,
   });
 
   // Local submitting state for set submissions
@@ -161,6 +163,36 @@ export const ExerciseDetailScreen: React.FC<ExerciseDetailScreenProps> = ({ navi
   }, [navigation]);
 
   // end DATA LOADING
+
+  // ============================================================================
+  // KEYBOARD HANDLING
+  // ============================================================================
+  useEffect(() => {
+    const parent = (navigation as any).getParent?.();
+    const onKeyboardShow = () => {
+      setState((prev) => ({ ...prev, keyboardVisible: true }));
+      try {
+        if (parent && parent.setOptions) {
+          parent.setOptions({ tabBarStyle: { display: "none" } });
+        }
+      } catch (err) {
+        // ignore
+      }
+    };
+
+    const onKeyboardHide = () => {
+      setState((prev) => ({ ...prev, keyboardVisible: false }));
+      // Do not force-show the tab bar here; focus/blur handlers manage visibility.
+    };
+
+    const showSub = Keyboard.addListener("keyboardDidShow", onKeyboardShow);
+    const hideSub = Keyboard.addListener("keyboardDidHide", onKeyboardHide);
+
+    return () => {
+      showSub.remove();
+      hideSub.remove();
+    };
+  }, [navigation]);
 
   const calculateNextExercise = useCallback(async () => {
     try {
@@ -456,27 +488,31 @@ export const ExerciseDetailScreen: React.FC<ExerciseDetailScreenProps> = ({ navi
     );
   };
 
-  const renderNavigationFooter = () => (
-    <View style={styles.navigationFooter}>
-      {state.nextExercise ? (
-        <Button
-          variant='primary'
-          onPress={handleNextExercise}
-          style={styles.nextButton}
-          accessibilityLabel='Next exercise'>
-          {`Next: ${state.nextExercise.name} →`}
-        </Button>
-      ) : (
-        <Button
-          variant='primary'
-          onPress={handleCompleteWorkout}
-          style={{ ...styles.completeButton, backgroundColor: colors.success }}
-          accessibilityLabel='Complete workout'>
-          Complete Workout
-        </Button>
-      )}
-    </View>
-  );
+  const renderNavigationFooter = () => {
+    if (state.keyboardVisible) return null;
+
+    return (
+      <View style={styles.navigationFooter}>
+        {state.nextExercise ? (
+          <Button
+            variant='primary'
+            onPress={handleNextExercise}
+            style={styles.nextButton}
+            accessibilityLabel='Next exercise'>
+            {`Next: ${state.nextExercise.name} →`}
+          </Button>
+        ) : (
+          <Button
+            variant='primary'
+            onPress={handleCompleteWorkout}
+            style={{ ...styles.completeButton, backgroundColor: colors.success }}
+            accessibilityLabel='Complete workout'>
+            Complete Workout
+          </Button>
+        )}
+      </View>
+    );
+  };
 
   // ============================================================================
   // RENDER

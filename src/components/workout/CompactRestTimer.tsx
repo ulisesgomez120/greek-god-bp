@@ -89,17 +89,22 @@ export const CompactRestTimer: React.FC<CompactRestTimerProps> = ({ duration, on
   const [nativeTimerLaunched, setNativeTimerLaunched] = useState(false);
   const [isStarting, setIsStarting] = useState(false);
   const webCancelRef = useRef<null | (() => void)>(null);
+  const initialDurationRef = useRef<number>(duration);
 
   useEffect(() => {
-    // Reset when duration changes
-    setNativeTimerLaunched(false);
-    setIsStarting(false);
+    // Update the displayed duration only when a native timer has NOT been launched.
+    // Once the user launches a native timer we preserve the displayed duration (native-first).
+    if (!nativeTimerLaunched) {
+      initialDurationRef.current = duration;
+      setIsStarting(false);
+    }
+
     // clear any scheduled web notification from previous runs
     if (webCancelRef.current) {
       webCancelRef.current();
       webCancelRef.current = null;
     }
-  }, [duration]);
+  }, [duration, nativeTimerLaunched]);
 
   useEffect(() => {
     return () => {
@@ -223,7 +228,7 @@ export const CompactRestTimer: React.FC<CompactRestTimerProps> = ({ duration, on
   return (
     <View style={[styles.container, style]}>
       <TextUI variant='bodySmall' color='secondary' style={styles.restText}>
-        Rest: {formatMinutes(duration)}
+        Rest: {formatMinutes(initialDurationRef.current)}
       </TextUI>
 
       <TouchableOpacity

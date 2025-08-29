@@ -154,41 +154,6 @@ export const AUTH_CONFIG = {
 } as const;
 
 // ============================================================================
-// EXPERIENCE LEVELS
-// ============================================================================
-
-export const EXPERIENCE_LEVELS = {
-  untrained: {
-    label: "Untrained",
-    description: "Less than 3 months of consistent training",
-    duration: "0-3 months",
-    focus: "Learning proper form and technique",
-    progressionType: "technique",
-  },
-  beginner: {
-    label: "Beginner",
-    description: "3-9 months of consistent training",
-    duration: "3-9 months",
-    focus: "Linear progression with consistent weight increases",
-    progressionType: "linear",
-  },
-  early_intermediate: {
-    label: "Early Intermediate",
-    description: "9-18 months of consistent training",
-    duration: "9-18 months",
-    focus: "RPE-based progression and periodization",
-    progressionType: "rpe_based",
-  },
-  intermediate: {
-    label: "Intermediate",
-    description: "18+ months of consistent training",
-    duration: "18+ months",
-    focus: "Advanced programming and specialization",
-    progressionType: "advanced",
-  },
-} as const;
-
-// ============================================================================
 // AUTH FLOW CONSTANTS
 // ============================================================================
 
@@ -325,7 +290,6 @@ export const WEBHOOK_EVENTS = {
 // EXPORT TYPES
 // ============================================================================
 
-export type ExperienceLevel = keyof typeof EXPERIENCE_LEVELS;
 export type FitnessGoal = string;
 export type AuthFlow = keyof typeof AUTH_FLOWS;
 export type WebhookEvent = keyof typeof WEBHOOK_EVENTS;

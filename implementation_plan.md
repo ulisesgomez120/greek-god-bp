@@ -1,213 +1,195 @@
 # Implementation Plan
 
 [Overview]
-Fix onboarding persistence and ensure the final onboarding "You're All Set!" screen is shown before the app navigates away. Scope includes: persist onboarding fields (display name, experience level, fitness goals, other edited fields) to the `user_profiles` table, persist the `onboarding_completed` boolean to the DB, ensure Redux/auth metadata is updated only when onboarding is truly finished (so the UI can show the "complete" screen), and add the minimal type & transform changes required to safely pass onboarding completion through the profile update pipeline.
+Fix two UI bugs in the exercise logging flow: (1) navigation/footer buttons appearing above the keyboard while typing/scrolling in the exercise logger, and (2) the rest timer display changing unexpectedly after app background/foreground or when the parent updates the timer prop. The approach is to (A) add robust keyboard handling to the ExerciseDetail screen so the footer and tab bar do not clash with the on-screen keyboard, and (B) make CompactRestTimer display stable when a native timer has been launched (preserve the shown duration after user starts the native timer) while preserving the existing native deep-link approach and PWA fallback.
 
-This change is needed because currently onboarding edits (experience level, goals, display name, etc.) appear to be applied in memory/auth metadata but are not persisted to the `user_profiles` table (or are persisted inconsistently), and the UI often navigates away before the final onboarding screen is visible. Fixing this will ensure users' choices are durable and the onboarding UX behaves as expected.
+This change is targeted and small-scope: no new dependencies, only focused edits to UI components used during active exercise logging. The fix preserves the existing app behavior (native timers via deep links on iOS/Android; web notifications for PWA) while ensuring visual stability and preventing overlay conflicts with the keyboard. It fits into the current architecture by modifying two components/screens:
+
+- src/screens/workout/ExerciseDetailScreen.tsx (keyboard handling + footer/tab bar coordination)
+- src/components/workout/CompactRestTimer.tsx (stabilize displayed duration after launch)
+
+These fixes reduce user confusion and accidental interactions (e.g., pressing "Next Exercise" when the user intends to log a set) and keep the native timer-first behavior requested.
 
 [Types]  
-Add a single optional field to the profile update request type to signal final onboarding completion and ensure transforms map it to the DB column.
+Add a lightweight UI state field used by ExerciseDetailScreen: keyboardVisible boolean on the ExerciseLoggerState shape.
 
-Detailed type changes:
+Detailed type definitions:
 
-- src/types/auth.ts
+- ExerciseLoggerState (existing) — additions:
+  - keyboardVisible: boolean
+    - Purpose: track whether the keyboard is currently visible to hide navigation footer / ensure tab bar remains hidden.
+    - Validation: boolean (true when keyboard is visible, otherwise false).
+    - Relationship: local UI-only state used only inside ExerciseDetailScreen; not persisted.
 
-  - Modify `ProfileUpdateRequest` (or the specific type used by `useAuth.updateProfile`) to include:
-    - onboardingCompleted?: boolean
-      - type: boolean | undefined
-      - validation rules: optional; when present, must be boolean
-      - purpose: request that the service mark onboarding as completed (persist onboarding_completed = true to DB)
-
-- src/types/profile.ts
-
-  - Confirm `UserProfile` already contains `onboardingCompleted: boolean` (exists in codebase). No change needed unless missing; keep as-is.
-
-- src/types/transforms.ts
-  - Ensure `transformUserProfileToDb` supports mapping of `onboardingCompleted` -> `onboarding_completed`:
-    - Input key: onboardingCompleted?: boolean
-    - Output key: onboarding_completed: boolean | null
-    - Validation: if value === true or false, set DB column accordingly; if undefined, leave unspecified so UPDATE won't touch the column.
+No explicit TypeScript interface changes are required project-wide (we will update the local inline state initialization in ExerciseDetailScreen to include keyboardVisible). No new global types or exported interfaces are required.
 
 [Files]  
-This section lists files to create/modify, with exact paths and purpose.
+Single sentence describing file modifications.
+Modify ExerciseDetailScreen and CompactRestTimer to add keyboard event handling and stabilize the timer display; no new files are required.
+
+Detailed breakdown:
 
 - New files to be created:
 
-  - None required.
+  - None.
 
 - Existing files to be modified:
 
-  1. src/hooks/useAuth.ts
+  1. src/screens/workout/ExerciseDetailScreen.tsx
 
-     - Change: stop setting `onboarding_complete: true` in auth user metadata inside the general `updateProfile` flow.
-     - Add: a new exported function `completeOnboarding()` that:
-       - Calls profileService.updateProfile(user.id, { onboardingCompleted: true })
-       - On success updates the auth user metadata and Redux store exactly the same way existing `updateUserProfile` dispatch is used today.
-       - Returns the result (success/error) so callers (UI) can react and navigate.
-     - Rationale: avoid prematurely flipping `user.user_metadata.onboarding_complete` which currently causes navigation away from the onboarding flow before the "complete" screen is shown.
+  - Purpose: hide the in-screen navigation footer (Next/Complete) while the keyboard is visible; ensure bottom tab bar remains hidden while this screen is focused and when the keyboard is open.
+  - Changes:
+    - Add import: Keyboard from "react-native".
+    - Add local state: const [keyboardVisible, setKeyboardVisible] = useState(false);
+    - Add useEffect: register listeners for keyboardDidShow and keyboardDidHide (and keyboardWillShow/keyboardWillHide on iOS if desired) to set keyboardVisible.
+    - When keyboardVisible becomes true:
+      - Hide the in-screen footer by returning null from renderNavigationFooter() while keyboard visible.
+      - Additionally, if parent navigator is available (the same parent used for tabBarStyle hiding already), call parent.setOptions({ tabBarStyle: { display: "none" } }) to enforce that the native tab bar remains hidden while the keyboard is visible.
+    - When keyboardVisible becomes false:
+      - Restore footer rendering and restore parent tabBarStyle to undefined (consistent with existing showTabBar logic).
+    - Update the ExerciseLoggerState initial object to include keyboardVisible: false.
+    - Add cleanup to remove keyboard listeners on unmount.
+    - No change to the shape of navigation parameters or persisted data.
+    - Files lines/functions touched:
+      - Top-level imports
+      - The useEffect that hides/shows the tabBar on focus/blur will remain; add keyboard listener effect in addition.
+      - renderNavigationFooter() — guard return value with if (keyboardVisible) return null.
 
-  2. src/screens/auth/OnboardingScreen.tsx
+  2. src/components/workout/CompactRestTimer.tsx
 
-     - Change: `onSubmit` should update the profile with the user-entered fields but NOT mark onboarding as completed.
-       - No change to the current call to `updateProfile({...})` for displayName, experienceLevel, fitnessGoals etc, except ensure it does not include any `onboardingCompleted` flag.
-     - Change: `renderCompleteStep` / `completeOnboarding`:
-       - Replace the `completeOnboarding` implementation to call the new `useAuth.completeOnboarding()` function.
-       - On success of `completeOnboarding()` call `onOnboardingComplete?.()` or trigger navigation. On failure show appropriate error UI (Alert).
-       - Ensure the complete screen is shown and the Start Training button waits for the DB/auth update to complete before proceeding.
-
-  3. src/services/profile.service.ts
-
-     - Change: Add mapping in `updateProfile` handler to accept and persist `updates.onboardingCompleted`:
-       - If (updates.onboardingCompleted !== undefined) set updateData.onboarding_completed = updates.onboardingCompleted;
-     - Rationale: persist onboarding completion to the `user_profiles` table.
-
-  4. src/types/transforms.ts
-
-     - Change: If `transformUserProfileToDb` is used generically, extend it to map `onboardingCompleted` -> `onboarding_completed` so transforms are consistent.
-     - If not feasible, add explicit mapping in `profile.service.updateProfile` (see above). Prefer adding to transforms to keep mapping central.
-
-  5. src/store/auth/authSlice.ts
-     - Change: Verify the reducer that handles `updateUserProfile` respects `user.user_metadata.onboarding_complete` and that the store shape still matches components in navigation checks.
-     - Likely no code change required, but add a small unit/integration test or manual verification step.
+  - Purpose: preserve the displayed timer duration after launching a native timer (prevent prop-driven changes from altering the displayed label after the user has started the native timer), while keeping native deep-link behavior for iOS/Android and PWA fallback.
+  - Changes:
+    - Add a ref: initialDurationRef = useRef<number>(duration). This stores the display duration at the moment the timer is launched.
+    - Modify existing useEffect([duration]) behavior:
+      - Do not forcibly reset nativeTimerLaunched to false whenever the parent `duration` prop changes.
+      - Update initialDurationRef.current = duration only when the timer has NOT been launched (i.e., when nativeTimerLaunched === false). This ensures the shown "Rest: X" will update as the user navigates and parent sets different rest durations, but once the user starts a native timer the displayed value stays fixed to what was launched.
+      - Still clear any scheduled web notification when duration changes as before (maintain webCancelRef behavior).
+    - Change displayed text to use initialDurationRef.current rather than the duration prop (i.e., Rest: {formatMinutes(initialDurationRef.current)}).
+    - Keep existing behavior that sets nativeTimerLaunched true when a native timer or web notification is scheduled/opened, and set it back to false on manual complete (handleManualComplete).
+    - Files lines/functions touched:
+      - Top-level local state/ref declarations
+      - the useEffect that currently resets nativeTimerLaunched on duration changes (remove that reset)
+      - format/display lines in the JSX return
 
 - Files to be deleted or moved:
 
   - None.
 
 - Configuration file updates:
-  - None.
+  - None (no new packages or env changes).
 
 [Functions]  
-Single sentence: Add a new completion function, and modify the existing profile update flow to avoid premature onboarding metadata updates.
+Single sentence describing function modifications.
+Add keyboard listener logic in ExerciseDetailScreen to toggle footer/tab bar visibility; adjust CompactRestTimer internal logic to preserve the shown duration after native timer launch.
 
 Detailed breakdown:
 
 - New functions:
 
-  1. completeOnboarding
-     - Signature: async function completeOnboarding(): Promise<AuthResponse>
-     - File: src/hooks/useAuth.ts
-     - Purpose: Persist onboarding_completed = true to database via profileService.updateProfile and update Redux user metadata (dispatch updateUserProfile). Return an AuthResponse-like object indicating success/error similar to other hook methods.
-     - Behavior:
-       - If no user id, return error { code: "NO_USER_ID" }.
-       - Call profileService.updateProfile(user.id, { onboardingCompleted: true }).
-       - If success: produce updatedUser with user_metadata onboarding_complete: true and dispatch(updateUserProfile(updatedUser)).
-       - Return success or error accordingly.
+  - No additional exported functions. Changes are component-level logic and useEffect handlers.
 
 - Modified functions:
 
-  1. updateProfile
-     - File: src/hooks/useAuth.ts
-     - Required changes:
-       - Do NOT set onboarding_complete: true in the `updatedUser` metadata after a regular profile update. Continue to sync display_name and experience_level, but omit onboarding metadata changes.
-       - Continue returning the updated user/profile info as before (except for onboarding metadata).
-  2. onSubmit
-     - File: src/screens/auth/OnboardingScreen.tsx
-     - Required changes:
-       - Keep the existing behavior of calling updateProfile for displayName/experienceLevel/fitnessGoals.
-       - After success: set currentStep('complete') as today.
-       - Do not attempt to set onboarding metadata here.
-  3. completeOnboarding (UI)
-     - File: src/screens/auth/OnboardingScreen.tsx
-     - Replace current `completeOnboarding` stub to call `useAuth().completeOnboarding()` and handle success/failure (show Alert on failure). On success call onOnboardingComplete or let navigation react to updated auth state.
+  1. ExerciseDetailScreen (component function defined in src/screens/workout/ExerciseDetailScreen.tsx)
+
+     - New additions:
+       - useState hook: keyboardVisible.
+       - useEffect: setup:
+         - const showSub = Keyboard.addListener('keyboardDidShow', () => { setKeyboardVisible(true); /_ optionally hide parent tab bar _/});
+         - const hideSub = Keyboard.addListener('keyboardDidHide', () => { setKeyboardVisible(false); /_ restore parent tab bar _/});
+         - Cleanup: showSub.remove(); hideSub.remove();
+       - renderNavigationFooter(): add early return when keyboardVisible true.
+       - When keyboard Visible, also enforce parent.setOptions({ tabBarStyle: { display: 'none' } }) to guard against tab bar reappearing during keyboard show.
+     - Rationale: This is localized, small, and uses standard React Native APIs.
+
+  2. CompactRestTimer (component function defined in src/components/workout/CompactRestTimer.tsx)
+     - Modified hooks:
+       - Add initialDurationRef (useRef) and update it only when nativeTimerLaunched is false.
+       - Modify the existing useEffect that ran on duration changes: remove the unconditional setNativeTimerLaunched(false) call; instead only update initialDurationRef when timer not launched.
+     - Change render text: use initialDurationRef.current.
 
 - Removed functions:
   - None.
 
 [Classes]  
-Single sentence: No new classes; small procedural changes to existing services and hooks.
+Single sentence describing class modifications.
+No classes are added or removed; changes are limited to functional React components and their hooks.
 
 Detailed breakdown:
 
-- New classes: None.
+- New classes:
+
+  - None.
+
 - Modified classes:
-  - ProfileService (class at src/services/profile.service.ts)
-    - Modify method `updateProfile` to map `updates.onboardingCompleted` to `updateData.onboarding_completed`.
-- Removed classes: None.
+
+  - None.
+
+- Removed classes:
+  - None.
 
 [Dependencies]  
-Single sentence: No external package dependency changes required.
+Single sentence describing dependency modifications.
+No new dependencies required; changes use built-in React Native APIs and existing utilities.
 
 Details:
 
 - No new npm packages.
-- No database schema changes (the `onboarding_completed` column already exists).
-- No changes to Supabase client usage.
+- No package.json edits required.
+- No native platform changes (we keep the existing Linking-based deep links and web Notification fallback).
 
 [Testing]  
-Single sentence: Add light integration checks and manual test steps; no heavy unit test suite required for this patch.
+Single sentence describing testing approach.
+Perform focused manual and automated tests: unit-level React component tests where feasible, plus end-to-end/manual QA steps covering typing, keyboard show/hide, starting native timers, background/foreground transitions, and navigation.
 
-Test file requirements and strategies:
+Test file requirements, existing test modifications, and validation strategies:
 
-- Manual verification steps:
-
-  1. Fresh sign-up flow:
-     - Sign up a new user; proceed through the onboarding flow.
-     - On the profile step, set a display name, experience level and goals.
-     - Press Continue (goals) -> Complete Setup.
-     - Confirm the app shows the "You're All Set!" (complete) screen.
-     - On the complete screen press Start Training.
-     - Confirm navigation into the main app and that the `user_profiles` row for the user has:
-       - onboarding_completed = true
-       - display_name set to chosen value
-       - experience_level set properly
-       - fitness_goals persisted
-  2. Existing user profile update:
-     - Update profile from profile edit screen (not onboarding) and verify onboarding_completed is not toggled and fields persist.
-  3. Error handling:
-     - Simulate DB failure (or force supabase error) and verify the complete button surfaces an error and does not navigate.
-
-- Automated tests (optional, recommended):
-  - Add a small integration test for profileService.updateProfile mapping, if an existing test harness is present.
-  - Add a unit test for useAuth.completeOnboarding to verify it calls profileService.updateProfile and dispatches updateUserProfile (mocking supabase/service).
+- Automated:
+  - If present, add or update unit tests for CompactRestTimer to assert:
+    - displayed duration updates when nativeTimerLaunched is false and prop changes
+    - displayed duration remains unchanged after handleNativeLaunch sets nativeTimerLaunched true
+    - webCancelRef is set/cleared appropriately
+    - You may implement these with react-native-testing-library and jest mocking for Linking and Notification.
+  - For ExerciseDetailScreen:
+    - A unit/renderer test that simulates keyboard events and verifies the footer (renderNavigationFooter) is hidden when keyboard shown (this can be a shallow-render style test).
+- Manual QA checklist (recommended, required before merge):
+  1. Start a workout, open an exercise (ExerciseDetailScreen).
+  2. Focus weight/reps/RPE inputs; ensure footer (Next/Complete button) is not visible above keyboard and bottom tab does not appear.
+  3. Type into fields and scroll - the footer should remain hidden (or off-screen) and keyboard interactions should not cause accidental taps on navigation.
+  4. Log a working set that shows rest timer; press the CompactRestTimer start button to launch native timer on device (or schedule web notification on web).
+  5. Confirm the rest display text remains on the launched duration even if you background the app, unlock phone, or parent state updates the rest duration.
+  6. Manually press the timer widget again (when active) to mark complete — ensure nativeTimerLaunched resets and the component accepts new durations.
+  7. Navigate to next exercise and confirm rest text updates appropriately when not launched.
+  8. Verify on Android/iOS devices that clock intent/deeplink opens the native timer appropriately (existing behavior preserved).
+- Edge cases to validate:
+  - Rapid start/stop of timers
+  - Parent updates restDuration while native timer active (display should not change)
+  - Navigating away while timer active and coming back (display should still reflect the launched duration or reset if user completed timer)
+  - Keyboard shows on both iOS and Android (keyboardWillShow vs keyboardDidShow differences) — implementation should use keyboardDidShow/keyboardDidHide which are widely supported.
 
 [Implementation Order]  
-Single sentence: Apply minimal API-safe changes in a specific sequence to avoid partial states and keep navigation stable.
+Single sentence describing the implementation sequence.
+Implement keyboard handling changes first (ExerciseDetailScreen), then stabilize CompactRestTimer, run tests and QA, then deploy.
 
 Numbered steps:
 
-1. Add type field for onboardingCompleted
-
-   - Edit src/types/auth.ts: add `onboardingCompleted?: boolean` to the appropriate update/request type.
-   - Edit src/types/transforms.ts (or confirm mapping) so `transformUserProfileToDb` includes `onboardingCompleted -> onboarding_completed` mapping, or plan to add explicit mapping in the service in next step.
-
-2. Persist onboardingCompleted in profile service
-
-   - Edit src/services/profile.service.ts:
-     - In `updateProfile`, add:
-       - if (updates.onboardingCompleted !== undefined) updateData.onboarding_completed = updates.onboardingCompleted;
-     - Ensure this mapping is applied before calling supabase.from(...).update(updateData)...
-
-3. Add completeOnboarding helper in useAuth
-
-   - Edit src/hooks/useAuth.ts:
-     - Remove code that injects `onboarding_complete: true` into user metadata in the general `updateProfile` flow (stop auto-marking onboarding there).
-     - Add exported async function `completeOnboarding()` with behavior described above: call profileService.updateProfile(user.id, { onboardingCompleted: true }) and dispatch updateUserProfile(updatedUser) on success.
-
-4. Update onboarding screen to call completeOnboarding
-
-   - Edit src/screens/auth/OnboardingScreen.tsx:
-     - Change `onSubmit` to keep current behavior (persist edits) and setCurrentStep("complete").
-     - Replace `completeOnboarding()` implementation used by the Start Training button to call useAuth().completeOnboarding(), await result, show error on failure, call onOnboardingComplete on success (or rely on navigation reacting to updated auth state).
-
-5. Verify auth reducer behavior
-
-   - Inspect src/store/auth/authSlice.ts to confirm updateUserProfile action accepts an updated user object with user_metadata.onboarding_complete and updates store accordingly. Make adjustments only if necessary.
-
-6. Manual testing
-
-   - Run the manual test checklist described under Testing. Confirm fixes.
-
-7. Small cleanup and documentation
-   - Add developer note in code comments near useAuth.completeOnboarding explaining why the split exists (so future contributors don't re-introduce premature metadata updates).
-
-Notes and edge cases:
-
-- Concurrency: When marking onboarding complete, ensure the update is done with the authenticated supabase client (use session token if required). The `profileService.updateProfile` call uses the global client; for safety from within `useAuth`, call profileService.updateProfile with authenticated client when available (the existing code uses getAuthenticatedClient(session?.accessToken) in some spots when creating profile; the new completeOnboarding can use the same pattern if needed).
-- Race condition: The app's AuthNavigator uses user metadata for navigation. Because we now delay setting onboarding metadata until the user taps Start Training, the user will see the complete screen. If the app still navigates away (e.g., auth state rehydration sets onboarding_complete from server), that will still preempt the screen; however this is the intended behavior since the server state already indicates completed.
-- No DB schema migrations required — `onboarding_completed` exists already in migrations.
-
-Implementation estimation and roll-back:
-
-- Estimated time: 1–2 hours of developer time to implement and verify.
-- Roll-back strategy: Revert the changes to the three edited files (use VCS) if issues arise.
+1. Create a short-lived feature branch from main (e.g., fix/keyboard-timer-stability).
+2. Update src/screens/workout/ExerciseDetailScreen.tsx:
+   - Add Keyboard import and keyboardVisible state
+   - Add keyboard event listeners (keyboardDidShow/keyboardDidHide)
+   - Ensure renderNavigationFooter returns null while keyboardVisible
+   - Enforce parent tabBarStyle hide when keyboardVisible (mirror existing focus/blur approach)
+   - Add cleanup for listeners on unmount
+   - Adjust state initialization to include keyboardVisible: false
+3. Update src/components/workout/CompactRestTimer.tsx:
+   - Add initialDurationRef and only reassign it when native timer is not started
+   - Remove unconditional nativeTimerLaunched reset on duration prop change
+   - Display initialDurationRef.current as the rest label
+   - Ensure webCancelRef clearing behavior remains intact
+4. Run unit tests and add tests if available:
+   - CompactRestTimer: test display stability after launch
+   - ExerciseDetailScreen: test keyboard hiding logic (snapshot/render test)
+5. Run the app on a device/emulator and perform manual QA checklist (see Testing section)
+6. Iterate on any discovered edge cases or platform-specific issues (iOS keyboardWillShow vs keyboardDidShow)
+7. Create a PR with description, screenshots (if relevant), and QA checklist; request review from a teammate
+8. Merge and deploy after approval
