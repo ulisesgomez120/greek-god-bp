@@ -4,7 +4,7 @@
 // Full exercise logging interface with set tracking, rest timer, history, and navigation
 
 import React, { useState, useEffect, useCallback } from "react";
-import { View, ScrollView, StyleSheet, TouchableOpacity, Alert, ActivityIndicator, Keyboard } from "react-native";
+import { View, ScrollView, StyleSheet, TouchableOpacity, Alert, ActivityIndicator } from "react-native";
 import useUnitPreferences from "../../hooks/useUnitPreferences";
 import { formatKgToLbsDisplay } from "../../utils/unitConversions";
 import { StackNavigationProp } from "@react-navigation/stack";
@@ -164,35 +164,8 @@ export const ExerciseDetailScreen: React.FC<ExerciseDetailScreenProps> = ({ navi
 
   // end DATA LOADING
 
-  // ============================================================================
-  // KEYBOARD HANDLING
-  // ============================================================================
-  useEffect(() => {
-    const parent = (navigation as any).getParent?.();
-    const onKeyboardShow = () => {
-      setState((prev) => ({ ...prev, keyboardVisible: true }));
-      try {
-        if (parent && parent.setOptions) {
-          parent.setOptions({ tabBarStyle: { display: "none" } });
-        }
-      } catch (err) {
-        // ignore
-      }
-    };
-
-    const onKeyboardHide = () => {
-      setState((prev) => ({ ...prev, keyboardVisible: false }));
-      // Do not force-show the tab bar here; focus/blur handlers manage visibility.
-    };
-
-    const showSub = Keyboard.addListener("keyboardDidShow", onKeyboardShow);
-    const hideSub = Keyboard.addListener("keyboardDidHide", onKeyboardHide);
-
-    return () => {
-      showSub.remove();
-      hideSub.remove();
-    };
-  }, [navigation]);
+  // Keyboard visibility is driven by SetLogger's focus (onFocusChange prop).
+  // We intentionally avoid global Keyboard listeners (expensive / unreliable on web).
 
   const calculateNextExercise = useCallback(async () => {
     try {
@@ -553,6 +526,7 @@ export const ExerciseDetailScreen: React.FC<ExerciseDetailScreenProps> = ({ navi
             onSetComplete={handleSetComplete}
             isFirstSet={state.completedSets.length === 0}
             isSubmitting={isSubmitting}
+            onFocusChange={(hasFocus: boolean) => setState((prev) => ({ ...prev, keyboardVisible: hasFocus }))}
           />
         </View>
 

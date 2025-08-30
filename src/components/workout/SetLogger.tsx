@@ -38,6 +38,8 @@ interface SetLoggerProps {
   isFirstSet: boolean;
   // Optional externally-controlled submitting state (Phase 2 compatibility)
   isSubmitting?: boolean;
+  // Callback to notify parent when any input gains/loses focus (used to hide footer on web)
+  onFocusChange?: (hasFocus: boolean) => void;
   style?: ViewStyle;
 }
 
@@ -75,6 +77,7 @@ export const SetLogger: React.FC<SetLoggerProps> = ({
   isFirstSet,
   // rename prop locally to avoid collision with internal state
   isSubmitting: isSubmittingProp,
+  onFocusChange,
   style,
 }) => {
   // ============================================================================
@@ -102,6 +105,28 @@ export const SetLogger: React.FC<SetLoggerProps> = ({
   const [isLocalSubmitting, setIsLocalSubmitting] = useState(false);
   // Effective submitting flag: prefer prop when provided (online-first UI control), otherwise use local state.
   const submitting = typeof isSubmittingProp !== "undefined" ? isSubmittingProp : isLocalSubmitting;
+
+  // Propagate focus changes to parent (if provided) to allow parent to hide footer on web
+  const handleFieldFocus = useCallback(
+    (field: string) => {
+      setFocusedField(field);
+      try {
+        onFocusChange?.(true);
+      } catch (_) {
+        // ignore
+      }
+    },
+    [onFocusChange]
+  );
+
+  const handleFieldBlur = useCallback(() => {
+    setFocusedField(null);
+    try {
+      onFocusChange?.(false);
+    } catch (_) {
+      // ignore
+    }
+  }, [onFocusChange]);
 
   // Refs for input focus management
   const weightInputRef = useRef<TextInput>(null);
@@ -410,8 +435,8 @@ export const SetLogger: React.FC<SetLoggerProps> = ({
             style={getInputStyle(colors, undefined, getInputState(focusedField === "weight", !!errors.weight))}
             value={state.weight}
             onChangeText={handleWeightChange}
-            onFocus={() => setFocusedField("weight")}
-            onBlur={() => setFocusedField(null)}
+            onFocus={() => handleFieldFocus("weight")}
+            onBlur={handleFieldBlur}
             placeholder='0'
             {...getInputProps("number")}
             accessibilityLabel={`Exercise weight in ${isImperial() ? "pounds" : "kilograms"}`}
@@ -428,8 +453,8 @@ export const SetLogger: React.FC<SetLoggerProps> = ({
             style={getInputStyle(colors, undefined, getInputState(focusedField === "reps", !!errors.reps))}
             value={state.reps}
             onChangeText={handleRepsChange}
-            onFocus={() => setFocusedField("reps")}
-            onBlur={() => setFocusedField(null)}
+            onFocus={() => handleFieldFocus("reps")}
+            onBlur={handleFieldBlur}
             placeholder='0'
             {...getInputProps("number")}
             accessibilityLabel='Number of repetitions'
@@ -458,8 +483,8 @@ export const SetLogger: React.FC<SetLoggerProps> = ({
           style={getInputStyle(colors, undefined, getInputState(focusedField === "rpe", !!errors.rpe))}
           value={state.rpe}
           onChangeText={handleRPEChange}
-          onFocus={() => setFocusedField("rpe")}
-          onBlur={() => setFocusedField(null)}
+          onFocus={() => handleFieldFocus("rpe")}
+          onBlur={handleFieldBlur}
           placeholder='1-10'
           {...getInputProps("number")}
           accessibilityLabel='Rate of perceived exertion from 1 to 10'
@@ -475,8 +500,8 @@ export const SetLogger: React.FC<SetLoggerProps> = ({
           style={getInputStyle(colors, "textarea", getInputState(focusedField === "notes", false))}
           value={state.notes}
           onChangeText={handleNotesChange}
-          onFocus={() => setFocusedField("notes")}
-          onBlur={() => setFocusedField(null)}
+          onFocus={() => handleFieldFocus("notes")}
+          onBlur={handleFieldBlur}
           placeholder='Optional notes about this set...'
           {...getInputProps()}
           multiline
