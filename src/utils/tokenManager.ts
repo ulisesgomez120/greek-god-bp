@@ -447,7 +447,25 @@ export class TokenManager {
    */
   private async isNetworkAvailable(): Promise<boolean> {
     try {
-      // Simple connectivity check with AbortController for timeout
+      // Fast-path for web: use navigator.onLine where available which avoids CORS issues.
+      if (typeof window !== "undefined" && typeof navigator !== "undefined" && "onLine" in navigator) {
+        // navigator.onLine is a coarse check but avoids cross-origin HEAD requests that are often blocked by CORS.
+        if (!navigator.onLine) return false;
+        // If navigator reports online, optionally attempt a lightweight fetch in no-cors mode.
+        try {
+          const controller = new AbortController();
+          const timeoutId = setTimeout(() => controller.abort(), 3000);
+          // Use no-cors to avoid CORS failures; a resolved promise indicates the network is reachable.
+          await fetch(ENV_CONFIG.supabaseUrl, { method: "HEAD", mode: "no-cors", signal: controller.signal });
+          clearTimeout(timeoutId);
+          return true;
+        } catch {
+          // If the no-cors attempt fails (timeout or network error), still fall back to navigator.onLine result.
+          return true;
+        }
+      }
+
+      // Fallback for native or environments without navigator.onLine: use a HEAD request with timeout.
       const controller = new AbortController();
       const timeoutId = setTimeout(() => controller.abort(), 5000);
 
