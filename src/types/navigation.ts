@@ -22,6 +22,8 @@ export type WorkoutStackParamList = {
       dayId: string;
       workoutName: string;
     };
+    // Optional plannedExerciseId: present when navigating from a planned session listing.
+    plannedExerciseId?: string;
     exerciseData: {
       name: string;
       targetSets: number;

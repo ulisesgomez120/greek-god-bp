@@ -132,6 +132,7 @@ export function transformExerciseSet(dbSet: DbExerciseSet): ExerciseSet {
     id: dbSet.id,
     sessionId: dbSet.session_id,
     exerciseId: dbSet.exercise_id,
+    plannedExerciseId: dbSet.planned_exercise_id || undefined,
     setNumber: dbSet.set_number,
     weightKg: dbSet.weight_kg || undefined,
     reps: dbSet.reps || 0,
@@ -150,6 +151,7 @@ export function transformExerciseSetToDb(set: Partial<ExerciseSet>): Partial<DbE
   if (set.id) dbSet.id = set.id;
   if (set.sessionId) dbSet.session_id = set.sessionId;
   if (set.exerciseId) dbSet.exercise_id = set.exerciseId;
+  if (set.plannedExerciseId) dbSet.planned_exercise_id = set.plannedExerciseId;
   if (set.setNumber) dbSet.set_number = set.setNumber;
   if (set.weightKg) dbSet.weight_kg = set.weightKg;
   if (set.reps !== undefined) dbSet.reps = set.reps;
@@ -301,7 +303,10 @@ export function normalizePlannedExercises(planned?: (DbPlannedExercise & { exerc
   if (!planned) return [];
   return planned.map((pe) => {
     return {
+      // `id` represents the base exercise id used by UI lists.
       id: pe.exercise_id ?? pe.exercises?.id ?? (pe as any).id,
+      // Expose the planned_exercises row id separately so callers can reference the specific planned exercise instance.
+      plannedExerciseId: pe.id,
       name: pe.exercises?.name ?? (pe as any).name ?? "Unknown Exercise",
       targetSets: (pe as any).target_sets ?? (pe as any).targetSets ?? 0,
       targetRepsMin: (pe as any).target_reps_min ?? (pe as any).targetRepsMin ?? 0,

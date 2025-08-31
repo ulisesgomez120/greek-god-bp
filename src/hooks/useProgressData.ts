@@ -291,13 +291,13 @@ export function useProgressData(options: UseProgressDataOptions = {}) {
   // ============================================================================
 
   const fetchExerciseHistory = useCallback(
-    async (exerciseId: string, forceRefresh = false) => {
+    async (exerciseId: string, plannedExerciseId?: string, forceRefresh = false) => {
       if (!userId) {
         logger.warn("No user ID provided for exercise history fetch", {}, "progress");
         return;
       }
 
-      const cacheKey = `exercise_history_${exerciseId}`;
+      const cacheKey = `exercise_history_${exerciseId}_${plannedExerciseId ?? "all"}`;
 
       if (!forceRefresh && isCacheValid(cacheKey) && state.exerciseHistory[exerciseId]) {
         logger.info("Using cached exercise history data", { exerciseId }, "progress");
@@ -317,9 +317,9 @@ export function useProgressData(options: UseProgressDataOptions = {}) {
       }));
 
       try {
-        logger.info("Fetching exercise history", { userId, exerciseId }, "progress");
+        logger.info("Fetching exercise history", { userId, exerciseId, plannedExerciseId }, "progress");
 
-        const history = await ProgressService.getExerciseHistory(userId, exerciseId);
+        const history = await ProgressService.getExerciseHistory(userId, exerciseId, plannedExerciseId);
 
         setState((prev) => ({
           ...prev,

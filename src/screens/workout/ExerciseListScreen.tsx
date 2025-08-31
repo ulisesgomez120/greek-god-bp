@@ -58,6 +58,8 @@ const ExerciseListScreen: React.FC<ExerciseListScreenProps> = ({ navigation, rou
   const [error, setError] = useState<string | null>(null);
   const [exercises, setExercises] = useState<ExerciseInfo[]>([]);
   const [sessionName, setSessionName] = useState<string | null>(workoutName ?? null);
+  // Keep the fetched session available so we can expose plannedExerciseId when navigating to details
+  const [session, setSession] = useState<any | null>(null);
 
   useEffect(() => {
     let mounted = true;
@@ -68,13 +70,13 @@ const ExerciseListScreen: React.FC<ExerciseListScreenProps> = ({ navigation, rou
         setError(null);
 
         // Try to fetch the specific session (this leverages workoutPlanService cache when available)
-        const session = await workoutPlanService.getWorkoutSession(programId, phaseId, dayId);
+        const fetchedSession = await workoutPlanService.getWorkoutSession(programId, phaseId, dayId);
 
         if (!mounted) return;
 
-        if (session && session.exercises && session.exercises.length > 0) {
+        if (fetchedSession && fetchedSession.exercises && fetchedSession.exercises.length > 0) {
           // Map ExerciseSummary -> ExerciseInfo for UI
-          const mapped: ExerciseInfo[] = session.exercises.map((ex) => {
+          const mapped: ExerciseInfo[] = fetchedSession.exercises.map((ex) => {
             const reps =
               ex.targetRepsMin && ex.targetRepsMax
                 ? ex.targetRepsMin === ex.targetRepsMax
@@ -95,7 +97,9 @@ const ExerciseListScreen: React.FC<ExerciseListScreenProps> = ({ navigation, rou
           });
 
           setExercises(mapped);
-          setSessionName(session.name ?? workoutName ?? null);
+          // Persist the fetched session in local state so callers can reference plannedExerciseId
+          setSession(fetchedSession);
+          setSessionName(fetchedSession.name ?? workoutName ?? null);
           return;
         }
       } catch (err: any) {
@@ -186,6 +190,8 @@ const ExerciseListScreen: React.FC<ExerciseListScreenProps> = ({ navigation, rou
                     dayId,
                     workoutName: sessionName || workoutName || "Workout",
                   },
+                  // Pass plannedExerciseId when available from the session's planned_exercises mapping.
+                  plannedExerciseId: session?.exercises?.[index]?.plannedExerciseId,
                   exerciseData: {
                     name: exercise.name,
                     targetSets: exercise.sets,

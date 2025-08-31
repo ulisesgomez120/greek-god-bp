@@ -70,7 +70,7 @@ interface NextExerciseInfo {
 // ============================================================================
 
 export const ExerciseDetailScreen: React.FC<ExerciseDetailScreenProps> = ({ navigation, route }) => {
-  const { exerciseId, exerciseIndex, workoutContext, exerciseData } = route.params;
+  const { exerciseId, exerciseIndex, workoutContext, exerciseData, plannedExerciseId } = route.params;
 
   const { colors } = useTheme();
   const styles = createStyles(colors);
@@ -110,7 +110,7 @@ export const ExerciseDetailScreen: React.FC<ExerciseDetailScreenProps> = ({ navi
     try {
       setState((prev) => ({ ...prev, isLoading: true }));
 
-      const history = await workoutService.getExerciseHistory(exerciseId, 6);
+      const history = await workoutService.getExerciseHistory(exerciseId, plannedExerciseId, 6);
 
       setState((prev) => ({
         ...prev,
@@ -218,7 +218,7 @@ export const ExerciseDetailScreen: React.FC<ExerciseDetailScreenProps> = ({ navi
         }
 
         // Persist the set via workoutService (direct online). Service returns the created set.
-        const result = await workoutService.addExerciseSet(setData);
+        const result = await workoutService.addExerciseSet({ ...setData, plannedExerciseId });
 
         if (!result.success) {
           Alert.alert("Error", result.error || "Failed to log set");
@@ -313,6 +313,11 @@ export const ExerciseDetailScreen: React.FC<ExerciseDetailScreenProps> = ({ navi
       exerciseId: state.nextExercise.id,
       exerciseIndex: state.nextExercise.index,
       workoutContext,
+      // Try to pass plannedExerciseId for the next exercise when available from cached session
+      plannedExerciseId:
+        cachedSession && cachedSession.exercises && cachedSession.exercises[nextIndex]
+          ? (cachedSession.exercises[nextIndex] as any).plannedExerciseId
+          : undefined,
       exerciseData: nextExercisePayload,
     });
   }, [state.nextExercise, navigation, workoutContext, exerciseData]);

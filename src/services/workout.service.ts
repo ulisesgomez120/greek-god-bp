@@ -172,6 +172,7 @@ export class WorkoutService {
     isWarmup?: boolean;
     restSeconds?: number;
     notes?: string;
+    plannedExerciseId?: string;
   }): Promise<WorkoutServiceResult<ExerciseSet>> {
     try {
       if (!this.currentSession) {
@@ -225,6 +226,7 @@ export class WorkoutService {
       const appSet: any = {
         sessionId,
         exerciseId: setData.exerciseId,
+        plannedExerciseId: setData.plannedExerciseId,
         setNumber,
         weightKg: setData.weightKg ?? undefined,
         reps: setData.reps,
@@ -240,6 +242,7 @@ export class WorkoutService {
         id: `temp_set_${Date.now()}`,
         sessionId,
         exerciseId: setData.exerciseId,
+        plannedExerciseId: setData.plannedExerciseId,
         setNumber,
         weightKg: setData.weightKg,
         reps: setData.reps,
@@ -584,9 +587,12 @@ export class WorkoutService {
    * Fetch recent exercise history (grouped by workout session) for the current user.
    * Returns an array of objects: { date: string, sets: [{ weight?, reps, rpe?, isWarmup }] }
    * This method never throws — it logs errors and returns an empty array on failure.
+   *
+   * New behavior: accepts an optional plannedExerciseId to scope history to a specific planned exercise instance.
    */
   async getExerciseHistory(
     exerciseId: string,
+    plannedExerciseId?: string,
     limit: number = 6
   ): Promise<
     {
@@ -598,77 +604,33 @@ export class WorkoutService {
       const user = await authService.getCurrentUser();
       if (!user) return [];
 
-      // Query exercise_sets with related workout_sessions data.
-      // We'll fetch a larger set of rows and reduce/group into distinct sessions,
-      // since Supabase relational filtering can be constrained depending on schema/constraints.
-      const { data, error } = await this.supabase
-        .from("exercise_sets")
-        .select(
-          "id, weight_kg, reps, rpe, notes, is_warmup, created_at, session_id, workout_sessions (id, started_at, user_id)"
-        )
-        .eq("exercise_id", exerciseId)
-        .order("created_at", { ascending: false })
-        .limit(Math.max(50, limit * 10)); // fetch a reasonable window to group sessions
+      // Delegate to DatabaseService which implements the plannedExerciseId-aware query.
+      // databaseService.queryExerciseHistory returns summaries with session/date and sets.
+      const summaries: any[] = await databaseService.queryExerciseHistory(
+        user.id,
+        exerciseId,
+        plannedExerciseId,
+        limit
+      );
 
-      if (error) {
-        logger.error("getExerciseHistory supabase error", error, "workout");
-        return [];
-      }
+      if (!summaries || summaries.length === 0) return [];
 
-      const rows = (data || []) as any[];
+      // Normalize to the front-end shape expected by callers
+      const mapped = summaries.map((s) => {
+        const sets = (s.sets || []).map((st: any) => ({
+          weight: st.weight ?? 0,
+          reps: st.reps ?? 0,
+          rpe: st.rpe ?? undefined,
+          isWarmup: !!st.isWarmup,
+          notes: st.notes ?? undefined,
+        }));
+        return {
+          date: s.date,
+          sets,
+        };
+      });
 
-      // Group rows by workout session id (preferred) or started_at
-      const sessionsMap = new Map<string, { date: string; sets: any[] }>();
-
-      for (const row of rows) {
-        const ws = row.workout_sessions || null;
-        // Ensure the session belongs to current user (if relation provided)
-        if (ws && ws.user_id && ws.user_id !== user.id) {
-          // skip rows that are not the user's sessions (defensive)
-          continue;
-        }
-
-        const sessionKey = (ws && ws.id) || String(row.session_id) || String(row.created_at);
-        const sessionDate = (ws && ws.started_at) || row.created_at;
-
-        if (!sessionsMap.has(sessionKey)) {
-          sessionsMap.set(sessionKey, { date: sessionDate, sets: [] });
-        }
-
-        const sess = sessionsMap.get(sessionKey)!;
-        // Include created_at so we can sort sets into chronological order below
-        sess.sets.push({
-          weight: row.weight_kg,
-          reps: row.reps,
-          rpe: row.rpe,
-          isWarmup: !!row.is_warmup,
-          notes: row.notes,
-          createdAt: row.created_at,
-        });
-      }
-
-      // Convert to array sorted by date desc and limit results
-      const sessions = Array.from(sessionsMap.values())
-        .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
-        .slice(0, limit)
-        .map((s) => {
-          // Sort sets into chronological order (oldest first) so numbering is natural
-          s.sets.sort((a: any, b: any) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime());
-          // Map to the public-facing shape (omit internal createdAt)
-          const sets = s.sets.map((st: any) => ({
-            weight: st.weight,
-            reps: st.reps,
-            rpe: st.rpe,
-            isWarmup: st.isWarmup,
-            notes: st.notes,
-          }));
-          return {
-            date: typeof s.date === "string" ? s.date : new Date(s.date).toISOString(),
-            sets,
-          };
-        });
-
-      return sessions;
+      return mapped;
     } catch (err) {
       logger.error("getExerciseHistory failed", err, "workout");
       return [];

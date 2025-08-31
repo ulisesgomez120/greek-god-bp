@@ -153,9 +153,13 @@ export class ProgressService {
    * Get last N sessions for a specific exercise
    * Delegates to DatabaseService.queryExerciseHistory and returns formatted summaries.
    */
-  static async getExerciseHistory(userId: string, exerciseId: string): Promise<ExerciseSessionSummary[]> {
+  static async getExerciseHistory(
+    userId: string,
+    exerciseId: string,
+    plannedExerciseId?: string
+  ): Promise<ExerciseSessionSummary[]> {
     try {
-      const summaries = await databaseService.queryExerciseHistory(userId, exerciseId, 6);
+      const summaries = await databaseService.queryExerciseHistory(userId, exerciseId, plannedExerciseId, 6);
       return summaries;
     } catch (err) {
       logger.error("Failed to get exercise history", err, "progress");

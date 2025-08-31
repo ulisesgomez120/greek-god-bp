@@ -129,6 +129,7 @@ export interface ExerciseSet {
   id: string;
   sessionId: string;
   exerciseId: string;
+  plannedExerciseId?: string;
   setNumber: number;
   weightKg?: number;
   reps: number;
@@ -366,6 +367,7 @@ export interface ExerciseSetFormData {
   isWarmup?: boolean;
   restSeconds?: number;
   notes?: string;
+  plannedExerciseId?: string;
 }
 
 export interface ProfileFormData {

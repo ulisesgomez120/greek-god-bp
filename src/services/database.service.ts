@@ -856,9 +856,10 @@ export class DatabaseService {
   /**
    * Query exercise history (last N sessions for an exercise)
    */
-  async queryExerciseHistory(userId: string, exerciseId: string, limit: number = 6) {
+  async queryExerciseHistory(userId: string, exerciseId: string, plannedExerciseId?: string, limit: number = 6) {
     try {
-      const { data: sessions, error } = await supabase
+      // Build base query for sessions with inner join to exercise_sets
+      let query: any = supabase
         .from("workout_sessions")
         .select(
           `
@@ -879,10 +880,22 @@ export class DatabaseService {
         `
         )
         .eq("user_id", userId)
-        .eq("exercise_sets.exercise_id", exerciseId)
         .not("completed_at", "is", null)
         .order("started_at", { ascending: false })
         .limit(limit);
+
+      // Apply exercise / planned exercise filtering:
+      // - If plannedExerciseId is provided, restrict to sets that match both exercise_id and planned_exercise_id
+      // - Otherwise, fall back to filtering by exercise_id only (preserves existing behavior)
+      if (plannedExerciseId) {
+        query = query
+          .eq("exercise_sets.exercise_id", exerciseId)
+          .eq("exercise_sets.planned_exercise_id", plannedExerciseId);
+      } else {
+        query = query.eq("exercise_sets.exercise_id", exerciseId);
+      }
+
+      const { data: sessions, error } = await query;
 
       if (error) throw error;
       if (!sessions || sessions.length === 0) return [];
