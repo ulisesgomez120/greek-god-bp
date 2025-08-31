@@ -6,19 +6,20 @@
 
 import StorageAdapter from "@/lib/storageAdapter";
 import { getAsyncItem, setAsyncItem, removeAsyncItem } from "@/utils/storage";
-import { ENV_CONFIG, STORAGE_KEYS } from "@/config/constants";
+import { ENV_CONFIG, STORAGE_KEYS, SESSION_PERSISTENCE_CONFIG } from "@/config/constants";
 import supabase from "@/lib/supabase";
 import { logger } from "@/utils/logger";
 import { forceLogout } from "@/store/auth/authSlice";
 import type { TokenData, TokenValidationResult } from "@/types/auth";
+import { shouldAttemptRefreshOnFocus, recordSessionMetrics, getSessionMetrics } from "@/utils/sessionPersistence";
 
 // ============================================================================
 // CONSTANTS
 // ============================================================================
 
-const REFRESH_BUFFER_TIME = 5 * 60 * 1000; // 5 minutes before expiry
-const MAX_RETRY_ATTEMPTS = 3;
-const RETRY_DELAY_BASE = 1000; // 1 second base delay
+const REFRESH_BUFFER_TIME = SESSION_PERSISTENCE_CONFIG.bufferTimeMs ?? 60 * 60 * 1000;
+const MAX_RETRY_ATTEMPTS = SESSION_PERSISTENCE_CONFIG.maxRetryAttempts ?? 5;
+const RETRY_DELAY_BASE = SESSION_PERSISTENCE_CONFIG.retryBackoffBaseMs ?? 1000;
 const TOKEN_ENCRYPTION_KEY = "trainsmart_token_key";
 
 // ============================================================================
@@ -29,6 +30,7 @@ export class TokenManager {
   private static instance: TokenManager;
   private supabaseClient: any;
   private refreshTimer?: ReturnType<typeof setTimeout>;
+  private periodicTimer?: ReturnType<typeof setInterval>;
   private isRefreshing = false;
   private refreshPromise?: Promise<TokenData | null>;
   // Optional Redux dispatch registered by app initialization to keep auth state in sync.
@@ -161,6 +163,13 @@ export class TokenManager {
         logger.warn("TokenManager: Failed to dispatch forceLogout from clearTokens", dispatchErr);
       }
 
+      // Record session cleared metric for diagnostics (best-effort)
+      try {
+        await recordSessionMetrics("session_cleared");
+      } catch (err) {
+        logger.warn("TokenManager: Failed to record session_cleared metric", err, "auth");
+      }
+
       logger.info("TokenManager: Tokens cleared successfully", undefined, "auth");
     } catch (error) {
       logger.error("TokenManager: Failed to clear tokens", error, "auth");
@@ -253,6 +262,19 @@ export class TokenManager {
     }
   }
 
+  private isPermanentRefreshError(err: any): boolean {
+    if (!err) return false;
+    const msg = (err?.message || String(err || "")).toLowerCase();
+    if (
+      msg.includes("invalid_grant") ||
+      (msg.includes("refresh token") && (msg.includes("revoked") || msg.includes("expired") || msg.includes("invalid")))
+    ) {
+      return true;
+    }
+    if (err?.status === 401 || err?.status === 400) return true;
+    return false;
+  }
+
   /**
    * Perform the actual token refresh with retry logic
    */
@@ -291,6 +313,13 @@ export class TokenManager {
 
         await this.storeTokens(newTokens);
 
+        // Record successful refresh for diagnostics (best-effort)
+        try {
+          await recordSessionMetrics("refresh_success");
+        } catch (err) {
+          logger.warn("TokenManager: Failed to record refresh_success metric", err, "auth");
+        }
+
         logger.info("TokenManager: Tokens refreshed successfully", undefined, "auth");
         return newTokens;
       } catch (error) {
@@ -308,8 +337,38 @@ export class TokenManager {
     // All attempts failed
     logger.error("TokenManager: All refresh attempts failed", lastError, "auth");
 
-    // Clear invalid tokens
-    await this.clearTokens();
+    try {
+      const permanent = this.isPermanentRefreshError(lastError);
+      if (permanent) {
+        await recordSessionMetrics("refresh_failed_permanent", {
+          message: (lastError as any)?.message ?? String(lastError),
+        });
+        await this.clearTokens();
+      } else {
+        await recordSessionMetrics("refresh_failed_temporary", {
+          message: (lastError as any)?.message ?? String(lastError),
+        });
+
+        const retryDelay =
+          (RETRY_DELAY_BASE ?? 1000) * Math.pow(2, SESSION_PERSISTENCE_CONFIG.maxRetryAttempts ?? MAX_RETRY_ATTEMPTS);
+        logger.info(
+          `TokenManager: Scheduling retry in ${Math.round(retryDelay / 1000)}s after temporary failure`,
+          undefined,
+          "auth"
+        );
+
+        if (this.refreshTimer) {
+          clearTimeout(this.refreshTimer);
+        }
+
+        this.refreshTimer = setTimeout(async () => {
+          logger.info("TokenManager: Retry triggered after temporary refresh failure", undefined, "auth");
+          await this.refreshTokensIfOnline();
+        }, retryDelay);
+      }
+    } catch (err) {
+      logger.warn("TokenManager: Error while handling failed refresh outcome", err, "auth");
+    }
 
     return null;
   }
@@ -337,8 +396,14 @@ export class TokenManager {
             refresh_token: tokens.refreshToken,
           });
           logger.info("TokenManager: Supabase session rehydrated during initialization", undefined, "auth");
+          // Record session rehydration time for heuristics and diagnostics
+          await recordSessionMetrics("session_rehydrated");
         } catch (rehydErr) {
           logger.warn("TokenManager: Failed to rehydrate Supabase session during initialization", rehydErr, "auth");
+          await recordSessionMetrics("refresh_failed_temporary", {
+            context: "rehydration",
+            message: (rehydErr as any)?.message ?? String(rehydErr),
+          });
         }
       }
     } catch (error) {
@@ -357,12 +422,14 @@ export class TokenManager {
 
     try {
       const expirationTime = new Date(expiresAt).getTime();
-      const refreshTime = expirationTime - REFRESH_BUFFER_TIME;
+      const buffer = SESSION_PERSISTENCE_CONFIG.bufferTimeMs ?? REFRESH_BUFFER_TIME;
+      const refreshTime = expirationTime - buffer;
       const delay = Math.max(0, refreshTime - Date.now());
 
       this.refreshTimer = setTimeout(async () => {
         logger.info("TokenManager: Automatic refresh triggered", undefined, "auth");
-        await this.refreshTokens();
+        await recordSessionMetrics("refresh_attempt", { trigger: "scheduled" });
+        await this.refreshTokensIfOnline();
       }, delay);
 
       logger.debug(`TokenManager: Refresh scheduled in ${Math.round(delay / 1000)} seconds`, undefined, "auth");
@@ -404,10 +471,93 @@ export class TokenManager {
 
     if (!isOnline) {
       logger.warn("TokenManager: Network unavailable, skipping refresh", undefined, "auth");
+      await recordSessionMetrics("refresh_failed_temporary", { reason: "offline" });
       return null;
     }
 
     return await this.refreshTokens();
+  }
+
+  // ============================================================================
+  // LIFECYCLE / DIAGNOSTICS
+  // ============================================================================
+
+  /**
+   * Handle app lifecycle changes (foreground/background). When app becomes active,
+   * decide whether to attempt a refresh using sessionPersistence heuristics.
+   */
+  async handleAppStateChange(state: "active" | "background" | "inactive"): Promise<void> {
+    try {
+      if (state !== "active") return;
+
+      const metrics = await getSessionMetrics();
+      const lastRefreshAt = metrics?.lastRefreshAt ?? null;
+      const sessionStartTime = metrics?.sessionStartTime ?? null;
+
+      const should = await shouldAttemptRefreshOnFocus(lastRefreshAt, sessionStartTime, SESSION_PERSISTENCE_CONFIG);
+      if (should) {
+        logger.debug("TokenManager: App became active and should attempt refresh", undefined, "auth");
+        await recordSessionMetrics("refresh_attempt", { trigger: "app_foreground" });
+        await this.refreshTokensIfOnline();
+      }
+    } catch (err) {
+      logger.warn("TokenManager: handleAppStateChange failed", err, "auth");
+    }
+  }
+
+  /**
+   * Schedule periodic refreshes for long-running foreground sessions.
+   * Uses SESSION_PERSISTENCE_CONFIG.periodicRefreshIntervalMs.
+   */
+  schedulePeriodicRefresh(enable = true): void {
+    // Clear existing periodic timer
+    if (this.periodicTimer) {
+      clearTimeout(this.periodicTimer);
+      this.periodicTimer = undefined;
+    }
+
+    if (!enable) return;
+
+    const interval = SESSION_PERSISTENCE_CONFIG.periodicRefreshIntervalMs ?? 0;
+    if (!interval || interval <= 0) return;
+
+    this.periodicTimer = setInterval(async () => {
+      logger.debug("TokenManager: Periodic refresh triggered", undefined, "auth");
+      await recordSessionMetrics("refresh_attempt", { trigger: "periodic" });
+      await this.refreshTokensIfOnline();
+    }, interval);
+  }
+
+  /**
+   * Return a lightweight session health summary for diagnostics.
+   */
+  async getSessionHealth(): Promise<{
+    isRefreshing: boolean;
+    expiresInMs: number;
+    needsRefresh: boolean;
+    lastRefreshAt?: number | null;
+    sessionStartTime?: number | null;
+  }> {
+    try {
+      const validation = await this.validateTokens();
+      const metrics = await getSessionMetrics();
+      return {
+        isRefreshing: this.isRefreshing,
+        expiresInMs: validation.expiresIn,
+        needsRefresh: validation.needsRefresh,
+        lastRefreshAt: metrics?.lastRefreshAt ?? null,
+        sessionStartTime: metrics?.sessionStartTime ?? null,
+      };
+    } catch (err) {
+      logger.warn("TokenManager: getSessionHealth failed", err, "auth");
+      return {
+        isRefreshing: this.isRefreshing,
+        expiresInMs: 0,
+        needsRefresh: true,
+        lastRefreshAt: null,
+        sessionStartTime: null,
+      };
+    }
   }
 
   // ============================================================================
@@ -535,6 +685,16 @@ export const refreshTokens = (): Promise<TokenData | null> => {
  */
 export const validateTokens = (): Promise<TokenValidationResult> => {
   return tokenManager.validateTokens();
+};
+
+export const getSessionHealth = (): Promise<{
+  isRefreshing: boolean;
+  expiresInMs: number;
+  needsRefresh: boolean;
+  lastRefreshAt?: number | null;
+  sessionStartTime?: number | null;
+}> => {
+  return tokenManager.getSessionHealth();
 };
 
 /**

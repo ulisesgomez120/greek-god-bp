@@ -405,6 +405,41 @@ export const STORAGE_KEYS = {
   },
 } as const;
 
+export const SESSION_PERSISTENCE_CONFIG = {
+  /**
+   * How much headroom to keep before attempting a refresh.
+   * Default: 1 hour (60 * 60 * 1000)
+   */
+  bufferTimeMs: 60 * 60 * 1000,
+
+  /**
+   * Periodic refresh interval for long-running foreground sessions.
+   * Default: 12 hours
+   */
+  periodicRefreshIntervalMs: 12 * 60 * 60 * 1000,
+
+  /**
+   * Max retry attempts for temporary refresh failures before requiring user
+   * intervention (do not clear tokens for temporary errors).
+   */
+  maxRetryAttempts: 5,
+
+  /**
+   * Base backoff in ms used for exponential backoff (multiplied per attempt).
+   */
+  retryBackoffBaseMs: 1000,
+
+  /**
+   * Whether to attempt refresh when app comes to foreground / visibilitychange.
+   */
+  enableRefreshOnForeground: true,
+
+  /**
+   * Enable recording lightweight session/refresh metrics (mockable in tests).
+   */
+  metricsEnabled: true,
+} as const;
+
 // Validation Constants
 export const VALIDATION = {
   password: {

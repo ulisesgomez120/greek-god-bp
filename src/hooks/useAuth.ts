@@ -10,7 +10,7 @@ import { useAppDispatch, useAppSelector } from "./redux";
 import { authService } from "@/services/auth.service";
 import { profileService } from "@/services/profile.service";
 import { logger } from "@/utils/logger";
-import { getTokens, areTokensExpired } from "@/utils/storage";
+import tokenManager, { getTokens, areTokensExpired, registerAuthDispatch } from "@/utils/tokenManager";
 import { ENV_CONFIG } from "@/config/constants";
 import type {
   UseAuthReturn,
@@ -682,34 +682,90 @@ export function useAuth(): UseAuthReturn {
   }, []); // Empty dependency array - only run once on mount
 
   // ============================================================================
-  // AUTOMATIC TOKEN REFRESH
+  // AUTOMATIC TOKEN REFRESH (delegated to TokenManager)
   // ============================================================================
 
   /**
-   * Set up automatic token refresh
+   * Register TokenManager with the app lifecycle so it can attempt refreshes when
+   * the app comes to foreground and schedule periodic refreshes for long-running sessions.
+   *
+   * - Registers redux dispatch with TokenManager so it can dispatch forceLogout.
+   * - Adds AppState (React Native) and document.visibilitychange (web) listeners.
+   * - Debounces rapid state changes to avoid refresh spam.
+   * - Enables/disables periodic refresh based on authentication state.
    */
   useEffect(() => {
-    if (!isAuthenticated || !session) return;
+    // Register redux dispatch so TokenManager can dispatch forceLogout when needed.
+    try {
+      registerAuthDispatch(dispatch);
+    } catch (err) {
+      logger.warn("useAuth: Failed to register dispatch with tokenManager", err, "auth");
+    }
 
-    const checkAndRefreshToken = async () => {
+    let debounce = false;
+    let appStateSubscription: any = null;
+
+    const handleActive = async () => {
+      if (debounce) return;
+      debounce = true;
+      setTimeout(() => {
+        debounce = false;
+      }, 500);
+
       try {
-        const expired = await areTokensExpired();
-        if (expired) {
-          logger.info("useAuth: Token expired, attempting refresh", undefined, "auth");
-          await refreshSession();
-        }
-      } catch (error) {
-        logger.error("useAuth: Error in automatic token refresh", error, "auth");
+        await tokenManager.handleAppStateChange("active");
+      } catch (err) {
+        logger.warn("useAuth: tokenManager.handleAppStateChange failed", err, "auth");
       }
     };
 
-    // Check token expiration every 5 minutes
-    const interval = setInterval(checkAndRefreshToken, 5 * 60 * 1000);
+    // React Native AppState subscription (safe-guarded)
+    try {
+      // eslint-disable-next-line @typescript-eslint/no-var-requires
+      const { AppState } = require("react-native");
+      if (AppState && AppState.addEventListener) {
+        appStateSubscription = AppState.addEventListener("change", (next: string) => {
+          if (next === "active") handleActive();
+        });
+      }
+    } catch (err) {
+      // ignore if react-native AppState not available in web environment
+    }
+
+    // Web visibility API
+    const onVisibility = () => {
+      if (typeof document !== "undefined" && document.visibilityState === "visible") {
+        handleActive();
+      }
+    };
+
+    if (typeof document !== "undefined" && document.addEventListener) {
+      document.addEventListener("visibilitychange", onVisibility);
+    }
+
+    // Enable or disable periodic refresh based on auth state
+    try {
+      tokenManager.schedulePeriodicRefresh(!!(isAuthenticated && session));
+    } catch (err) {
+      logger.warn("useAuth: Failed to schedule periodic refresh", err, "auth");
+    }
 
     return () => {
-      clearInterval(interval);
+      try {
+        appStateSubscription?.remove?.();
+      } catch (err) {
+        // ignore
+      }
+      if (typeof document !== "undefined" && document.removeEventListener) {
+        document.removeEventListener("visibilitychange", onVisibility);
+      }
+      try {
+        tokenManager.schedulePeriodicRefresh(false);
+      } catch (err) {
+        // ignore
+      }
     };
-  }, [isAuthenticated, session, refreshSession]);
+  }, [isAuthenticated, session, dispatch]);
 
   // ============================================================================
   // RETURN HOOK INTERFACE

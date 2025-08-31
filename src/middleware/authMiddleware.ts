@@ -7,7 +7,7 @@
 import { Middleware, AnyAction } from "@reduxjs/toolkit";
 import { logger } from "../utils/logger";
 import { refreshTokens, forceLogout } from "../store/auth/authSlice";
-import { areTokensExpired } from "../utils/storage";
+import tokenManager, { registerAuthDispatch } from "@/utils/tokenManager";
 
 // ============================================================================
 // AUTHENTICATION MIDDLEWARE
@@ -83,16 +83,26 @@ export const authMiddleware: Middleware = (store) => (next) => (action: any) => 
         action.payload?.user?.id
       );
 
-      // Schedule automatic token refresh
-      scheduleTokenRefresh(store, action.payload?.session?.expiresAt);
+      // Let TokenManager take over scheduling and keep Redux in sync
+      try {
+        registerAuthDispatch(store.dispatch);
+        tokenManager.schedulePeriodicRefresh(true);
+      } catch (err) {
+        logger.warn("authMiddleware: Failed to register tokenManager or start periodic refresh", err, "auth");
+      }
     }
 
     // Handle logout
     if (action.type === "auth/logoutUser/fulfilled" || action.type === "auth/forceLogout") {
       logger.info("User logged out", { actionType: action.type }, "auth");
 
-      // Clear any scheduled token refresh
-      clearTokenRefreshSchedule();
+      // Unregister TokenManager dispatch and stop periodic refresh to avoid stray timers
+      try {
+        tokenManager.registerDispatch(undefined);
+        tokenManager.schedulePeriodicRefresh(false);
+      } catch (err) {
+        logger.warn("authMiddleware: Failed to unregister tokenManager or stop periodic refresh", err, "auth");
+      }
 
       // Clear other store data
       store.dispatch({ type: "workout/clearWorkoutData" });
@@ -105,8 +115,12 @@ export const authMiddleware: Middleware = (store) => (next) => (action: any) => 
     if (action.type === "auth/refreshTokens/fulfilled") {
       logger.info("Tokens refreshed via middleware", undefined, "auth", action.payload?.user?.id);
 
-      // Reschedule token refresh with new expiration
-      scheduleTokenRefresh(store, action.payload?.session?.expiresAt);
+      // TokenManager will handle scheduling; ensure periodic refresh remains enabled
+      try {
+        tokenManager.schedulePeriodicRefresh(true);
+      } catch (err) {
+        logger.warn("authMiddleware: Failed to (re)enable tokenManager periodic refresh", err, "auth");
+      }
     }
 
     // Handle authentication failures
@@ -138,59 +152,11 @@ export const authMiddleware: Middleware = (store) => (next) => (action: any) => 
 // TOKEN REFRESH SCHEDULING
 // ============================================================================
 
-let tokenRefreshTimeout: ReturnType<typeof setTimeout> | null = null;
-
-/**
- * Schedule automatic token refresh before expiration
- */
-function scheduleTokenRefresh(store: any, expiresAt?: string): void {
-  // Clear any existing timeout
-  clearTokenRefreshSchedule();
-
-  if (!expiresAt) {
-    logger.warn("No expiration time provided for token refresh scheduling", undefined, "auth");
-    return;
-  }
-
-  const expirationTime = new Date(expiresAt).getTime();
-  const currentTime = Date.now();
-  const refreshBuffer = 5 * 60 * 1000; // 5 minutes before expiry
-  const refreshTime = expirationTime - refreshBuffer;
-  const delay = Math.max(0, refreshTime - currentTime);
-
-  if (delay <= 0) {
-    // Tokens are already expired or about to expire, refresh immediately
-    logger.info("Tokens expired or expiring soon, refreshing immediately", undefined, "auth");
-    store.dispatch(refreshTokens());
-    return;
-  }
-
-  logger.info(
-    "Scheduling token refresh",
-    {
-      expiresAt,
-      refreshInMs: delay,
-      refreshInMinutes: Math.round(delay / (1000 * 60)),
-    },
-    "auth"
-  );
-
-  tokenRefreshTimeout = setTimeout(() => {
-    logger.info("Executing scheduled token refresh", undefined, "auth");
-    store.dispatch(refreshTokens());
-  }, delay);
-}
-
-/**
- * Clear scheduled token refresh
- */
-function clearTokenRefreshSchedule(): void {
-  if (tokenRefreshTimeout) {
-    clearTimeout(tokenRefreshTimeout);
-    tokenRefreshTimeout = null;
-    logger.info("Token refresh schedule cleared", undefined, "auth");
-  }
-}
+/*
+  Token refresh scheduling moved to TokenManager.
+  The middleware no longer keeps independent timers to avoid duplicate scheduling
+  and race conditions. TokenManager is the canonical scheduler and source-of-truth.
+*/
 
 // ============================================================================
 // SESSION VALIDATION
@@ -209,18 +175,17 @@ export async function validateSession(store: any): Promise<boolean> {
   }
 
   try {
-    const tokensExpired = await areTokensExpired();
+    const tokensExpired = await tokenManager.areTokensExpired();
 
     if (tokensExpired) {
-      logger.info("Session expired, attempting refresh", undefined, "auth", auth.user?.id);
+      logger.info("Session expired, attempting refresh via TokenManager", undefined, "auth", auth.user?.id);
 
-      const refreshResult = await store.dispatch(refreshTokens());
-
-      if (refreshTokens.fulfilled.match(refreshResult)) {
+      const refreshed = await tokenManager.refreshTokensIfOnline();
+      if (refreshed) {
         logger.info("Session validated and refreshed", undefined, "auth", auth.user?.id);
         return true;
       } else {
-        logger.error("Session validation failed", refreshResult.payload, "auth");
+        logger.error("Session validation failed via TokenManager, forcing logout", undefined, "auth", auth.user?.id);
         store.dispatch(forceLogout());
         return false;
       }
@@ -302,22 +267,29 @@ export function getAuthHeaders(store: any): Record<string, string> {
 export function initializeAuthMiddleware(store: any): void {
   logger.info("Initializing authentication middleware", undefined, "auth");
 
-  // Set up periodic session validation (every 30 minutes)
-  setInterval(() => {
-    validateSession(store);
-  }, 30 * 60 * 1000);
+  // Delegate periodic refresh/validation to TokenManager
+  try {
+    registerAuthDispatch(store.dispatch);
+    tokenManager.schedulePeriodicRefresh(true);
+  } catch (err) {
+    logger.warn("authMiddleware: Failed to start tokenManager periodic refresh", err, "auth");
+  }
 
-  // Set up network status listener for sync when back online
-  // This would typically be handled by a network detection service
   if (typeof window !== "undefined" && window.addEventListener) {
     window.addEventListener("online", () => {
-      logger.info("Network back online, validating session", undefined, "auth");
-      validateSession(store);
+      logger.info("Network back online, triggering TokenManager refresh", undefined, "auth");
+      tokenManager
+        .refreshTokensIfOnline()
+        .catch((e) => logger.warn("TokenManager refresh failed on online", e, "auth"));
     });
 
     window.addEventListener("offline", () => {
-      logger.info("Network offline, clearing token refresh schedule", undefined, "auth");
-      clearTokenRefreshSchedule();
+      logger.info("Network offline, stopping TokenManager periodic refresh", undefined, "auth");
+      try {
+        tokenManager.schedulePeriodicRefresh(false);
+      } catch (e) {
+        logger.warn("Failed to stop TokenManager periodic refresh", e, "auth");
+      }
     });
   }
 

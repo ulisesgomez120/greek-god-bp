@@ -1,128 +1,121 @@
-# Implementation Todo: planned_exercise_id history fix
+# Session Persistence Implementation TODO
 
-Summary:
-Goal: Ensure ExerciseDetailScreen shows only history for the specific planned_exercise (program/phase/session instance). Ensure exercise_sets.planned_exercise_id is populated when possible, and history queries filter by planned_exercise_id when provided.
+This file contains the actionable checklist for extending session persistence to reliably use Supabase's refresh-token window (30 days) by hardening client refresh logic, adding lifecycle-triggered refreshes, improving error handling to avoid premature token clearing, and ensuring secure storage and Redux auth state stay synchronized.
 
-High-level steps:
+Overview
 
-- Update types & transforms to include plannedExerciseId mapping
-- Ensure insert path maps plannedExerciseId -> planned_exercise_id
-- Ensure history queries accept plannedExerciseId and filter by it
-- Propagate plannedExerciseId through workoutService and UI callers
-- Create a safe backfill migration for existing rows (best-effort only)
-- Add tests and QA checklist
-- Run migration in staging, validate, then release
+- TokenManager will be the canonical scheduler and source-of-truth for persisted tokens.
+- Middleware and auth slice will delegate scheduling/refresh ops to TokenManager.
+- App bootstrap and hooks will register TokenManager.dispatch and lifecycle handlers.
+- Tests will cover TokenManager behavior (refresh success, temporary failures, permanent failures, scheduling, metrics).
 
-Checklist
+Primary checklist (verbatim as requested)
 
-- [ ] Step 1: Update Type Definitions and transform helpers to include `plannedExerciseId` mapping
+- [x] Step 1: Update configuration constants for extended session persistence (add SESSION_PERSISTENCE_CONFIG)
+- [x] Step 2: Implement sessionPersistence helpers (src/utils/sessionPersistence.ts)
+- [x] Step 3: Harden TokenManager with config, error classification, and lifecycle handlers (in progress — PAUSED)
+- [x] Step 4: Wire TokenManager.registerDispatch in app bootstrap (src/App.tsx)
+- [ ] Step 5: Add AppState / visibility hooks in useAuth to trigger refresh on foreground
+- [ ] Step 6: Update middleware and auth slice to coordinate with TokenManager (remove duplicate timers)
+- [ ] Step 7: Add diagnostics selector/getSessionHealth and expose in debug tooling
+- [ ] Step 8: Add unit and integration tests and run manual QA checklist
+- [ ] Step 9: Final review and merge
 
-  - Files to modify:
-    - src/types/transforms.ts (transformExerciseSetToDb, transformExerciseSet, transformWorkoutSessionWithSets)
-    - src/types/database.ts / src/types/index.ts (if there are DB shapes that need plannedExerciseId)
-  - Tasks:
-    - Add plannedExerciseId to front-end types where missing
-    - Map plannedExerciseId <-> planned_exercise_id in all transforms
-    - Add unit tests for transform mapping
+Status: PAUSED
 
-- [ ] Step 2: Update DatabaseService methods (insertExerciseSets, queryExerciseHistory)
+- Work is paused while TokenManager finalization, middleware/slice integration, and tests are prepared.
+- Current checkpoint: TokenManager has been wired to use SESSION_PERSISTENCE_CONFIG, sessionPersistence metrics recorded, lifecycle handlers added, and middleware updated to delegate scheduling to TokenManager. Remaining tasks require tests and a short review before continuing.
 
-  - Files to modify:
-    - src/services/database.service.ts
-  - Tasks:
-    - Update insertExerciseSets to accept plannedExerciseId in the payload and persist planned_exercise_id
-    - Update queryExerciseHistory signature to accept optional plannedExerciseId and apply an additional WHERE planned_exercise_id = $x when provided
-    - Keep default behavior unchanged when plannedExerciseId is null (fall back to exercise_id-only behavior)
-    - Add unit tests for query filtering
+Resume instructions:
 
-- [ ] Step 3: Update WorkoutService.addExerciseSet and getExerciseHistory
+- Unpause by updating this file (remove PAUSED) or confirm "resume" in chat.
+- Recommended next steps when resuming:
+  1. Finish TokenManager getSessionHealth/details and ensure all exports are type-correct.
+  2. Add AppState/visibility hooks in src/hooks/useAuth.ts to call tokenManager.handleAppStateChange('active').
+  3. Update auth slice to delegate refresh behavior and avoid duplicate clearing on temporary failures.
+  4. Add unit/integration tests listed below and run typecheck + tests.
+  5. Run manual QA checklist and prepare PR.
 
-  - Files to modify:
-    - src/services/workout.service.ts
-  - Tasks:
-    - Accept plannedExerciseId in addExerciseSet (from UI) and include it in the set payload passed to databaseService.insertExerciseSets
-    - Accept plannedExerciseId in getExerciseHistory and pass it to databaseService.queryExerciseHistory
-    - Validate plannedExerciseId when provided (e.g., confirm it belongs to the user's plan/session if that check exists in service layer; if not possible, perform light validation or log)
-    - Add unit tests
+Detailed implementation checklist (expanded)
 
-- [ ] Step 4: Update UI callers (ExerciseDetailScreen, SetLogger, hooks) to supply plannedExerciseId
+- [ ] Analyze requirements and verify implementation_plan.md for exact function/class signatures and types.
+- [x] Add SESSION_PERSISTENCE_CONFIG to `src/config/constants.ts`:
+  - bufferTimeMs (default: 60 _ 60 _ 1000 = 1 hour)
+  - periodicRefreshIntervalMs (optional; e.g., 12 hours)
+  - maxRetryAttempts and backoff policy
+  - enableRefreshOnForeground (boolean)
+  - metricsEnabled (boolean)
+- [x] Create `src/utils/sessionPersistence.ts` with:
+  - shouldAttemptRefreshOnFocus(lastRefreshTimestamp, sessionStartTime, config)
+  - recordSessionMetrics(event: 'refresh'|'refresh_failed'|'refresh_success'|'session_cleared', details)
+  - getSessionMetrics()
+  - Types and simple in-memory or StorageAdapter.secure backed metrics storage (mockable in tests)
+- [ ] Harden `src/utils/tokenManager.ts`:
+  - [x] Read SESSION_PERSISTENCE_CONFIG (wired into TokenManager)
+  - [x] Expose registerDispatch(dispatch), initialize(), shutdown() (registerDispatch exists; initialize triggered in constructor)
+  - [x] Keep a single timer for scheduled refresh; ensure idempotent scheduling (scheduleTokenRefresh adjusted)
+  - [x] Implement performTokenRefresh(): uses supabase.auth.setSession / refresh flow (refresh logic implemented with retries)
+  - [x] Classify errors:
+    - temporary (network errors, 5xx, rate limit) -> schedule exponential backoff retry, do NOT clear tokens (implemented)
+    - permanent (invalid_grant, refresh token revoked/expired per supabase error) -> clearTokens and dispatch logout (implemented)
+  - [x] Avoid unconditional clearTokens() on temporary errors (implemented)
+  - [x] Implement handleAppStateChange(state: 'active'|'background'|'inactive') to trigger refresh-on-foreground when needed (implemented)
+  - [x] Implement schedulePeriodicRefresh() for long-running foreground sessions (configurable)
+  - [x] record metrics and sessionStartTime reset logic on rehydrate/storeTokens (recordSessionMetrics used on rehydrate and failures)
+  - [x] Ensure storeTokens awaits supabase.auth.setSession where appropriate and persists tokens using StorageAdapter.secure
+  - [ ] Expose getSessionHealth() / selectSessionHealth() for diagnostics (TODO)
+  - [x] Ensure concurrency guards to avoid parallel refresh attempts (mutex or in-flight flag) (isRefreshing + refreshPromise)
 
-  - Files to modify:
-    - src/screens/workout/ExerciseDetailScreen.tsx
-    - src/components/workout/SetLogger.tsx
-    - src/hooks/useProgressData.ts
-    - Any other callers that log sets or fetch history
-  - Tasks:
-    - Where the UI is showing a planned exercise instance, pass plannedExerciseId into workoutService.getExerciseHistory and workoutService.addExerciseSet
-    - When in a freeform / ad-hoc workout (no plan), do not pass plannedExerciseId so behavior remains unchanged
-    - Update types for component props where necessary
-    - Add integration test / manual QA steps
+* - Notes: TokenManager was updated to integrate sessionPersistence metrics, use SESSION_PERSISTENCE_CONFIG values, and avoid clearing tokens on temporary errors. Remaining tasks: finalize getSessionHealth, add middleware/slice delegation, add unit/integration tests, and add diagnostics selector.
 
-- [ ] Step 5: Create migration supabase/migrations/20250830000001_backfill_planned_exercise_id_for_sets.sql
+- [ ] Update `src/services/auth.service.ts`:
+  - Consolidate calls to TokenManager.storeTokens / TokenManager.notifySessionRestored
+  - Remove duplicate direct calls to storage where appropriate
+- [ ] Update Redux:
+  - `src/store/auth/authSlice.ts`
+    - Make token storage/clearing delegate to TokenManager where possible
+    - Update refreshTokens thunk to call TokenManager.performTokenRefresh() and interpret returned result without clearing on temporary errors
+  - `src/middleware/authMiddleware.ts`
+    - Remove its own standalone timers; call TokenManager.scheduleIfNeeded() or rely on TokenManager events
+    - Use TokenManager for periodic checks and only read session state (do not mutate persisted tokens)
+- [ ] App bootstrap (`src/App.tsx`):
+  - Early on initialize TokenManager.initialize()
+  - Call TokenManager.registerDispatch(store.dispatch)
+  - Ensure TokenManager rehydrates tokens before main navigation renders if feasible (show splash until rehydration completes)
+- [ ] Hooks (`src/hooks/useAuth.ts`):
+  - Add AppState / visibilitychange listeners to call TokenManager.handleAppStateChange('active') on foreground
+  - Debounce / throttle calls to avoid spammy refresh attempts
+- [ ] Diagnostics and selectors:
+  - Add selector `selectSessionHealth` in auth slice or expose `tokenManager.getSessionHealth()`
+  - Optional debug screen to surface metrics from `sessionPersistence.getSessionMetrics()`
+- [ ] Tests:
+  - Unit tests for TokenManager:
+    - scheduling logic, buffer time calculations
+    - temporary failure classification (simulate network errors) -> tokens remain persisted and retries scheduled
+    - permanent failure classification -> tokens cleared and logout dispatched
+    - concurrency: multiple simultaneous refresh triggers -> only one network call executed
+  - Integration tests:
+    - authIntegration.spec.ts: mock supabase client and StorageAdapter to simulate complete flows
+    - lifecycle: simulate AppState changes triggering refresh-on-foreground
+  - Add test files:
+    - `src/__tests__/tokenManager.spec.ts`
+    - `src/__tests__/authIntegration.spec.ts`
+- [ ] Manual QA checklist:
+  - [ ] Fresh login sets tokens and schedules next refresh correctly
+  - [ ] On returning to foreground after > bufferTime, perform refresh automatically
+  - [ ] Network outage during refresh does NOT log user out; retry scheduled
+  - [ ] Permanent refresh failure (revoked refresh token) logs user out and clears persisted tokens
+  - [ ] Redux auth state stays in sync with TokenManager and storage after refresh/re-hydration
+  - [ ] Metrics recorded and retrievable via diagnostic selector
+- [ ] Documentation:
+  - Update README or developer docs describing how TokenManager works and how to test it locally
+- [ ] Final review and merge:
+  - Create PR with description referencing implementation_plan.md
+  - Ensure tests pass in CI
 
-  - Migration contents (high level):
-    - CREATE INDEX IF NOT EXISTS idx_exercise_sets_planned_exercise_id ON exercise_sets(planned_exercise_id);
-    - Best-effort UPDATE to set planned_exercise_id using deterministic heuristics:
-      - Join exercise_sets -> workout_sessions -> workout_plan_sessions -> planned_exercises where there is a unique match based on session id and exercise_id and optional ordering heuristics
-      - Only update rows where the join yields exactly one distinct planned_exercise.id (to avoid ambiguous updates)
-    - All updates logged/validated in SQL (use WITH ... RETURNING for review)
-    - No attempt to populate rows where match is ambiguous; leave them NULL
-  - Safety:
-    - Migration should be applied in staging first, with checks that row counts updated are expected
-    - Provide rollback SQL (logically revert the updates or snapshot before running)
+Notes
 
-- [ ] Step 6: Add unit/integration tests
-
-  - Targets:
-    - transform unit tests (plannedExerciseId mapping)
-    - database.service tests for insertExerciseSets mapping and queryExerciseHistory filtering
-    - workout.service tests for propagation
-    - UI-level integration test or snapshot verifying ExerciseDetailScreen history displays only planned-exercise-specific history when plannedExerciseId provided
-  - Files:
-    - tests/unit/... (follow existing test conventions)
-
-- [ ] Step 7: Run staging migration, validate backfill, run tests and QA checklist
-
-  - Tasks:
-    - Deploy migration to staging
-    - Run validation queries:
-      - Count of rows updated vs expected
-      - Spot-check sample sessions & sets
-      - Ensure no ambiguous updates occurred
-    - Run test suite and manual QA steps
-
-- [ ] Step 8: Release migration and client changes to production
-  - Tasks:
-    - Coordinate rollout with release window
-    - Monitor errors and metrics post-release
-
-Implementation notes and constraints
-
-- Preserve backward compatibility: if plannedExerciseId is not present, history queries should still return exercise_id-based history (existing behavior).
-- When the UI cannot determine plannedExerciseId (freeform workout), do not set planned_exercise_id.
-- Any migration or DB operation that executes network or production changes must receive explicit approval before execution.
-- For ambiguous backfill matches, prefer leaving planned_exercise_id NULL.
-- Logging / telemetry should be added where helpful to observe frequency of missing plannedExerciseId writes.
-
-Developer checklist for code edits
-
-- [ ] Update transforms.ts
-- [ ] Update database.service.ts
-- [ ] Update workout.service.ts
-- [ ] Update UI components/hooks
-- [ ] Add migration file under supabase/migrations/
-- [ ] Add tests
-- [ ] Run linters/formatters
-- [ ] Create PR with description of changes + migration notes
-
-References
-
-- Implementation plan: implementation_plan.md
-- Files of interest (repo root):
-  - src/services/workout.service.ts
-  - src/services/database.service.ts
-  - src/types/transforms.ts
-  - src/screens/workout/ExerciseDetailScreen.tsx
-  - src/components/workout/SetLogger.tsx
-  - src/hooks/useProgressData.ts
-  - supabase/migrations/
+- Keep changes TypeScript-typed and mock StorageAdapter in tests.
+- TokenManager remains the single canonical scheduler for refresh timers.
+- Do not change Supabase server settings; rely on default 30-day refresh token window.
+- Preserve secure storage (StorageAdapter.secure) for persisted tokens.

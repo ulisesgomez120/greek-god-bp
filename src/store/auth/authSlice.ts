@@ -6,7 +6,6 @@
 
 import { createSlice, createAsyncThunk, PayloadAction } from "@reduxjs/toolkit";
 import { ENV_CONFIG } from "../../config/constants";
-import { getTokens, storeTokens, clearTokens, areTokensExpired } from "../../utils/storage";
 import { getAuthenticatedClient } from "@/lib/supabase";
 import { logger } from "../../utils/logger";
 import { profileService } from "../../services/profile.service";
@@ -33,6 +32,7 @@ const initialState: AuthState = {
 let isInitializationInProgress = false;
 
 import supabase from "@/lib/supabase";
+import tokenManager from "@/utils/tokenManager";
 
 // ============================================================================
 // HELPER FUNCTIONS
@@ -250,84 +250,80 @@ export const initializeAuth = createAsyncThunk("auth/initialize", async (_, { re
     isInitializationInProgress = true;
     logger.info("Initializing authentication state", undefined, "auth");
 
-    const tokens = await getTokens();
+    // Prefer TokenManager as the canonical source of truth for token storage and refresh.
+    const tokens = await tokenManager.getTokens();
     if (!tokens) {
       logger.info("No stored tokens found", undefined, "auth");
       return { user: null, session: null };
     }
 
-    // Check if tokens are expired
-    const expired = await areTokensExpired();
-    if (expired) {
-      logger.warn("Stored tokens are expired, attempting refresh", undefined, "auth");
+    // Try to read current session from Supabase shared client.
+    let {
+      data: { session },
+      error: sessionError,
+    } = await supabase.auth.getSession();
 
-      // Attempt to refresh tokens
-      const { data, error } = await supabase.auth.refreshSession({
-        refresh_token: tokens.refreshToken,
-      });
+    // If no session available, delegate refresh to TokenManager (network-aware + retries).
+    if (!session) {
+      logger.info("No active Supabase session; delegating refresh to TokenManager", undefined, "auth");
+      await tokenManager.refreshTokensIfOnline();
 
-      if (error || !data.session) {
-        logger.error("Token refresh failed during initialization", error, "auth");
-        await clearTokens();
-        return { user: null, session: null };
-      }
+      // Attempt to read session again after TokenManager refresh attempt.
+      const {
+        data: { session: refreshedSession },
+        error: refreshedError,
+      } = await supabase.auth.getSession();
 
-      // Store new tokens
-      await storeTokens({
-        accessToken: data.session.access_token,
-        refreshToken: data.session.refresh_token,
-        expiresAt: new Date(data.session.expires_at! * 1000).toISOString(),
-      });
-
-      // Ensure we have a valid user before proceeding
-      if (!data.user) {
-        logger.error("Token refresh during initialization succeeded but no user data returned", undefined, "auth");
-        await clearTokens();
-        return { user: null, session: null };
-      }
-
-      // Merge user with profile data from database
-      const mergedUser = await mergeUserWithProfile(data.user, data.session.access_token);
-
-      logger.info("Tokens refreshed successfully during initialization", undefined, "auth", data.user.id);
-
-      return {
-        user: mergedUser,
-        session: {
-          accessToken: data.session.access_token,
-          refreshToken: data.session.refresh_token,
-          expiresAt: new Date(data.session.expires_at! * 1000).toISOString(),
-          user: mergedUser,
-        },
-      };
+      session = refreshedSession;
+      sessionError = refreshedError;
     }
 
-    // Tokens are valid, get user data
-    const { data: userData, error: userError } = await supabase.auth.getUser(tokens.accessToken);
+    if (!session) {
+      // Do not clear tokens here; TokenManager will classify errors and clear only for permanent failures.
+      logger.info("No valid session after TokenManager refresh; leaving tokens intact for now", undefined, "auth");
+      return { user: null, session: null };
+    }
 
-    if (userError || !userData.user) {
-      logger.error("Failed to get user data during initialization", userError, "auth");
-      await clearTokens();
+    // Ensure we have a valid user before proceeding
+    if (!session.user) {
+      logger.error("Session available but no user returned", undefined, "auth");
       return { user: null, session: null };
     }
 
     // Merge user with profile data from database
-    const mergedUser = await mergeUserWithProfile(userData.user, tokens.accessToken);
+    const mergedUser = await mergeUserWithProfile(session.user, session.access_token);
 
-    logger.info("Authentication initialized successfully", undefined, "auth", userData.user.id);
+    // Make sure TokenManager knows about these tokens and schedules refresh timers/re-hydration
+    try {
+      await tokenManager.storeTokens({
+        accessToken: session.access_token,
+        refreshToken: session.refresh_token,
+        expiresAt: new Date(session.expires_at! * 1000).toISOString(),
+      });
+    } catch (storeErr) {
+      // Non-fatal: log and continue — TokenManager may already have the tokens
+      logger.warn("Failed to store tokens into TokenManager during initialization", storeErr, "auth");
+    }
+
+    logger.info("Authentication initialized successfully", undefined, "auth", session.user.id);
 
     return {
       user: mergedUser,
       session: {
-        accessToken: tokens.accessToken,
-        refreshToken: tokens.refreshToken,
-        expiresAt: tokens.expiresAt,
+        accessToken: session.access_token,
+        refreshToken: session.refresh_token,
+        expiresAt: new Date(session.expires_at! * 1000).toISOString(),
         user: mergedUser,
       },
     };
   } catch (error) {
     logger.error("Authentication initialization failed", error, "auth");
-    await clearTokens();
+    // Delegate token clearing to TokenManager (it handles error classification)
+    try {
+      await tokenManager.clearTokens();
+    } catch (err) {
+      logger.warn("Failed to clear tokens during initialization failure handling", err, "auth");
+    }
     return rejectWithValue("Failed to initialize authentication");
   } finally {
     isInitializationInProgress = false;
@@ -357,7 +353,7 @@ export const loginUser = createAsyncThunk("auth/login", async (credentials: Logi
     }
 
     // Store tokens securely
-    await storeTokens({
+    await tokenManager.storeTokens({
       accessToken: data.session.access_token,
       refreshToken: data.session.refresh_token,
       expiresAt: new Date(data.session.expires_at! * 1000).toISOString(),
@@ -413,7 +409,7 @@ export const signupUser = createAsyncThunk("auth/signup", async (signupData: Sig
 
     // If session is available (email confirmation not required), store tokens
     if (data.session) {
-      await storeTokens({
+      await tokenManager.storeTokens({
         accessToken: data.session.access_token,
         refreshToken: data.session.refresh_token,
         expiresAt: new Date(data.session.expires_at! * 1000).toISOString(),
@@ -476,7 +472,7 @@ export const logoutUser = createAsyncThunk("auth/logout", async (_, { rejectWith
     }
 
     // Clear stored tokens
-    await clearTokens();
+    await tokenManager.clearTokens();
 
     logger.info("User logged out successfully", undefined, "auth");
 
@@ -484,7 +480,7 @@ export const logoutUser = createAsyncThunk("auth/logout", async (_, { rejectWith
   } catch (error) {
     logger.error("Logout error", error, "auth");
     // Even if logout fails, clear local tokens
-    await clearTokens();
+    await tokenManager.clearTokens();
     return rejectWithValue("Logout failed");
   }
 });
@@ -495,67 +491,66 @@ export const logoutUser = createAsyncThunk("auth/logout", async (_, { rejectWith
 export const refreshTokens = createAsyncThunk("auth/refreshTokens", async (_, { rejectWithValue, getState }) => {
   try {
     const state = getState() as any;
-    const currentSession = state.auth.session;
     const currentUser = state.auth.user;
-
-    if (!currentSession?.refreshToken) {
-      logger.warn("No refresh token available", undefined, "auth");
-      return rejectWithValue("No refresh token available");
-    }
 
     // Preserve existing user metadata before refresh
     const existingUserMetadata = currentUser?.user_metadata || {};
 
-    logger.info("Refreshing authentication tokens", undefined, "auth");
+    logger.info("Refreshing authentication tokens via TokenManager", undefined, "auth");
 
-    const { data, error } = await supabase.auth.refreshSession({
-      refresh_token: currentSession.refreshToken,
-    });
+    // Delegate canonical refresh to TokenManager (network-aware + retry/backoff)
+    const tokens = await tokenManager.refreshTokensIfOnline();
 
-    if (error || !data.session) {
-      logger.error("Token refresh failed", error, "auth");
-      await clearTokens();
+    if (!tokens) {
+      logger.warn(
+        "TokenManager: refresh did not return tokens (refresh may have failed or been skipped)",
+        undefined,
+        "auth"
+      );
       return rejectWithValue("Token refresh failed");
     }
 
-    // Store new tokens
-    await storeTokens({
-      accessToken: data.session.access_token,
-      refreshToken: data.session.refresh_token,
-      expiresAt: new Date(data.session.expires_at! * 1000).toISOString(),
-    });
+    // After TokenManager stores tokens, Supabase client session should be rehydrated.
+    // Read back the session from the shared Supabase client.
+    const {
+      data: { session },
+      error: sessionError,
+    } = await supabase.auth.getSession();
+
+    if (sessionError || !session) {
+      logger.error("Failed to read session from Supabase after TokenManager refresh", sessionError, "auth");
+      return rejectWithValue("Token refresh failed: no session");
+    }
 
     // Ensure we have a valid user before proceeding
-    if (!data.user) {
-      logger.error("Token refresh succeeded but no user data returned", undefined, "auth");
-      await clearTokens();
+    if (!session.user) {
+      logger.error("Token refresh succeeded but no user data returned in session", undefined, "auth");
       return rejectWithValue("Token refresh failed: No user data returned");
     }
 
     // Merge existing user metadata with refreshed user data
-    // This preserves onboarding_complete and other custom metadata
     const mergedUser = {
-      ...data.user,
+      ...session.user,
       user_metadata: {
         ...existingUserMetadata, // Preserve existing metadata
-        ...data.user.user_metadata, // Allow server-side updates if any
+        ...session.user.user_metadata, // Allow server-side updates if any
       },
     };
 
-    logger.info("Tokens refreshed successfully", undefined, "auth", data.user.id);
+    logger.info("Tokens refreshed successfully (via TokenManager)", undefined, "auth", session.user.id);
 
     return {
       user: mergedUser,
       session: {
-        accessToken: data.session.access_token,
-        refreshToken: data.session.refresh_token,
-        expiresAt: new Date(data.session.expires_at! * 1000).toISOString(),
+        accessToken: session.access_token,
+        refreshToken: session.refresh_token,
+        expiresAt: new Date(session.expires_at! * 1000).toISOString(),
         user: mergedUser,
       },
     };
   } catch (error) {
     logger.error("Token refresh error", error, "auth");
-    await clearTokens();
+    // Do not aggressively clear tokens here; TokenManager handles permanent error clearing.
     return rejectWithValue("Token refresh failed");
   }
 });
@@ -803,5 +798,10 @@ export const selectTokensExpiringSoon = (state: { auth: AuthState }) => {
 // Stable initialization selectors
 export const selectHasBeenInitialized = (state: { auth: AuthState }) => !!state.auth.hasBeenInitialized;
 export const selectIsInitializing = (state: { auth: AuthState }) => !!state.auth.isInitializing;
+
+// Expose session health for diagnostics (returns a Promise)
+export const selectSessionHealth = () => {
+  return tokenManager.getSessionHealth();
+};
 
 export default authSlice.reducer;

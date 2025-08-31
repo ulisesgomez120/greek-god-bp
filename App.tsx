@@ -24,6 +24,7 @@ import ErrorBoundary from "./src/components/ui/ErrorBoundary";
 
 // Utils
 import { logger } from "./src/utils/logger";
+import { registerAuthDispatch } from "@/utils/tokenManager";
 
 // ============================================================================
 // APP CONTENT COMPONENT
@@ -45,6 +46,13 @@ const AppContent: React.FC = () => {
       try {
         // show splash immediately
         showSplash();
+
+        // Register TokenManager with Redux dispatch early so it can keep auth state in sync.
+        try {
+          registerAuthDispatch(store.dispatch);
+        } catch (err) {
+          logger.warn("Failed to register TokenManager dispatch during app bootstrap", err);
+        }
 
         // Wait for store rehydration
         await waitForRehydration();
