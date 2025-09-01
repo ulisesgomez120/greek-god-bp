@@ -145,6 +145,34 @@ export function transformExerciseSet(dbSet: DbExerciseSet): ExerciseSet {
   };
 }
 
+/**
+ * Strict transform used by history/analytics queries where a planned_exercise_id
+ * MUST be present. This will throw if the DB row is missing planned_exercise_id,
+ * surfacing data integrity issues early and preventing accidental fallback to
+ * exercise_id-only filtering.
+ */
+export function transformExerciseSetStrict(dbSet: DbExerciseSet): ExerciseSet {
+  if (!dbSet.planned_exercise_id) {
+    throw new Error(`transformExerciseSetStrict: missing planned_exercise_id on exercise_set id=${dbSet.id}`);
+  }
+
+  return {
+    id: dbSet.id,
+    sessionId: dbSet.session_id,
+    exerciseId: dbSet.exercise_id,
+    plannedExerciseId: dbSet.planned_exercise_id,
+    setNumber: dbSet.set_number,
+    weightKg: dbSet.weight_kg || undefined,
+    reps: dbSet.reps || 0,
+    rpe: dbSet.rpe || undefined,
+    isWarmup: dbSet.is_warmup || false,
+    isFailure: dbSet.is_failure || false,
+    restSeconds: dbSet.rest_seconds || undefined,
+    notes: dbSet.notes || undefined,
+    createdAt: dbSet.created_at,
+  };
+}
+
 export function transformExerciseSetToDb(set: Partial<ExerciseSet>): Partial<DbExerciseSet> {
   const dbSet: Partial<DbExerciseSet> = {};
 

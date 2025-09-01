@@ -592,7 +592,7 @@ export class WorkoutService {
    */
   async getExerciseHistory(
     exerciseId: string,
-    plannedExerciseId?: string,
+    plannedExerciseId: string,
     limit: number = 6
   ): Promise<
     {
@@ -601,6 +601,9 @@ export class WorkoutService {
     }[]
   > {
     try {
+      if (!plannedExerciseId || typeof plannedExerciseId !== "string") {
+        throw new Error("WorkoutService.getExerciseHistory: plannedExerciseId is required");
+      }
       const user = await authService.getCurrentUser();
       if (!user) return [];
 

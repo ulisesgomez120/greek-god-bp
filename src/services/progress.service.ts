@@ -89,7 +89,11 @@ export class ProgressService {
         1000
       );
 
-      const personalRecords = await databaseService.queryPersonalRecords(userId);
+      // Personal records now require a plannedExerciseId to scope them.
+      // Analytics here are global and not scoped per planned exercise; skip personalRecords
+      // to avoid accidental unscoped queries. If needed, callers should request records
+      // via ProgressService.getPersonalRecords with an explicit plannedExerciseId.
+      const personalRecords: any[] = [];
       const strengthScore = 0; // keep simple for now (could call a helper)
 
       const totalWorkouts = workouts.length;
@@ -156,9 +160,13 @@ export class ProgressService {
   static async getExerciseHistory(
     userId: string,
     exerciseId: string,
-    plannedExerciseId?: string
+    plannedExerciseId: string
   ): Promise<ExerciseSessionSummary[]> {
     try {
+      if (!plannedExerciseId || typeof plannedExerciseId !== "string") {
+        throw new Error("ProgressService.getExerciseHistory: plannedExerciseId is required");
+      }
+
       const summaries = await databaseService.queryExerciseHistory(userId, exerciseId, plannedExerciseId, 6);
       return summaries;
     } catch (err) {
@@ -168,15 +176,20 @@ export class ProgressService {
   }
 
   /**
-   * Get strength progression for charts
+   * Get strength progression for charts (scoped to a planned exercise)
    */
   static async getStrengthProgression(
     userId: string,
     exerciseId: string,
+    plannedExerciseId: string,
     timeframe: "month" | "quarter" | "year" = "quarter"
   ): Promise<StrengthDataPoint[]> {
     try {
-      const data = await databaseService.queryStrengthProgression(userId, exerciseId, timeframe);
+      if (!plannedExerciseId || typeof plannedExerciseId !== "string") {
+        throw new Error("ProgressService.getStrengthProgression: plannedExerciseId is required");
+      }
+
+      const data = await databaseService.queryStrengthProgression(userId, exerciseId, plannedExerciseId, timeframe);
       return data;
     } catch (err) {
       logger.error("Failed to get strength progression", err, "progress");
@@ -186,14 +199,22 @@ export class ProgressService {
 
   /**
    * Get volume progression (session-level)
+   * If exerciseId is provided, plannedExerciseId must also be provided.
    */
   static async getVolumeProgression(
     userId: string,
     exerciseId?: string,
+    plannedExerciseId?: string,
     timeframe: "month" | "quarter" | "year" = "quarter"
   ): Promise<VolumeDataPoint[]> {
     try {
-      const data = await databaseService.queryVolumeProgression(userId, exerciseId, timeframe);
+      if (exerciseId && !plannedExerciseId) {
+        throw new Error(
+          "ProgressService.getVolumeProgression: plannedExerciseId is required when exerciseId is provided"
+        );
+      }
+
+      const data = await databaseService.queryVolumeProgression(userId, exerciseId, plannedExerciseId, timeframe);
       return data;
     } catch (err) {
       logger.error("Failed to get volume progression", err, "progress");
@@ -202,11 +223,20 @@ export class ProgressService {
   }
 
   /**
-   * Get personal records for a user
+   * Get personal records for a user (scoped to a planned exercise)
    */
-  static async getPersonalRecords(userId: string, exerciseId?: string, limit: number = 50): Promise<PersonalRecord[]> {
+  static async getPersonalRecords(
+    userId: string,
+    plannedExerciseId: string,
+    exerciseId?: string,
+    limit: number = 50
+  ): Promise<PersonalRecord[]> {
     try {
-      const records = await databaseService.queryPersonalRecords(userId, exerciseId, limit);
+      if (!plannedExerciseId || typeof plannedExerciseId !== "string") {
+        throw new Error("ProgressService.getPersonalRecords: plannedExerciseId is required");
+      }
+
+      const records = await databaseService.queryPersonalRecords(userId, plannedExerciseId, exerciseId, limit);
       return records;
     } catch (err) {
       logger.error("Failed to get personal records", err, "progress");

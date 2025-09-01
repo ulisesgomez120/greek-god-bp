@@ -72,6 +72,11 @@ interface NextExerciseInfo {
 export const ExerciseDetailScreen: React.FC<ExerciseDetailScreenProps> = ({ navigation, route }) => {
   const { exerciseId, exerciseIndex, workoutContext, exerciseData, plannedExerciseId } = route.params;
 
+  // Enforce plannedExerciseId presence — this screen's history/progression views must be scoped.
+  if (!plannedExerciseId || typeof plannedExerciseId !== "string") {
+    throw new Error("ExerciseDetail: plannedExerciseId is required");
+  }
+
   const { colors } = useTheme();
   const styles = createStyles(colors);
 
@@ -100,7 +105,7 @@ export const ExerciseDetailScreen: React.FC<ExerciseDetailScreenProps> = ({ navi
   useEffect(() => {
     loadExerciseData();
     calculateNextExercise();
-  }, [exerciseId]);
+  }, [exerciseId, plannedExerciseId]);
 
   // ============================================================================
   // DATA LOADING
@@ -110,6 +115,7 @@ export const ExerciseDetailScreen: React.FC<ExerciseDetailScreenProps> = ({ navi
     try {
       setState((prev) => ({ ...prev, isLoading: true }));
 
+      // plannedExerciseId validated above; call service which requires it
       const history = await workoutService.getExerciseHistory(exerciseId, plannedExerciseId, 6);
 
       setState((prev) => ({
@@ -121,7 +127,7 @@ export const ExerciseDetailScreen: React.FC<ExerciseDetailScreenProps> = ({ navi
       console.error("Failed to load exercise data:", error);
       setState((prev) => ({ ...prev, isLoading: false }));
     }
-  }, [exerciseId]);
+  }, [exerciseId, plannedExerciseId]);
 
   // Hide bottom tab bar while this screen is focused, restore on blur
   useEffect(() => {

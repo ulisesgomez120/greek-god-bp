@@ -22,6 +22,7 @@ import type { StrengthDataPoint } from "../../types";
 
 interface StrengthChartsProps {
   navigation: any;
+  route?: any;
 }
 
 interface ExerciseStrengthData {
@@ -148,8 +149,11 @@ const ExerciseCard: React.FC<ExerciseCardProps> = ({ exercise, onPress, timefram
 // MAIN COMPONENT
 // ============================================================================
 
-export const StrengthCharts: React.FC<StrengthChartsProps> = ({ navigation }) => {
+export const StrengthCharts: React.FC<StrengthChartsProps> = ({ navigation, route }) => {
   const user = useAppSelector((state) => state.auth.user);
+
+  // Require plannedExerciseId to scope progression queries to a specific planned exercise instance.
+  const plannedExerciseId: string | undefined = route?.params?.plannedExerciseId;
   const [refreshing, setRefreshing] = useState(false);
   const [timeframe, setTimeframe] = useState<"month" | "quarter" | "year">("quarter");
   const [exerciseData, setExerciseData] = useState<ExerciseStrengthData[]>([]);
@@ -213,7 +217,11 @@ export const StrengthCharts: React.FC<StrengthChartsProps> = ({ navigation }) =>
 
       for (const exerciseId of mockExerciseIds) {
         try {
-          const data = await fetchStrengthProgression(exerciseId, timeframe);
+          if (!plannedExerciseId || typeof plannedExerciseId !== "string") {
+            throw new Error("StrengthCharts: plannedExerciseId is required to load strength progression");
+          }
+
+          const data = await fetchStrengthProgression(exerciseId, plannedExerciseId, timeframe);
 
           if (data && data.length > 0) {
             const metrics = calculateStrengthMetrics(data);
@@ -258,6 +266,7 @@ export const StrengthCharts: React.FC<StrengthChartsProps> = ({ navigation }) =>
       exerciseId: exercise.exerciseId,
       exerciseName: exercise.exerciseName,
       timeframe,
+      plannedExerciseId,
     });
   };
 

@@ -31,6 +31,7 @@ if (Platform.OS !== "web") {
 // ============================================================================
 
 export interface ProgressChartProps {
+  plannedExerciseId: string;
   type: "volume" | "strength" | "rpe" | "trend";
   data?: VolumeDataPoint[] | StrengthDataPoint[];
   timeframe: "month" | "quarter" | "year";

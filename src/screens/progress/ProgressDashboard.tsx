@@ -138,11 +138,9 @@ export const ProgressDashboard: React.FC<ProgressDashboardProps> = ({ navigation
 
   const loadInitialData = async () => {
     try {
-      await Promise.all([
-        fetchAnalytics(selectedTimeframe),
-        fetchWorkoutHistory({}, 1, 10),
-        fetchPersonalRecords(undefined, 20),
-      ]);
+      // personalRecords requires a plannedExerciseId to scope results.
+      // The dashboard shows summary analytics and workout history; skip unscoped personal records here.
+      await Promise.all([fetchAnalytics(selectedTimeframe), fetchWorkoutHistory({}, 1, 10)]);
     } catch (error) {
       logger.error("Failed to load initial progress data", error, "progress");
       // Toast functionality would be implemented here
@@ -283,29 +281,51 @@ export const ProgressDashboard: React.FC<ProgressDashboardProps> = ({ navigation
     </View>
   );
 
-  const renderVolumeChart = () => (
-    <View style={styles.section}>
-      <Text style={styles.sectionTitle}>Volume Progression</Text>
-      <TempFeatureGate
-        featureKey='advanced_analytics'
-        fallback={
+  const renderVolumeChart = () => {
+    // Attempt to derive a plannedExerciseId from recent workout history
+    const firstPlannedExerciseId =
+      workoutHistory?.[0]?.sets?.find((s: any) => s.plannedExerciseId)?.plannedExerciseId ||
+      workoutHistory?.[0]?.sets?.[0]?.plannedExerciseId;
+
+    if (!firstPlannedExerciseId) {
+      return (
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>Volume Progression</Text>
           <View style={styles.premiumPrompt}>
-            <Text style={styles.premiumText}>Upgrade to Premium to view detailed progress charts</Text>
-            <Button onPress={() => navigation.navigate("TempSubscription")} variant='primary' size='small'>
-              Upgrade Now
-            </Button>
+            <Text style={styles.premiumText}>
+              Volume charts require a planned exercise context. Open an exercise or start a workout from a plan to view
+              charts.
+            </Text>
           </View>
-        }>
-        <ProgressChart
-          type='volume'
-          timeframe={selectedTimeframe}
-          height={200}
-          showTrendLine={true}
-          interactive={true}
-        />
-      </TempFeatureGate>
-    </View>
-  );
+        </View>
+      );
+    }
+
+    return (
+      <View style={styles.section}>
+        <Text style={styles.sectionTitle}>Volume Progression</Text>
+        <TempFeatureGate
+          featureKey='advanced_analytics'
+          fallback={
+            <View style={styles.premiumPrompt}>
+              <Text style={styles.premiumText}>Upgrade to Premium to view detailed progress charts</Text>
+              <Button onPress={() => navigation.navigate("TempSubscription")} variant='primary' size='small'>
+                Upgrade Now
+              </Button>
+            </View>
+          }>
+          <ProgressChart
+            plannedExerciseId={firstPlannedExerciseId}
+            type='volume'
+            timeframe={selectedTimeframe}
+            height={200}
+            showTrendLine={true}
+            interactive={true}
+          />
+        </TempFeatureGate>
+      </View>
+    );
+  };
 
   const renderZeroState = () => (
     <View style={styles.zeroState}>

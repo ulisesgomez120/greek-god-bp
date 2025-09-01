@@ -854,10 +854,14 @@ export class DatabaseService {
   }
 
   /**
-   * Query exercise history (last N sessions for an exercise)
+   * Query exercise history (last N sessions for an exercise) — requires plannedExerciseId
    */
-  async queryExerciseHistory(userId: string, exerciseId: string, plannedExerciseId?: string, limit: number = 6) {
+  async queryExerciseHistory(userId: string, exerciseId: string, plannedExerciseId: string, limit: number = 6) {
     try {
+      if (!plannedExerciseId || typeof plannedExerciseId !== "string") {
+        throw new Error("queryExerciseHistory: plannedExerciseId is required");
+      }
+
       // Build base query for sessions with inner join to exercise_sets
       let query: any = supabase
         .from("workout_sessions")
@@ -875,7 +879,10 @@ export class DatabaseService {
             notes,
             is_warmup,
             is_failure,
-            created_at
+            created_at,
+            planned_exercise_id,
+            exercise_id,
+            set_number
           )
         `
         )
@@ -884,16 +891,10 @@ export class DatabaseService {
         .order("started_at", { ascending: false })
         .limit(limit);
 
-      // Apply exercise / planned exercise filtering:
-      // - If plannedExerciseId is provided, restrict to sets that match both exercise_id and planned_exercise_id
-      // - Otherwise, fall back to filtering by exercise_id only (preserves existing behavior)
-      if (plannedExerciseId) {
-        query = query
-          .eq("exercise_sets.exercise_id", exerciseId)
-          .eq("exercise_sets.planned_exercise_id", plannedExerciseId);
-      } else {
-        query = query.eq("exercise_sets.exercise_id", exerciseId);
-      }
+      // Always filter by both exercise_id and planned_exercise_id — no fallback permitted
+      query = query
+        .eq("exercise_sets.exercise_id", exerciseId)
+        .eq("exercise_sets.planned_exercise_id", plannedExerciseId);
 
       const { data: sessions, error } = await query;
 
@@ -961,14 +962,19 @@ export class DatabaseService {
   }
 
   /**
-   * Query strength progression for an exercise
+   * Query strength progression for an exercise (scoped to a planned exercise)
    */
   async queryStrengthProgression(
     userId: string,
     exerciseId: string,
+    plannedExerciseId: string,
     timeframe: "month" | "quarter" | "year" = "quarter"
   ) {
     try {
+      if (!plannedExerciseId || typeof plannedExerciseId !== "string") {
+        throw new Error("queryStrengthProgression: plannedExerciseId is required");
+      }
+
       const startDate = this.getStartDateForProgress(timeframe);
 
       const { data: sets, error } = await supabase
@@ -979,6 +985,7 @@ export class DatabaseService {
           reps,
           rpe,
           created_at,
+          planned_exercise_id,
           workout_sessions!inner (
             user_id,
             started_at,
@@ -987,6 +994,7 @@ export class DatabaseService {
         `
         )
         .eq("exercise_id", exerciseId)
+        .eq("planned_exercise_id", plannedExerciseId)
         .eq("workout_sessions.user_id", userId)
         .eq("is_warmup", false)
         .not("workout_sessions.completed_at", "is", null)
@@ -1016,14 +1024,20 @@ export class DatabaseService {
   }
 
   /**
-   * Query volume progression (session-level) optionally filtered by exercise
+   * Query volume progression (session-level) optionally filtered by exercise.
+   * If exerciseId is provided, plannedExerciseId is required to scope the query.
    */
   async queryVolumeProgression(
     userId: string,
     exerciseId?: string,
+    plannedExerciseId?: string,
     timeframe: "month" | "quarter" | "year" = "quarter"
   ) {
     try {
+      if (exerciseId && !plannedExerciseId) {
+        throw new Error("queryVolumeProgression: plannedExerciseId is required when exerciseId is provided");
+      }
+
       const startDate = this.getStartDateForProgress(timeframe);
 
       let query = supabase
@@ -1037,7 +1051,8 @@ export class DatabaseService {
             weight_kg,
             reps,
             is_warmup,
-            exercise_id
+            exercise_id,
+            planned_exercise_id
           )
         `
         )
@@ -1056,7 +1071,8 @@ export class DatabaseService {
 
           if (exerciseId) {
             const exerciseSets = (session.exercise_sets || []).filter(
-              (set: any) => set.exercise_id === exerciseId && !set.is_warmup
+              (set: any) =>
+                set.exercise_id === exerciseId && set.planned_exercise_id === plannedExerciseId && !set.is_warmup
             );
 
             sessionVolume = exerciseSets.reduce(
@@ -1088,10 +1104,14 @@ export class DatabaseService {
   }
 
   /**
-   * Query personal records for a user
+   * Query personal records for a user — requires plannedExerciseId to scope records
    */
-  async queryPersonalRecords(userId: string, exerciseId?: string, limit: number = 50) {
+  async queryPersonalRecords(userId: string, plannedExerciseId: string, exerciseId?: string, limit: number = 50) {
     try {
+      if (!plannedExerciseId || typeof plannedExerciseId !== "string") {
+        throw new Error("queryPersonalRecords: plannedExerciseId is required");
+      }
+
       let query = supabase
         .from("exercise_sets")
         .select(
@@ -1109,6 +1129,7 @@ export class DatabaseService {
         `
         )
         .eq("workout_sessions.user_id", userId)
+        .eq("exercise_sets.planned_exercise_id", plannedExerciseId)
         .eq("is_warmup", false)
         .not("workout_sessions.completed_at", "is", null)
         .order("created_at", { ascending: false });
@@ -1209,7 +1230,9 @@ export class DatabaseService {
 
       if (exercisesError) throw exercisesError;
 
-      const personalRecords = await this.queryPersonalRecords(userId);
+      // Personal records now require a plannedExerciseId to scope results.
+      // Skip querying personal records here to avoid making an unscoped call.
+      const personalRecords: any[] = [];
       const analytics = (await this.getProgressMetrics(userId)) ?? {};
 
       const exportData = {

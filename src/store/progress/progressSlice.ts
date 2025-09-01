@@ -24,6 +24,7 @@ interface ProgressState {
 interface PersonalRecord {
   id: string;
   exerciseId: string;
+  plannedExerciseId: string;
   type: "1rm" | "volume" | "reps" | "endurance";
   value: number;
   weight?: number;
@@ -70,13 +71,17 @@ export const calculateProgressMetrics = createAsyncThunk(
   async (
     data: {
       exerciseId: string;
+      plannedExerciseId: string;
       workoutSessions: WorkoutSession[];
       timeframe?: "month" | "quarter" | "year";
     },
     { rejectWithValue, getState }
   ) => {
     try {
-      const { exerciseId, workoutSessions, timeframe = "quarter" } = data;
+      const { exerciseId, plannedExerciseId, workoutSessions, timeframe = "quarter" } = data;
+      if (!plannedExerciseId || typeof plannedExerciseId !== "string") {
+        throw new Error("calculateProgressMetrics: plannedExerciseId is required");
+      }
       const state = getState() as any;
       const userId = state.auth.user?.id;
 
@@ -97,6 +102,7 @@ export const calculateProgressMetrics = createAsyncThunk(
 
       if (allSets.length === 0) {
         return {
+          plannedExerciseId,
           exerciseId,
           metrics: null,
         };
@@ -160,6 +166,7 @@ export const calculateProgressMetrics = createAsyncThunk(
       );
 
       return {
+        plannedExerciseId,
         exerciseId,
         metrics,
       };
@@ -180,14 +187,18 @@ export const updatePersonalRecords = createAsyncThunk(
       exerciseId: string;
       newSets: ExerciseSet[];
       sessionId: string;
+      plannedExerciseId: string;
     },
     { rejectWithValue, getState }
   ) => {
     try {
-      const { exerciseId, newSets, sessionId } = data;
+      const { exerciseId, newSets, sessionId, plannedExerciseId } = data;
+      if (!plannedExerciseId || typeof plannedExerciseId !== "string") {
+        throw new Error("updatePersonalRecords: plannedExerciseId is required");
+      }
       const state = getState() as any;
       const userId = state.auth.user?.id;
-      const existingPRs = state.progress.personalRecords[exerciseId] || [];
+      const existingPRs = state.progress.personalRecords[plannedExerciseId] || [];
 
       logger.info("Checking for new personal records", { exerciseId, setsCount: newSets.length }, "progress", userId);
 
@@ -209,6 +220,7 @@ export const updatePersonalRecords = createAsyncThunk(
           newPRs.push({
             id: `pr_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
             exerciseId,
+            plannedExerciseId,
             type: "1rm",
             value: estimated1RM,
             weight: weightKg,
@@ -228,6 +240,7 @@ export const updatePersonalRecords = createAsyncThunk(
           newPRs.push({
             id: `pr_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
             exerciseId,
+            plannedExerciseId,
             type: "volume",
             value: volume,
             weight: weightKg,
@@ -247,6 +260,7 @@ export const updatePersonalRecords = createAsyncThunk(
           newPRs.push({
             id: `pr_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
             exerciseId,
+            plannedExerciseId,
             type: "reps",
             value: reps,
             weight: weightKg,
@@ -262,6 +276,7 @@ export const updatePersonalRecords = createAsyncThunk(
           "New personal records achieved",
           {
             exerciseId,
+            plannedExerciseId,
             newPRCount: newPRs.length,
             types: newPRs.map((pr) => pr.type),
           },
@@ -271,6 +286,7 @@ export const updatePersonalRecords = createAsyncThunk(
       }
 
       return {
+        plannedExerciseId,
         exerciseId,
         newPRs,
       };
@@ -289,15 +305,19 @@ export const calculateTrends = createAsyncThunk(
   async (
     data: {
       exerciseId: string;
+      plannedExerciseId: string;
       timeframe: "week" | "month" | "quarter";
     },
     { rejectWithValue, getState }
   ) => {
     try {
-      const { exerciseId, timeframe } = data;
+      const { exerciseId, plannedExerciseId, timeframe } = data;
+      if (!plannedExerciseId || typeof plannedExerciseId !== "string") {
+        throw new Error("calculateTrends: plannedExerciseId is required");
+      }
       const state = getState() as any;
       const userId = state.auth.user?.id;
-      const metrics = state.progress.metrics[exerciseId];
+      const metrics = state.progress.metrics[plannedExerciseId];
 
       if (!metrics) {
         return rejectWithValue("No metrics available for trend calculation");
@@ -323,6 +343,7 @@ export const calculateTrends = createAsyncThunk(
       );
 
       return {
+        plannedExerciseId,
         exerciseId,
         strengthTrend,
         volumeTrend,
@@ -562,19 +583,21 @@ const progressSlice = createSlice({
 
     // Manually add personal record
     addPersonalRecord: (state, action: PayloadAction<PersonalRecord>) => {
-      const { exerciseId } = action.payload;
-      if (!state.personalRecords[exerciseId]) {
-        state.personalRecords[exerciseId] = [];
+      const { exerciseId, plannedExerciseId } = action.payload;
+      const key = plannedExerciseId || exerciseId;
+      if (!state.personalRecords[key]) {
+        state.personalRecords[key] = [];
       }
-      state.personalRecords[exerciseId].push(action.payload);
+      state.personalRecords[key].push(action.payload);
 
       // Sort by value descending
-      state.personalRecords[exerciseId].sort((a, b) => b.value - a.value);
+      state.personalRecords[key].sort((a, b) => b.value - a.value);
 
       logger.info(
         "Personal record added manually",
         {
           exerciseId,
+          plannedExerciseId,
           type: action.payload.type,
           value: action.payload.value,
         },
@@ -600,10 +623,10 @@ const progressSlice = createSlice({
       })
       .addCase(calculateProgressMetrics.fulfilled, (state, action) => {
         state.loading = false;
-        const { exerciseId, metrics } = action.payload;
+        const { plannedExerciseId, exerciseId, metrics } = action.payload;
 
         if (metrics) {
-          state.metrics[exerciseId] = metrics;
+          state.metrics[plannedExerciseId] = metrics;
         }
       })
       .addCase(calculateProgressMetrics.rejected, (state, action) => {
@@ -617,15 +640,15 @@ const progressSlice = createSlice({
         // Don't set loading for PR updates
       })
       .addCase(updatePersonalRecords.fulfilled, (state, action) => {
-        const { exerciseId, newPRs } = action.payload;
+        const { plannedExerciseId, exerciseId, newPRs } = action.payload;
 
-        if (!state.personalRecords[exerciseId]) {
-          state.personalRecords[exerciseId] = [];
+        if (!state.personalRecords[plannedExerciseId]) {
+          state.personalRecords[plannedExerciseId] = [];
         }
 
         // Add new PRs and sort
-        state.personalRecords[exerciseId].push(...newPRs);
-        state.personalRecords[exerciseId].sort((a, b) => b.value - a.value);
+        state.personalRecords[plannedExerciseId].push(...newPRs);
+        state.personalRecords[plannedExerciseId].sort((a, b) => b.value - a.value);
       })
       .addCase(updatePersonalRecords.rejected, (state, action) => {
         logger.error("Update personal records failed", action.payload, "progress");
@@ -637,10 +660,10 @@ const progressSlice = createSlice({
         // Don't set loading for trend calculations
       })
       .addCase(calculateTrends.fulfilled, (state, action) => {
-        const { exerciseId, strengthTrend, volumeTrend } = action.payload;
+        const { plannedExerciseId, exerciseId, strengthTrend, volumeTrend } = action.payload;
 
-        state.strengthTrends[exerciseId] = { ...strengthTrend, exerciseId };
-        state.volumeTrends[exerciseId] = { ...volumeTrend, exerciseId };
+        state.strengthTrends[plannedExerciseId] = { ...strengthTrend, exerciseId };
+        state.volumeTrends[plannedExerciseId] = { ...volumeTrend, exerciseId };
       })
       .addCase(calculateTrends.rejected, (state, action) => {
         logger.error("Calculate trends failed", action.payload, "progress");
@@ -683,6 +706,22 @@ export const selectTopPersonalRecords =
     const allPRs = Object.values(state.progress.personalRecords).flat();
     return allPRs.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()).slice(0, limit);
   };
+
+// New selectors keyed by plannedExerciseId (preferred)
+export const selectMetricsForPlannedExercise = (plannedExerciseId: string) => (state: { progress: ProgressState }) =>
+  state.progress.metrics[plannedExerciseId];
+
+export const selectPersonalRecordsForPlannedExercise =
+  (plannedExerciseId: string) => (state: { progress: ProgressState }) =>
+    state.progress.personalRecords[plannedExerciseId] || [];
+
+export const selectStrengthTrendForPlannedExercise =
+  (plannedExerciseId: string) => (state: { progress: ProgressState }) =>
+    state.progress.strengthTrends[plannedExerciseId];
+
+export const selectVolumeTrendForPlannedExercise =
+  (plannedExerciseId: string) => (state: { progress: ProgressState }) =>
+    state.progress.volumeTrends[plannedExerciseId];
 
 export const selectOverallStrengthScore = (state: { progress: ProgressState }) => {
   const metrics = Object.values(state.progress.metrics);

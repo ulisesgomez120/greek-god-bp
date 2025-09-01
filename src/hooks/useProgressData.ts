@@ -319,6 +319,10 @@ export function useProgressData(options: UseProgressDataOptions = {}) {
       try {
         logger.info("Fetching exercise history", { userId, exerciseId, plannedExerciseId }, "progress");
 
+        if (!plannedExerciseId || typeof plannedExerciseId !== "string") {
+          throw new Error("fetchExerciseHistory: plannedExerciseId is required");
+        }
+
         const history = await ProgressService.getExerciseHistory(userId, exerciseId, plannedExerciseId);
 
         setState((prev) => ({
@@ -377,7 +381,7 @@ export function useProgressData(options: UseProgressDataOptions = {}) {
   // ============================================================================
 
   const fetchPersonalRecords = useCallback(
-    async (exerciseId?: string, limit = 50, forceRefresh = false) => {
+    async (plannedExerciseId: string, exerciseId?: string, limit = 50, forceRefresh = false) => {
       if (!userId) {
         logger.warn("No user ID provided for personal records fetch", {}, "progress");
         return;
@@ -399,7 +403,11 @@ export function useProgressData(options: UseProgressDataOptions = {}) {
       try {
         logger.info("Fetching personal records", { userId, exerciseId, limit }, "progress");
 
-        const records = await ProgressService.getPersonalRecords(userId, exerciseId, limit);
+        if (!plannedExerciseId || typeof plannedExerciseId !== "string") {
+          throw new Error("fetchPersonalRecords: plannedExerciseId is required");
+        }
+
+        const records = await ProgressService.getPersonalRecords(userId, plannedExerciseId, exerciseId, limit);
 
         setState((prev) => ({
           ...prev,
@@ -442,7 +450,12 @@ export function useProgressData(options: UseProgressDataOptions = {}) {
   // ============================================================================
 
   const fetchStrengthProgression = useCallback(
-    async (exerciseId: string, timeframe: "month" | "quarter" | "year" = "quarter", forceRefresh = false) => {
+    async (
+      exerciseId: string,
+      plannedExerciseId: string,
+      timeframe: "month" | "quarter" | "year" = "quarter",
+      forceRefresh = false
+    ) => {
       if (!userId) {
         logger.warn("No user ID provided for strength progression fetch", {}, "progress");
         return;
@@ -470,7 +483,16 @@ export function useProgressData(options: UseProgressDataOptions = {}) {
       try {
         logger.info("Fetching strength progression", { userId, exerciseId, timeframe }, "progress");
 
-        const progression = await ProgressService.getStrengthProgression(userId, exerciseId, timeframe);
+        if (!plannedExerciseId || typeof plannedExerciseId !== "string") {
+          throw new Error("fetchStrengthProgression: plannedExerciseId is required");
+        }
+
+        const progression = await ProgressService.getStrengthProgression(
+          userId,
+          exerciseId,
+          plannedExerciseId,
+          timeframe
+        );
 
         setState((prev) => ({
           ...prev,
@@ -528,7 +550,12 @@ export function useProgressData(options: UseProgressDataOptions = {}) {
   // ============================================================================
 
   const fetchVolumeProgression = useCallback(
-    async (exerciseId?: string, timeframe: "month" | "quarter" | "year" = "quarter", forceRefresh = false) => {
+    async (
+      exerciseId?: string,
+      plannedExerciseId?: string,
+      timeframe: "month" | "quarter" | "year" = "quarter",
+      forceRefresh = false
+    ) => {
       if (!userId) {
         logger.warn("No user ID provided for volume progression fetch", {}, "progress");
         return;
@@ -556,7 +583,16 @@ export function useProgressData(options: UseProgressDataOptions = {}) {
       try {
         logger.info("Fetching volume progression", { userId, exerciseId, timeframe }, "progress");
 
-        const progression = await ProgressService.getVolumeProgression(userId, exerciseId, timeframe);
+        if (exerciseId && !plannedExerciseId) {
+          throw new Error("fetchVolumeProgression: plannedExerciseId is required when exerciseId is provided");
+        }
+
+        const progression = await ProgressService.getVolumeProgression(
+          userId,
+          exerciseId,
+          plannedExerciseId,
+          timeframe
+        );
 
         setState((prev) => ({
           ...prev,
@@ -619,11 +655,7 @@ export function useProgressData(options: UseProgressDataOptions = {}) {
     logger.info("Refreshing all progress data", { userId }, "progress");
 
     try {
-      await Promise.allSettled([
-        fetchAnalytics("quarter", true),
-        fetchWorkoutHistory({}, 1, 20, true),
-        fetchPersonalRecords(undefined, 50, true),
-      ]);
+      await Promise.allSettled([fetchAnalytics("quarter", true), fetchWorkoutHistory({}, 1, 20, true)]);
 
       logger.info("All progress data refreshed successfully", { userId }, "progress");
     } catch (error) {

@@ -33,6 +33,7 @@ interface SetLoggerProps {
   setNumber: number;
   suggestedWeight?: number;
   suggestedReps?: number;
+  plannedExerciseId?: string;
   // onSetComplete now returns a Promise with the workout service result so callers can await persistence
   onSetComplete: (setData: ExerciseSetFormData) => Promise<any>;
   isFirstSet: boolean;
@@ -73,6 +74,7 @@ export const SetLogger: React.FC<SetLoggerProps> = ({
   setNumber,
   suggestedWeight,
   suggestedReps,
+  plannedExerciseId,
   onSetComplete,
   isFirstSet,
   // rename prop locally to avoid collision with internal state
@@ -340,6 +342,7 @@ export const SetLogger: React.FC<SetLoggerProps> = ({
 
       const setData: ExerciseSetFormData = {
         exerciseId,
+        plannedExerciseId: plannedExerciseId ?? undefined,
         weightKg: typeof weightKgValue === "number" && !isNaN(weightKgValue) ? weightKgValue : undefined,
         reps: parseInt(state.reps),
         rpe: state.rpe ? parseInt(state.rpe) : undefined,
