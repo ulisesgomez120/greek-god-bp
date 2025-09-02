@@ -609,6 +609,7 @@ export class WorkoutService {
 
       // Delegate to DatabaseService which implements the plannedExerciseId-aware query.
       // databaseService.queryExerciseHistory returns summaries with session/date and sets.
+      console.log("getExerciseHistory called", exerciseId, plannedExerciseId);
       const summaries: any[] = await databaseService.queryExerciseHistory(
         user.id,
         exerciseId,

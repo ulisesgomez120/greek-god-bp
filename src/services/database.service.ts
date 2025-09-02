@@ -856,105 +856,82 @@ export class DatabaseService {
   /**
    * Query exercise history (last N sessions for an exercise) — requires plannedExerciseId
    */
-  async queryExerciseHistory(userId: string, exerciseId: string, plannedExerciseId: string, limit: number = 6) {
+  async queryExerciseHistory(
+    userId: string,
+    exerciseId: string,
+    plannedExerciseId: string,
+    sessionLimit: number = 6,
+    setLimit: number = 60
+  ) {
     try {
       if (!plannedExerciseId || typeof plannedExerciseId !== "string") {
         throw new Error("queryExerciseHistory: plannedExerciseId is required");
       }
 
-      // Build base query for sessions with inner join to exercise_sets
-      let query: any = supabase
-        .from("workout_sessions")
-        .select(
-          `
-          id,
-          name,
-          started_at,
-          notes,
-          exercise_sets!inner (
-            set_number,
-            weight_kg,
-            reps,
-            rpe,
-            notes,
-            is_warmup,
-            is_failure,
-            created_at,
-            planned_exercise_id,
-            exercise_id,
-            set_number
-          )
-        `
-        )
-        .eq("user_id", userId)
-        .not("completed_at", "is", null)
-        .order("started_at", { ascending: false })
-        .limit(limit);
-
-      // Always filter by both exercise_id and planned_exercise_id — no fallback permitted
-      query = query
-        .eq("exercise_sets.exercise_id", exerciseId)
-        .eq("exercise_sets.planned_exercise_id", plannedExerciseId);
-
-      const { data: sessions, error } = await query;
+      // Query only exercise_sets (no joins). Order by created_at desc so we get newest sets first,
+      // and limit the number of rows scanned for efficiency. We'll group by session_id in-memory.
+      const { data: sets, error } = await supabase
+        .from("exercise_sets")
+        .select("*")
+        .eq("exercise_id", exerciseId)
+        .eq("planned_exercise_id", plannedExerciseId)
+        .order("created_at", { ascending: false })
+        .limit(setLimit);
 
       if (error) throw error;
-      if (!sessions || sessions.length === 0) return [];
+      if (!sets || sets.length === 0) return [];
 
-      // Convert to summary objects similar to ProgressService
-      const summaries = sessions.map((session: any) => {
-        const sets = (session.exercise_sets || [])
-          .sort((a: any, b: any) => a.set_number - b.set_number)
-          .map((set: any) => ({
-            setNumber: set.set_number,
-            weight: set.weight_kg || 0,
-            reps: set.reps || 0,
-            rpe: set.rpe,
-            notes: set.notes,
-            isWarmup: set.is_warmup || false,
-            isFailure: set.is_failure || false,
-          }));
+      // Group sets by session_id
+      const sessionMap = new Map<string, any[]>();
+      for (const s of sets) {
+        if (!s || !s.session_id) continue;
+        if (!sessionMap.has(s.session_id)) sessionMap.set(s.session_id, []);
+        sessionMap.get(s.session_id)!.push(s);
+      }
 
-        // calculate best set
-        const workingSets = sets.filter((s: any) => !s.isWarmup);
-        let bestSet = workingSets[0] || { weight: 0, reps: 0, rpe: undefined };
-        let bestOneRepMax = 0;
-        for (const s of workingSets) {
-          const orm = this.calculateOneRepMaxForProgress(s.weight, s.reps, s.rpe);
-          if (orm > bestOneRepMax) {
-            bestOneRepMax = orm;
-            bestSet = s;
-          }
-        }
+      // Convert grouped sessions to an array, derive session date from the earliest set.created_at,
+      // sort sets within a session by set_number ascending for display, then sort sessions by date desc.
+      const sessions = Array.from(sessionMap.entries()).map(([sessionId, sessionSets]) => {
+        // Determine session date as the earliest created_at among the sets in that session
+        const createdSorted = sessionSets
+          .slice()
+          .sort((a: any, b: any) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime());
+        const sessionDate = createdSorted.length > 0 ? createdSorted[0].created_at : createdSorted[0];
 
-        const totalVolume = workingSets.reduce((sum: number, s: any) => sum + s.weight * s.reps, 0);
-        const averageRpe =
-          workingSets.filter((s: any) => s.rpe).length > 0
-            ? workingSets
-                .filter((s: any) => s.rpe)
-                .reduce((sum: number, s: any, _i: number, arr: any[]) => sum + (s.rpe || 0) / arr.length, 0)
-            : undefined;
+        // Sort sets by set_number ascending for display
+        const setsByNumber = sessionSets.slice().sort((a: any, b: any) => (a.set_number || 0) - (b.set_number || 0));
+
+        const mappedSets = setsByNumber.map((set: any) => ({
+          setNumber: set.set_number,
+          weight: set.weight_kg ?? 0,
+          reps: set.reps ?? 0,
+          rpe: set.rpe ?? undefined,
+          notes: set.notes ?? undefined,
+          isWarmup: !!set.is_warmup,
+        }));
 
         return {
-          sessionId: session.id,
-          sessionName: session.name,
-          date: session.started_at,
-          sets,
-          bestSet: {
-            weight: bestSet.weight,
-            reps: bestSet.reps,
-            volume: bestSet.weight * bestSet.reps,
-            estimatedOneRepMax: bestOneRepMax,
-          },
-          totalVolume,
-          averageRpe,
-          isPersonalRecord: false, // caller can determine via other helper
-          progressionFromPrevious: undefined,
-          notes: session.notes || undefined,
+          sessionId,
+          date: sessionDate,
+          sets: mappedSets,
         };
       });
 
-      return summaries;
+      const sortedSessions = sessions
+        .sort((a: any, b: any) => new Date(b.date).getTime() - new Date(a.date).getTime())
+        .slice(0, sessionLimit);
+
+      // Return minimal structure used by UI: { date, sets[] }
+      return sortedSessions.map((s: any) => ({
+        date: s.date,
+        sets: s.sets.map((st: any) => ({
+          weight: st.weight,
+          reps: st.reps,
+          rpe: st.rpe,
+          isWarmup: st.isWarmup,
+          notes: st.notes,
+        })),
+      }));
     } catch (error) {
       const dbError = this.handleDatabaseError(error);
       throw dbError;

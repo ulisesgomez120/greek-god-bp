@@ -160,15 +160,82 @@ export class ProgressService {
   static async getExerciseHistory(
     userId: string,
     exerciseId: string,
-    plannedExerciseId: string
+    plannedExerciseId: string,
+    sessionLimit: number = 6,
+    setLimit: number = 60
   ): Promise<ExerciseSessionSummary[]> {
     try {
       if (!plannedExerciseId || typeof plannedExerciseId !== "string") {
         throw new Error("ProgressService.getExerciseHistory: plannedExerciseId is required");
       }
 
-      const summaries = await databaseService.queryExerciseHistory(userId, exerciseId, plannedExerciseId, 6);
-      return summaries;
+      // Query the DatabaseService which returns lightweight summaries: { date, sets[] }
+      const rawSummaries: any[] = await databaseService.queryExerciseHistory(
+        userId,
+        exerciseId,
+        plannedExerciseId,
+        sessionLimit,
+        setLimit
+      );
+
+      // Map raw summaries to the ExerciseSessionSummary shape expected by callers.
+      // We keep calculations lightweight: derive bestSet as highest estimated 1RM among non-warmup sets.
+      const mapped: ExerciseSessionSummary[] = (rawSummaries || []).map((s: any) => {
+        const rawSets = (s.sets || []) as any[];
+
+        const sets = rawSets.map((st: any, idx: number) => ({
+          setNumber: (st.setNumber as number) || idx + 1,
+          weight: st.weight ?? 0,
+          reps: st.reps ?? 0,
+          rpe: st.rpe ?? undefined,
+          notes: st.notes ?? undefined,
+          isWarmup: !!st.isWarmup,
+          isFailure: false,
+        }));
+
+        const workingSets = sets.filter((ss) => !ss.isWarmup && ss.weight > 0 && ss.reps > 0);
+
+        let bestSet = {
+          weight: 0,
+          reps: 0,
+          volume: 0,
+          estimatedOneRepMax: 0,
+        };
+
+        let bestOrm = 0;
+        for (const ws of workingSets) {
+          const orm = calculateOneRepMax(ws.weight, ws.reps);
+          if (orm > bestOrm) {
+            bestOrm = orm;
+            bestSet = {
+              weight: ws.weight,
+              reps: ws.reps,
+              volume: ws.weight * ws.reps,
+              estimatedOneRepMax: orm,
+            };
+          }
+        }
+
+        const totalVolume = workingSets.reduce((sum, ss) => sum + ss.weight * ss.reps, 0);
+        const rpeValues = workingSets.filter((ss) => ss.rpe !== undefined).map((ss) => ss.rpe as number);
+        const averageRpe =
+          rpeValues.length > 0 ? rpeValues.reduce((sum, v) => sum + v, 0) / rpeValues.length : undefined;
+
+        return {
+          sessionId: s.sessionId ?? "",
+          sessionName: s.sessionName ?? "",
+          date: s.date,
+          sets,
+          bestSet,
+          totalVolume,
+          averageRpe,
+          isPersonalRecord: false,
+          progressionFromPrevious: undefined,
+          notes: s.notes ?? undefined,
+        } as ExerciseSessionSummary;
+      });
+
+      return mapped;
     } catch (err) {
       logger.error("Failed to get exercise history", err, "progress");
       throw new Error("Failed to fetch exercise history");
