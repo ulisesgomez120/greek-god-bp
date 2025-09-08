@@ -267,24 +267,43 @@ export const PROGRESSION_EDUCATION = {
 
 export const EXPERIENCE_MESSAGES = {
   untrained: {
-    focus: "Master the movement patterns and build consistency",
+    focus:
+      "New to resistance training — learning safe movement patterns and building the habit of regular workouts. Focus is on balance, mobility, and practicing proper technique before increasing load.",
     progression_earned: "Great form consistency! You've earned this small increase.",
     progression_denied: "Keep practicing current weight until form is more consistent.",
     encouragement: "Focus on quality over quantity. Perfect practice makes perfect!",
   },
 
   beginner: {
-    focus: "Build strength through consistent linear progression",
+    focus:
+      "Has some regular training experience and basic technique — can follow simple programs and make reliable weekly improvements when form is solid.",
     progression_earned: "Congratulations! You've earned your weekly strength increase!",
     progression_denied: "Complete all prescribed reps before adding weight.",
-    encouragement: "Linear gains are the best gains! Keep up the consistent work.",
+    encouragement: "Small, consistent increases with good form drive the best early progress.",
   },
 
   early_intermediate: {
-    focus: "Use RPE to guide intelligent progression decisions",
-    progression_earned: "Your RPE has dropped - time to challenge yourself with more weight!",
-    progression_denied: "Current RPE indicates you're still adapting to this load.",
-    encouragement: "Smart progression based on RPE will lead to long-term success.",
+    focus:
+      "Training consistently for several months with solid technique. Progress is slower and is guided more by how hard sets feel (RPE) than just rep completion.",
+    progression_earned: "Your RPE has dropped — consider a small increase with attention to recovery.",
+    progression_denied: "If RPE remains high, keep working on recovery and technique before adding load.",
+    encouragement: "Use effort cues and incremental increases to keep progressing safely.",
+  },
+
+  intermediate: {
+    focus:
+      "A practiced lifter who benefits from structured programming and planned variation. You will often need planned deloads, subtle program tweaks, and focused accessory work to continue making measurable progress.",
+    progression_earned: "Planned adjustments and small wins indicate readiness for progression.",
+    progression_denied: "When progress stalls, review volume, recovery, and program structure.",
+    encouragement: "Consistency plus smart programming leads to steady, long-term gains.",
+  },
+
+  advanced: {
+    focus:
+      "Long-term, experienced trainee with specific performance or aesthetic goals. Progression is highly individualized and usually requires careful control of training variables, recovery, and nutrition.",
+    progression_earned: "Well-managed micro-progressions and data-backed changes show progress.",
+    progression_denied: "Small setbacks are normal — use periodization and recovery strategies.",
+    encouragement: "Precision, patience, and individualized programming produce the best outcomes.",
   },
 };
 

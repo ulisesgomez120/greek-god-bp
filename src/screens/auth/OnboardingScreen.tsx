@@ -13,6 +13,9 @@ import type { ExperienceLevel } from "@/types/database";
 import Text from "@/components/ui/Text";
 import Button from "@/components/ui/Button";
 import Icon from "@/components/ui/Icon";
+import ExperienceLevelCard from "@/components/guidance/ExperienceLevelCard";
+import GuidanceScreen from "@/components/guidance/GuidanceScreen";
+import { getGuidanceForLevel } from "@/utils/guidance";
 import useTheme from "@/hooks/useTheme";
 import {
   getInputStyle,
@@ -312,27 +315,13 @@ export const OnboardingScreen: React.FC<OnboardingScreenProps> = ({ navigation, 
                 </Text>
 
                 {EXPERIENCE_LEVELS.map((level) => (
-                  <Button
+                  <ExperienceLevelCard
                     key={level.level}
-                    variant={experienceLevel === level.level ? "primary" : "secondary"}
-                    size='medium'
-                    style={styles.experienceButton}
-                    onPress={() => handleSetExperienceLevel(level.level)}>
-                    <View style={styles.experienceButtonContent}>
-                      <Text
-                        variant='body'
-                        color={experienceLevel === level.level ? "white" : "primary"}
-                        weight='medium'>
-                        {level.name}
-                      </Text>
-                      <Text
-                        variant='bodySmall'
-                        color={experienceLevel === level.level ? "white" : "secondary"}
-                        style={styles.experienceDescription}>
-                        {level.description}
-                      </Text>
-                    </View>
-                  </Button>
+                    level={level.level as any}
+                    selected={experienceLevel === level.level}
+                    onPress={() => handleSetExperienceLevel(level.level)}
+                    testID={`exp-${level.level}`}
+                  />
                 ))}
               </View>
             </View>
@@ -376,6 +365,15 @@ export const OnboardingScreen: React.FC<OnboardingScreenProps> = ({ navigation, 
               </Text>
             </View>
 
+            {/* Quick access: read progression guidance */}
+            <Button
+              variant='text'
+              size='small'
+              style={{ alignSelf: "center", marginBottom: 12 }}
+              onPress={() => setCurrentStep("complete")}>
+              Read progression guidance
+            </Button>
+
             {/* Form Content */}
             <View style={styles.formContent}>
               <View style={styles.goalsContainer}>
@@ -406,18 +404,14 @@ export const OnboardingScreen: React.FC<OnboardingScreenProps> = ({ navigation, 
                           variant='body'
                           color={selectedGoals.includes(goal.id) ? "white" : "primary"}
                           weight='medium'
-                          align='center'
-                          numberOfLines={1}
-                          ellipsizeMode='tail'>
+                          align='center'>
                           {goal.name}
                         </Text>
                         <Text
                           variant='bodySmall'
                           color={selectedGoals.includes(goal.id) ? "white" : "secondary"}
                           align='center'
-                          style={[styles.goalDescription, { flexShrink: 1 }]}
-                          numberOfLines={2}
-                          ellipsizeMode='tail'>
+                          style={[styles.goalDescription, { flexShrink: 1 }]}>
                           {goal.description}
                         </Text>
                       </View>
@@ -469,9 +463,28 @@ export const OnboardingScreen: React.FC<OnboardingScreenProps> = ({ navigation, 
               </Text>
             </View>
 
-            {/* Content */}
+            {/* Quick access: read progression guidance */}
+            <Button
+              variant='text'
+              size='small'
+              style={{ alignSelf: "center", marginBottom: 12 }}
+              onPress={() => setCurrentStep("complete")}>
+              Read progression guidance
+            </Button>
+
+            {/* Form Content */}
             <View style={styles.formContent}>
               <View style={styles.completeContainer}>
+                {/* Post-onboarding guidance: reuse completed screen to show progression primer */}
+                <GuidanceScreen
+                  guidance={getGuidanceForLevel(experienceLevel as any, "postOnboarding")}
+                  onPrimaryAction={handleCompleteOnboarding}
+                  primaryLabel='Start Training'
+                  onDismiss={handleCompleteOnboarding}
+                />
+
+                <View style={{ height: 12 }} />
+
                 <View style={styles.completeIcon}>
                   <Icon name='checkmark-circle-outline' size={64} accessibilityLabel='All set' />
                 </View>
