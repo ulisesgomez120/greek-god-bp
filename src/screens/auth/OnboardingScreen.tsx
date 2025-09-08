@@ -365,15 +365,6 @@ export const OnboardingScreen: React.FC<OnboardingScreenProps> = ({ navigation, 
               </Text>
             </View>
 
-            {/* Quick access: read progression guidance */}
-            <Button
-              variant='text'
-              size='small'
-              style={{ alignSelf: "center", marginBottom: 12 }}
-              onPress={() => setCurrentStep("complete")}>
-              Read progression guidance
-            </Button>
-
             {/* Form Content */}
             <View style={styles.formContent}>
               <View style={styles.goalsContainer}>
@@ -463,71 +454,86 @@ export const OnboardingScreen: React.FC<OnboardingScreenProps> = ({ navigation, 
               </Text>
             </View>
 
-            {/* Quick access: read progression guidance */}
-            <Button
-              variant='text'
-              size='small'
-              style={{ alignSelf: "center", marginBottom: 12 }}
-              onPress={() => setCurrentStep("complete")}>
-              Read progression guidance
-            </Button>
-
             {/* Form Content */}
             <View style={styles.formContent}>
               <View style={styles.completeContainer}>
-                {/* Post-onboarding guidance: reuse completed screen to show progression primer */}
-                <GuidanceScreen
-                  guidance={getGuidanceForLevel(experienceLevel as any, "postOnboarding")}
-                  onPrimaryAction={handleCompleteOnboarding}
-                  primaryLabel='Start Training'
-                  onDismiss={handleCompleteOnboarding}
-                />
-
-                <View style={{ height: 12 }} />
-
-                <View style={styles.completeIcon}>
-                  <Icon name='checkmark-circle-outline' size={64} accessibilityLabel='All set' />
-                </View>
-
                 <Text variant='bodyLarge' color='primary' align='center' style={styles.completeMessage}>
                   Welcome to TrainSmart, {displayName || ""}! Your personalized fitness journey starts now.
                 </Text>
 
-                <View style={styles.summaryContainer}>
-                  <Text variant='body' color='secondary' align='center' style={styles.summaryTitle}>
-                    Your Profile Summary:
+                {/* Program recommendation */}
+                <View style={styles.programCard}>
+                  <Text variant='h3' style={styles.programTitle}>
+                    {(() => {
+                      const info = getExperienceLevelInfo(experienceLevel as any);
+                      const programKey = info.recommendedPrograms?.[0] ?? "recommended_program";
+                      // Friendly label mapping for known program keys (fallback to key)
+                      const labelMap: Record<string, string> = {
+                        full_body_beginner: "Full Body (Beginner)",
+                        upper_lower_beginner: "Upper/Lower (Beginner)",
+                        upper_lower_intermediate: "Upper/Lower (Intermediate)",
+                        body_part_split: "Body-Part Split",
+                        custom_programs: "Custom Programs",
+                        recommended_program: "Recommended Program",
+                      };
+                      return labelMap[programKey] || programKey;
+                    })()}
                   </Text>
 
-                  <View style={styles.summaryItem}>
-                    <Text variant='body' color='primary' weight='medium'>
-                      Experience Level: {getExperienceLevelInfo(experienceLevel as ExperienceLevel).name}
-                    </Text>
-                  </View>
+                  <Text variant='body' style={styles.programWhy}>
+                    {(() => {
+                      const info = getExperienceLevelInfo(experienceLevel as any);
+                      const programKey = info.recommendedPrograms?.[0] ?? null;
+                      if (programKey) {
+                        return `Recommended because of your experience (${info.name})${
+                          selectedGoals.length ? ` and selected goals` : ""
+                        }.`;
+                      }
+                      return "We picked a program based on your experience and goals to help you get started safely.";
+                    })()}
+                  </Text>
 
-                  <View style={styles.summaryItem}>
-                    <Text variant='body' color='primary' weight='medium'>
-                      Goals: {selectedGoals.length} selected
-                    </Text>
+                  <View style={styles.programActions}>
+                    <Button
+                      variant='secondary'
+                      size='medium'
+                      style={styles.programActionButton}
+                      onPress={async () => {
+                        try {
+                          // Complete onboarding first so the user lands in the main app
+                          const result = await completeOnboarding();
+                          if (result.success) {
+                            // Then navigate to ProgramSelection in main app
+                            navigation.navigate("ProgramSelection" as any);
+                          } else {
+                            Alert.alert("Could not proceed", result.error?.message || "Failed to complete onboarding.");
+                          }
+                        } catch (err) {
+                          console.error("See Programs error:", err);
+                          Alert.alert("Could not proceed", "An unexpected error occurred.");
+                        }
+                      }}>
+                      See programs
+                    </Button>
                   </View>
                 </View>
 
-                <View style={styles.motivationContainer}>
-                  <Text variant='body' color='coach' align='center' style={styles.motivationText}>
-                    "The journey of a thousand miles begins with one step. Your first workout awaits!"
+                {/* Improved guidance card */}
+                <View style={styles.guidanceCard}>
+                  <Text variant='h3' style={styles.guidanceTitle}>
+                    Quick progression tips
                   </Text>
+                  <View style={styles.guidanceBullets}>
+                    {getGuidanceForLevel(experienceLevel as any, "postOnboarding").bullets.map((b, idx) => (
+                      <View key={`g-${idx}`} style={styles.guidanceRow}>
+                        <Text style={styles.guidanceIndex}>{idx + 1}.</Text>
+                        <Text style={styles.guidanceText}>{b}</Text>
+                      </View>
+                    ))}
+                  </View>
                 </View>
               </View>
             </View>
-
-            {/* Submit Button */}
-            <Button
-              variant='primary'
-              size='large'
-              style={styles.submitButton}
-              onPress={handleCompleteOnboarding}
-              disabled={isSubmitting}>
-              Start Training
-            </Button>
           </View>
         </ScrollView>
       </KeyboardAvoidingView>
@@ -592,7 +598,7 @@ const styles = StyleSheet.create({
     justifyContent: "center",
   },
   header: {
-    marginBottom: 40,
+    marginBottom: 12,
     alignItems: "center",
   },
   title: {
@@ -739,6 +745,66 @@ const styles = StyleSheet.create({
     lineHeight: 24,
     paddingHorizontal: 16,
   },
+
+  /* Program recommendation card */
+  programCard: {
+    width: "100%",
+    padding: 16,
+    borderRadius: 12,
+    backgroundColor: "transparent",
+    marginBottom: 16,
+    borderWidth: 1,
+    borderColor: "#E6EEF9",
+  },
+  programTitle: {
+    marginBottom: 6,
+    fontWeight: "700",
+  },
+  programWhy: {
+    marginBottom: 12,
+    color: "#6b7280",
+  },
+  programActions: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    gap: 12,
+  },
+  programActionButton: {
+    flex: 1,
+    marginHorizontal: 6,
+  },
+
+  /* Guidance card styles */
+  guidanceCard: {
+    width: "100%",
+    padding: 16,
+    borderRadius: 12,
+    backgroundColor: "transparent",
+    borderWidth: 1,
+    borderColor: "#F2F6FB",
+    marginTop: 12,
+  },
+  guidanceTitle: {
+    fontWeight: "700",
+    marginBottom: 8,
+  },
+  guidanceBullets: {
+    marginTop: 8,
+  },
+  guidanceRow: {
+    flexDirection: "row",
+    alignItems: "flex-start",
+    marginBottom: 10,
+  },
+  guidanceIndex: {
+    width: 26,
+    fontWeight: "700",
+  },
+  guidanceText: {
+    flex: 1,
+    lineHeight: 20,
+  },
+
   summaryContainer: {
     width: "100%",
     marginBottom: 32,
