@@ -4,7 +4,16 @@
 // Full exercise logging interface with set tracking, rest timer, history, and navigation
 
 import React, { useState, useEffect, useCallback } from "react";
-import { View, ScrollView, StyleSheet, TouchableOpacity, Alert, ActivityIndicator, Linking } from "react-native";
+import {
+  View,
+  ScrollView,
+  StyleSheet,
+  TouchableOpacity,
+  Alert,
+  ActivityIndicator,
+  Linking,
+  Platform,
+} from "react-native";
 import useUnitPreferences from "../../hooks/useUnitPreferences";
 import { formatKgToLbsDisplay } from "../../utils/unitConversions";
 import { StackNavigationProp } from "@react-navigation/stack";
@@ -387,7 +396,30 @@ export const ExerciseDetailScreen: React.FC<ExerciseDetailScreenProps> = ({ navi
         Alert.alert("No URL available");
         return;
       }
+
       try {
+        // On web, open in a new browser tab.
+        // Normalize app-scheme or non-http URLs to an https YouTube link when possible
+        if (Platform.OS === "web") {
+          let normalized = url;
+          // If the URL is a youtube app scheme or youtu.be short link, convert to https watch URL
+          const ytId = extractYouTubeId(url);
+          if (!/^https?:\/\//i.test(url) && ytId) {
+            normalized = `https://www.youtube.com/watch?v=${ytId}`;
+          }
+          // If URL is missing scheme but not a youtube id, try to add https://
+          if (!/^https?:\/\//i.test(normalized) && !ytId) {
+            normalized = `https://${normalized}`;
+          }
+
+          try {
+            window.open(normalized, "_blank", "noopener,noreferrer");
+          } catch (e) {
+            await Linking.openURL(normalized);
+          }
+          return;
+        }
+
         const ytId = extractYouTubeId(url);
         if (ytId) {
           const appUrl = `vnd.youtube://watch?v=${ytId}`;
@@ -401,6 +433,7 @@ export const ExerciseDetailScreen: React.FC<ExerciseDetailScreenProps> = ({ navi
             return;
           }
         }
+
         await Linking.openURL(url);
       } catch (err) {
         Alert.alert("Unable to open link", url);
