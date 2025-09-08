@@ -430,10 +430,19 @@ export const ExerciseDetailScreen: React.FC<ExerciseDetailScreenProps> = ({ navi
         onPress={handleToggleFormCues}
         accessibilityRole='button'
         accessibilityLabel='Toggle Form Cues and Tutorials'
-        style={styles.formCuesHeader}>
+        style={styles.formCuesHeader}
+        activeOpacity={0.85}>
         <Text variant='bodySmall' color='secondary' style={styles.formCuesHeaderText}>
           Form Cues & Tutorials
         </Text>
+        <View style={styles.formCuesHeaderRight}>
+          <Icon
+            name={showFormCuesExpanded ? "chevron-up" : "chevron-down"}
+            size={18}
+            color={colors.subtext}
+            style={styles.formCuesChevron}
+          />
+        </View>
       </TouchableOpacity>
 
       {showFormCuesExpanded && (
@@ -669,12 +678,12 @@ const createStyles = (colors: any) =>
       borderBottomColor: colors.border,
     },
     exerciseName: {
-      marginBottom: 12,
+      marginBottom: 20,
       textAlign: "center",
       color: colors.text,
     },
     targetInfo: {
-      marginBottom: 16,
+      marginBottom: 20,
     },
     targetText: {
       textAlign: "center",
@@ -691,12 +700,23 @@ const createStyles = (colors: any) =>
       flexDirection: "row",
       justifyContent: "space-between",
       alignItems: "center",
-      paddingTop: 8,
-      paddingBottom: 4,
+      paddingTop: 12,
+      paddingBottom: 8,
+      paddingHorizontal: 8,
+      borderRadius: 8,
+      backgroundColor: colors.surfaceElevated || colors.surface || "transparent",
     },
     formCuesHeaderText: {
-      fontWeight: "600",
+      fontWeight: "700",
       color: colors.subtext,
+    },
+    formCuesHeaderRight: {
+      marginLeft: 8,
+      flexDirection: "row",
+      alignItems: "center",
+    },
+    formCuesChevron: {
+      marginLeft: 8,
     },
     formCuesIcon: {
       marginLeft: 8,
@@ -707,7 +727,7 @@ const createStyles = (colors: any) =>
       color: colors.subtext,
     },
     tutorialItem: {
-      marginBottom: 8,
+      marginBottom: 16,
     },
     tutorialUrlText: {
       marginTop: 2,
@@ -734,7 +754,7 @@ const createStyles = (colors: any) =>
       borderBottomColor: colors.border,
     },
     sectionTitle: {
-      marginBottom: 16,
+      marginBottom: 20,
       color: colors.text,
     },
     completedSetItem: {
