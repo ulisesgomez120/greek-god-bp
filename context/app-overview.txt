@@ -58,7 +58,7 @@ Core Workout Logging
 * Set, rep, weight, and RPE tracking for each exercise
 * Rest timer with customizable intervals
 * Previous workout history visible during current session
-* Quick weight/rep adjustments with +/- buttons
+* Quick weight/rep adjustments
 Smart Program Selection & Management
 * User Story: As a user, I want to choose a program that matches my experience level and automatically guides my progression
 * Pre-built programs: Full Body, Upper/Lower, Body Part Split (from attached JSON data)6
