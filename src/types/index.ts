@@ -404,4 +404,14 @@ export interface RootState {
 // EXPORT ALL TYPES
 // ============================================================================
 
+export interface TutorialVideo {
+  id: string;
+  exerciseId: string;
+  title: string;
+  url: string;
+  createdBy?: string | null;
+  createdAt: string;
+  updatedAt?: string | null;
+}
+
 // All types are exported individually above

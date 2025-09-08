@@ -29,6 +29,7 @@ import type {
   Subscription,
   SubscriptionPlan,
   ExperienceLevel,
+  TutorialVideo,
 } from "./index";
 
 // ============================================================================
@@ -392,6 +393,28 @@ export function transformWorkoutPlanWithSessions(
   }
 
   return plan;
+}
+
+export type DbExerciseTutorialVideo = {
+  id: string;
+  exercise_id: string;
+  title: string;
+  url: string;
+  created_by?: string | null;
+  created_at: string;
+  updated_at?: string | null;
+};
+
+export function transformExerciseTutorialVideo(dbRow: DbExerciseTutorialVideo): TutorialVideo {
+  return {
+    id: dbRow.id,
+    exerciseId: dbRow.exercise_id,
+    title: dbRow.title,
+    url: dbRow.url,
+    createdBy: dbRow.created_by ?? undefined,
+    createdAt: dbRow.created_at,
+    updatedAt: dbRow.updated_at ?? undefined,
+  };
 }
 
 // ============================================================================

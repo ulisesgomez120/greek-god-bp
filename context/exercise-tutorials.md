@@ -332,5 +332,3 @@ This comprehensive guide provides YouTube tutorial links for fundamental gym exe
 - Consider working with a certified personal trainer when starting out
 
 ---
-
-_Note: This guide provides tutorial links for the exercises you specified. Some exercises may require additional searching as indicated. Always prioritize proper form and safety over lifting heavy weights, especially when starting your fitness journey._

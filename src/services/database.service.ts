@@ -5,7 +5,15 @@
 
 import { supabase } from "@/lib/supabase";
 import { ERROR_MESSAGES } from "@/config/constants";
-import type { WorkoutSession, ExerciseSet, UserProfile, Exercise, WorkoutPlan, ProgressMetrics } from "@/types";
+import type {
+  WorkoutSession,
+  ExerciseSet,
+  UserProfile,
+  Exercise,
+  WorkoutPlan,
+  ProgressMetrics,
+  TutorialVideo,
+} from "@/types";
 import type {
   UserProfile as DbUserProfile,
   WorkoutSession as DbWorkoutSession,
@@ -21,6 +29,7 @@ import {
   transformExerciseSet,
   transformExerciseSetToDb,
   transformExercise,
+  transformExerciseTutorialVideo,
   transformWorkoutPlan,
   transformWorkoutSessionWithSets,
   transformWorkoutPlanWithSessions,
@@ -555,6 +564,89 @@ export class DatabaseService {
           const list: Exercise[] = cached.data as Exercise[];
           return list.find((e) => e.id === exerciseId) ?? null;
         }
+      }
+      throw dbError;
+    }
+  }
+
+  async getTutorialsForExercise(exerciseId: string, options: QueryOptions = {}): Promise<TutorialVideo[]> {
+    const cacheKey = this.getCacheKey("exercise_tutorial_videos", { exerciseId });
+
+    // Check cache first
+    if (options.useCache !== false) {
+      const cached = this.getCachedData(cacheKey);
+      if (cached) return cached;
+    }
+
+    try {
+      const { data, error } = await (supabase as any)
+        .from("exercise_tutorial_videos")
+        .select("*")
+        .eq("exercise_id", exerciseId)
+        .order("created_at", { ascending: true });
+
+      if (error) throw error;
+      if (!data) return [];
+
+      const transformed = (data || []).map((r: any) => transformExerciseTutorialVideo(r as any));
+
+      if (options.useCache !== false) {
+        this.setCachedData(cacheKey, transformed, options.cacheTimeout ?? 3600000);
+      }
+
+      return transformed;
+    } catch (error) {
+      const dbError = this.handleDatabaseError(error);
+      if (dbError.isNetworkError) {
+        const cached = this.queryCache.get(cacheKey);
+        if (cached) return cached.data;
+        return [];
+      }
+      throw dbError;
+    }
+  }
+
+  async getTutorialsForExercises(
+    exerciseIds: string[],
+    options: QueryOptions = {}
+  ): Promise<Record<string, TutorialVideo[]>> {
+    const cacheKey = this.getCacheKey("exercise_tutorial_videos", { exerciseIds });
+
+    // Check cache first
+    if (options.useCache !== false) {
+      const cached = this.getCachedData(cacheKey);
+      if (cached) return cached;
+    }
+
+    try {
+      if (!exerciseIds || exerciseIds.length === 0) return {};
+
+      const { data, error } = await (supabase as any)
+        .from("exercise_tutorial_videos")
+        .select("*")
+        .in("exercise_id", exerciseIds)
+        .order("created_at", { ascending: true });
+
+      if (error) throw error;
+
+      const grouped: Record<string, TutorialVideo[]> = {};
+      (data || []).forEach((r: any) => {
+        const tv = transformExerciseTutorialVideo(r as any);
+        if (!grouped[tv.exerciseId]) grouped[tv.exerciseId] = [];
+        grouped[tv.exerciseId].push(tv);
+      });
+
+      if (options.useCache !== false) {
+        this.setCachedData(cacheKey, grouped, options.cacheTimeout ?? 3600000);
+      }
+
+      return grouped;
+    } catch (error) {
+      const dbError = this.handleDatabaseError(error);
+      if (dbError.isNetworkError) {
+        const cached = this.queryCache.get(cacheKey);
+        if (cached) return cached.data;
+        return {};
       }
       throw dbError;
     }

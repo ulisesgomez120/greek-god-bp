@@ -4,14 +4,16 @@
 // Full exercise logging interface with set tracking, rest timer, history, and navigation
 
 import React, { useState, useEffect, useCallback } from "react";
-import { View, ScrollView, StyleSheet, TouchableOpacity, Alert, ActivityIndicator } from "react-native";
+import { View, ScrollView, StyleSheet, TouchableOpacity, Alert, ActivityIndicator, Linking } from "react-native";
 import useUnitPreferences from "../../hooks/useUnitPreferences";
 import { formatKgToLbsDisplay } from "../../utils/unitConversions";
 import { StackNavigationProp } from "@react-navigation/stack";
 import { RouteProp } from "@react-navigation/native";
 
 // Components
+
 import Text from "../../components/ui/Text";
+import Icon from "../../components/ui/Icon";
 import useTheme from "@/hooks/useTheme";
 import { Button } from "../../components/ui/Button";
 import SetLogger from "../../components/workout/SetLogger";
@@ -20,10 +22,11 @@ import CompactRestTimer from "../../components/workout/CompactRestTimer";
 // Services
 import workoutService from "../../services/workout.service";
 import workoutPlanService from "../../services/workoutPlan.service";
+import databaseService from "../../services/database.service";
 
 // Types
 import { WorkoutStackParamList } from "../../types/navigation";
-import type { ExerciseSet, ExerciseSetFormData } from "../../types";
+import type { ExerciseSet, ExerciseSetFormData, TutorialVideo } from "../../types";
 
 // ============================================================================
 // TYPES
@@ -46,6 +49,7 @@ interface ExerciseLoggerState {
   currentSetNumber: number;
   nextExercise: NextExerciseInfo | null;
   keyboardVisible: boolean;
+  tutorialVideos?: TutorialVideo[];
 }
 
 interface ExerciseHistorySession {
@@ -93,10 +97,12 @@ export const ExerciseDetailScreen: React.FC<ExerciseDetailScreenProps> = ({ navi
     currentSetNumber: 1,
     nextExercise: null,
     keyboardVisible: false,
+    tutorialVideos: [],
   });
 
   // Local submitting state for set submissions
   const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
+  const [showFormCuesExpanded, setShowFormCuesExpanded] = useState<boolean>(false);
 
   // ============================================================================
   // EFFECTS
@@ -117,10 +123,19 @@ export const ExerciseDetailScreen: React.FC<ExerciseDetailScreenProps> = ({ navi
 
       // plannedExerciseId validated above; call service which requires it
       const history = await workoutService.getExerciseHistory(exerciseId, plannedExerciseId, 6);
+      // Fetch tutorial videos (read-only)
+      let tutorials: TutorialVideo[] = [];
+      try {
+        tutorials = await databaseService.getTutorialsForExercise(exerciseId);
+      } catch (tErr) {
+        console.warn("Failed to load tutorial videos for exercise", exerciseId, tErr);
+        tutorials = [];
+      }
 
       setState((prev) => ({
         ...prev,
         exerciseHistory: history,
+        tutorialVideos: tutorials,
         isLoading: false,
       }));
     } catch (error) {
@@ -359,6 +374,44 @@ export const ExerciseDetailScreen: React.FC<ExerciseDetailScreenProps> = ({ navi
   // ============================================================================
   // RENDER HELPERS
   // ============================================================================
+  const extractYouTubeId = useCallback((url: string): string | null => {
+    if (!url) return null;
+    // Match typical YouTube URL forms (watch?v=ID, youtu.be/ID, embed/ID)
+    const m = url.match(/(?:v=|\/)([0-9A-Za-z_-]{11})(?:[&?]|$)/);
+    return m ? m[1] : null;
+  }, []);
+
+  const openTutorialUrl = useCallback(
+    async (url: string) => {
+      if (!url) {
+        Alert.alert("No URL available");
+        return;
+      }
+      try {
+        const ytId = extractYouTubeId(url);
+        if (ytId) {
+          const appUrl = `vnd.youtube://watch?v=${ytId}`;
+          if (await Linking.canOpenURL(appUrl)) {
+            await Linking.openURL(appUrl);
+            return;
+          }
+          const altApp = `youtube://www.youtube.com/watch?v=${ytId}`;
+          if (await Linking.canOpenURL(altApp)) {
+            await Linking.openURL(altApp);
+            return;
+          }
+        }
+        await Linking.openURL(url);
+      } catch (err) {
+        Alert.alert("Unable to open link", url);
+      }
+    },
+    [extractYouTubeId]
+  );
+
+  const handleToggleFormCues = useCallback(() => {
+    setShowFormCuesExpanded((s) => !s);
+  }, []);
 
   const renderHeader = () => (
     <View style={styles.header}>
@@ -373,14 +426,46 @@ export const ExerciseDetailScreen: React.FC<ExerciseDetailScreenProps> = ({ navi
         </Text>
       </View>
 
-      {exerciseData.notes && (
+      <TouchableOpacity
+        onPress={handleToggleFormCues}
+        accessibilityRole='button'
+        accessibilityLabel='Toggle Form Cues and Tutorials'
+        style={styles.formCuesHeader}>
+        <Text variant='bodySmall' color='secondary' style={styles.formCuesHeaderText}>
+          Form Cues & Tutorials
+        </Text>
+      </TouchableOpacity>
+
+      {showFormCuesExpanded && (
         <View style={styles.formCues}>
-          <Text variant='bodySmall' color='secondary' style={styles.formCuesTitle}>
-            FORM CUES
-          </Text>
-          <Text variant='body' color='primary' style={styles.formCuesText}>
-            {exerciseData.notes}
-          </Text>
+          {exerciseData.notes ? (
+            <Text variant='body' color='primary' style={styles.formCuesText}>
+              {exerciseData.notes}
+            </Text>
+          ) : null}
+
+          {state.tutorialVideos && state.tutorialVideos.length > 0 ? (
+            <View style={{ marginTop: 12 }}>
+              <Text variant='bodySmall' color='secondary' style={styles.formCuesTitle}>
+                TUTORIAL VIDEOS{" "}
+                <Icon name='logo-youtube' size={20} color={colors.primary} style={styles.formCuesIcon} />
+              </Text>
+              {state.tutorialVideos.map((t) => (
+                <View key={t.id} style={styles.tutorialItem}>
+                  <TouchableOpacity
+                    onPress={() => openTutorialUrl(t.url)}
+                    accessibilityLabel={`Open tutorial ${t.title}`}>
+                    <Text variant='body' color='primary'>
+                      {t.title}
+                    </Text>
+                  </TouchableOpacity>
+                  {/* <Text variant='bodySmall' color='secondary' style={styles.tutorialUrlText}>
+                    {t.url}
+                  </Text> */}
+                </View>
+              ))}
+            </View>
+          ) : null}
         </View>
       )}
     </View>
@@ -393,6 +478,8 @@ export const ExerciseDetailScreen: React.FC<ExerciseDetailScreenProps> = ({ navi
     if (isImperial()) return formatKgToLbsDisplay(kg);
     return `${kg}kg`;
   };
+
+  const renderTutorials = () => null;
 
   const renderCompletedSets = () => {
     if (state.completedSets.length === 0) return null;
@@ -600,9 +687,30 @@ const createStyles = (colors: any) =>
       padding: 16,
       marginTop: 8,
     },
+    formCuesHeader: {
+      flexDirection: "row",
+      justifyContent: "space-between",
+      alignItems: "center",
+      paddingTop: 8,
+      paddingBottom: 4,
+    },
+    formCuesHeaderText: {
+      fontWeight: "600",
+      color: colors.subtext,
+    },
+    formCuesIcon: {
+      marginLeft: 8,
+    },
     formCuesTitle: {
       marginBottom: 8,
       fontWeight: "600",
+      color: colors.subtext,
+    },
+    tutorialItem: {
+      marginBottom: 8,
+    },
+    tutorialUrlText: {
+      marginTop: 2,
       color: colors.subtext,
     },
     formCuesText: {
