@@ -10,6 +10,7 @@ import React, { useCallback, useEffect, useRef, useState } from "react";
 import { View, Text, StyleSheet, Platform, Linking, Alert, TouchableOpacity, ViewStyle } from "react-native";
 import { useHapticFeedback } from "../../hooks/useHapticFeedback";
 import { logger } from "../../utils/logger";
+import { scheduleNotificationAfterSeconds, cancelScheduledNotification } from "../../services/notification.service";
 import TextUI from "../ui/Text";
 import useTheme from "@/hooks/useTheme";
 import Icon from "@/components/ui/Icon";
@@ -20,66 +21,6 @@ interface CompactRestTimerProps {
   onSkip?: () => void;
   style?: ViewStyle;
 }
-
-/**
- * Schedule a web notification when running in web/PWA.
- * Best-effort: will attempt to use a Service Worker registration to showNotification,
- * otherwise falls back to the Notification constructor.
- */
-const scheduleWebNotification = async (durationSeconds: number, title = "Rest Complete", body?: string) => {
-  try {
-    if (!("Notification" in window)) {
-      logger.info("Web Notifications not supported");
-      return null;
-    }
-
-    // Request permission if needed
-    const permission = await Notification.requestPermission();
-    if (permission !== "granted") {
-      logger.info("Notification permission not granted");
-      return null;
-    }
-
-    const show = async () => {
-      const minutes = Math.floor(durationSeconds / 60);
-      const seconds = durationSeconds % 60;
-      const message = body || `Rest for ${minutes > 0 ? `${minutes}m ${seconds}s` : `${seconds}s`} is complete`;
-
-      // Prefer service worker registration if available (works better when PWA is backgrounded)
-      if (navigator.serviceWorker && navigator.serviceWorker.getRegistration) {
-        try {
-          const reg = await navigator.serviceWorker.getRegistration();
-          if (reg && reg.showNotification) {
-            reg.showNotification(title, {
-              body: message,
-              tag: `rest-timer-${Date.now()}`,
-            });
-            logger.info("Scheduled notification via service worker", { durationSeconds }, "timer");
-            return;
-          }
-        } catch (err) {
-          logger.warn("Service worker notification failed, falling back to Notification()", err);
-        }
-      }
-
-      // Fallback to basic Notification (may not fire if tab is fully closed)
-      new Notification(title, {
-        body: message,
-        tag: `rest-timer-${Date.now()}`,
-      });
-      logger.info("Scheduled notification via Notification API", { durationSeconds }, "timer");
-    };
-
-    // Schedule with setTimeout
-    const timeoutId = window.setTimeout(show, durationSeconds * 1000);
-    return () => {
-      window.clearTimeout(timeoutId);
-    };
-  } catch (error) {
-    logger.error("Failed to schedule web notification", error, "timer");
-    return null;
-  }
-};
 
 export const CompactRestTimer: React.FC<CompactRestTimerProps> = ({ duration, onComplete, onSkip, style }) => {
   const { triggerRestTimerCompleteHaptic } = useHapticFeedback();
@@ -179,12 +120,30 @@ export const CompactRestTimer: React.FC<CompactRestTimerProps> = ({ duration, on
         }
       }
 
-      // Web / PWA: schedule a web notification (best-effort)
+      // Web / PWA: schedule a web notification (best-effort) using expo-notifications/service-worker-aware scheduling
       if (Platform.OS === "web") {
-        const cancel = await scheduleWebNotification(duration, "Rest Complete");
-        if (cancel) webCancelRef.current = cancel;
-        setNativeTimerLaunched(true);
-        logger.info("Web notification scheduled for rest timer", { duration }, "timer");
+        try {
+          const result = await scheduleNotificationAfterSeconds(duration, "Rest Complete", undefined);
+          if (result && result.id) {
+            // store cancel function in ref so it can be cleared later
+            const scheduledId = result.id;
+            webCancelRef.current = () => {
+              // cancelScheduledNotification can be async; call it but don't await in cleanup paths
+              (async () => {
+                try {
+                  await cancelScheduledNotification(scheduledId);
+                } catch (e) {
+                  // ignore
+                }
+              })();
+              webCancelRef.current = null;
+            };
+          }
+          setNativeTimerLaunched(true);
+          logger.info("Web notification scheduled for rest timer", { duration }, "timer");
+        } catch (err) {
+          logger.error("Failed to schedule web notification via notification service", err, "timer");
+        }
         return;
       }
 

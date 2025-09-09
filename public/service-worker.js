@@ -132,3 +132,65 @@ self.addEventListener("message", (event) => {
 self.addEventListener("statechange", function () {
   // no-op; statechange events on ServiceWorker instances are handled in the page
 });
+
+// Handle notification click to focus or open the app
+self.addEventListener("notificationclick", function (event) {
+  try {
+    event.notification.close();
+  } catch (e) {
+    // ignore
+  }
+
+  const urlToOpen = (event.notification && event.notification.data && event.notification.data.url) || "/";
+
+  event.waitUntil(
+    clients
+      .matchAll({ type: "window", includeUncontrolled: true })
+      .then((clientList) => {
+        for (let i = 0; i < clientList.length; i++) {
+          const client = clientList[i];
+          if (client.url === urlToOpen && "focus" in client) {
+            return client.focus();
+          }
+        }
+        if (clients.openWindow) {
+          return clients.openWindow(urlToOpen);
+        }
+      })
+      .catch(() => {
+        // swallow errors
+      })
+  );
+});
+
+// Notification close handler (analytics / cleanup hook)
+self.addEventListener("notificationclose", function (event) {
+  // Placeholder: could postMessage to clients or record analytics
+});
+
+// Push handler: display incoming push messages (if using Push API / VAPID)
+self.addEventListener("push", function (event) {
+  try {
+    let payload = {};
+    if (event.data) {
+      try {
+        payload = event.data.json();
+      } catch (e) {
+        payload = { title: "Notification", body: event.data.text ? event.data.text() : "" };
+      }
+    }
+
+    const title = payload.title || "TrainSmart";
+    const options = {
+      body: payload.body || "",
+      data: payload.data || {},
+      tag: payload.tag,
+      renotify: payload.renotify || false,
+      // you can extend options with icon, badge, actions, etc.
+    };
+
+    event.waitUntil(self.registration.showNotification(title, options));
+  } catch (err) {
+    // swallow to avoid crash
+  }
+});

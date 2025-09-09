@@ -24,6 +24,7 @@ import ErrorBoundary from "./src/components/ui/ErrorBoundary";
 
 // Utils
 import { logger } from "./src/utils/logger";
+import { initNotificationService } from "./src/services/notification.service";
 import { registerAuthDispatch } from "@/utils/tokenManager";
 
 // ============================================================================
@@ -96,6 +97,18 @@ const AppContent: React.FC = () => {
 // ============================================================================
 
 export default function App() {
+  // initialize notification service on app mount (requests permission upfront)
+  React.useEffect(() => {
+    (async () => {
+      try {
+        await initNotificationService({ requestPermissionOnInit: true });
+        logger.info("Notification service initialized (permission requested)", undefined, "notifications");
+      } catch (err) {
+        logger.warn("Notification service initialization failed", err, "notifications");
+      }
+    })();
+  }, []);
+
   return (
     <ThemeProvider>
       <ErrorBoundary>
