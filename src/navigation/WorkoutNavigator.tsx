@@ -94,17 +94,17 @@ const WorkoutNavigator: React.FC = () => {
       <WorkoutStack.Screen
         name='ExerciseList'
         component={ExerciseListScreen as any}
-        options={{
-          title: "Today's Workout",
-        }}
+        options={({ route }) => ({
+          title: route?.params?.workoutName ?? "Today's Workout",
+        })}
       />
       <WorkoutStack.Screen
         name='ExerciseDetail'
         component={ExerciseDetailScreen as any}
-        options={{
-          title: "Exercise Details",
+        options={({ route }) => ({
+          title: route?.params?.exerciseData?.name ?? "Exercise Details",
           presentation: "modal",
-        }}
+        })}
       />
       <WorkoutStack.Screen
         name='WorkoutSummary'

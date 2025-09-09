@@ -516,13 +516,12 @@ export class WorkoutService {
             error: "Workout session not found",
           };
         }
-
         // Use central transform to map DB row (with nested exercise_sets) to app WorkoutSession shape
         const transformed = transformWorkoutSessionWithSets(workoutRow as any) as WorkoutSession;
 
         // Set as current session
         this.currentSession = transformed;
-
+        recoveredWorkout = transformed;
         logger.info("Workout session recovered", { workoutId }, "workout", user.id);
       } catch (err) {
         logger.error("Failed to recover workout session from server", err, "workout");

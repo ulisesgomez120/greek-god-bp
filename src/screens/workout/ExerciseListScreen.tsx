@@ -16,6 +16,7 @@ import useTheme from "@/hooks/useTheme";
 
 // Services
 import workoutPlanService from "../../services/workoutPlan.service";
+import WorkoutControlsSection from "../../components/workout/WorkoutControlsSection";
 
 // Utils
 import { formatProgramPhase } from "../../utils/formatters";
@@ -60,7 +61,6 @@ const ExerciseListScreen: React.FC<ExerciseListScreenProps> = ({ navigation, rou
   const [sessionName, setSessionName] = useState<string | null>(workoutName ?? null);
   // Keep the fetched session available so we can expose plannedExerciseId when navigating to details
   const [session, setSession] = useState<any | null>(null);
-
   useEffect(() => {
     let mounted = true;
 
@@ -119,6 +119,10 @@ const ExerciseListScreen: React.FC<ExerciseListScreenProps> = ({ navigation, rou
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [programId, phaseId, dayId]);
 
+  useEffect(() => {
+    navigation.setOptions({ title: sessionName || workoutName || "Today's Workout" });
+  }, [navigation, sessionName, workoutName]);
+
   if (loading) {
     return (
       <View style={styles.containerCentered}>
@@ -127,25 +131,10 @@ const ExerciseListScreen: React.FC<ExerciseListScreenProps> = ({ navigation, rou
     );
   }
 
-  // Compose subtitle safely — avoid showing raw UUIDs
-  const safeSubtitle =
-    sessionName && sessionName.length > 0
-      ? sessionName
-      : looksLikeUuid(phaseId)
-      ? `${workoutPlanService.formatProgramName(programId)} • Workout`
-      : formatProgramPhase(programId, phaseId);
-
   return (
     <View style={styles.container}>
       <ScrollView style={styles.scrollView} contentContainerStyle={styles.scrollContent}>
         <View style={styles.header}>
-          <Text variant='h1' color='primary' style={styles.title}>
-            {sessionName || workoutName || "Today's Workout"}
-          </Text>
-          <Text variant='body' color='secondary' style={styles.subtitle}>
-            {safeSubtitle}
-          </Text>
-
           <View style={styles.workoutInfo}>
             <View style={styles.infoItem}>
               <Text variant='bodySmall' color='secondary'>
@@ -170,6 +159,15 @@ const ExerciseListScreen: React.FC<ExerciseListScreenProps> = ({ navigation, rou
             </Text>
           ) : null}
         </View>
+
+        <WorkoutControlsSection
+          programId={programId}
+          phaseId={phaseId}
+          dayId={dayId}
+          workoutName={sessionName || workoutName}
+          session={session}
+          navigation={navigation}
+        />
 
         <View style={styles.exerciseList}>
           <Text variant='h3' color='primary' style={styles.sectionTitle}>

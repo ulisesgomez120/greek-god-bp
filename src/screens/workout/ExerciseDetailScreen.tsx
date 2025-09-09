@@ -93,6 +93,10 @@ export const ExerciseDetailScreen: React.FC<ExerciseDetailScreenProps> = ({ navi
   const { colors } = useTheme();
   const styles = createStyles(colors);
 
+  useEffect(() => {
+    navigation.setOptions({ title: exerciseData?.name ?? "Exercise Details" });
+  }, [navigation, exerciseData?.name]);
+
   // ============================================================================
   // STATE
   // ============================================================================
@@ -448,10 +452,6 @@ export const ExerciseDetailScreen: React.FC<ExerciseDetailScreenProps> = ({ navi
 
   const renderHeader = () => (
     <View style={styles.header}>
-      <Text variant='h1' color='primary' style={styles.exerciseName}>
-        {exerciseData.name}
-      </Text>
-
       <View style={styles.targetInfo}>
         <Text variant='body' color='secondary' style={styles.targetText}>
           Target: {exerciseData.targetSets} sets • {exerciseData.targetReps} reps • RPE {exerciseData.targetRpe} • Rest:{" "}
@@ -847,7 +847,7 @@ const createStyles = (colors: any) =>
     nextButton: {
       flex: 2,
       height: 50,
-      backgroundColor: colors.primary,
+      backgroundColor: colors.success,
       borderRadius: 12,
       justifyContent: "center",
       alignItems: "center",
