@@ -13,6 +13,8 @@ import { logger } from "../../utils/logger";
 import { scheduleNotificationAfterSeconds, cancelScheduledNotification } from "../../services/notification.service";
 import TextUI from "../ui/Text";
 import useTheme from "@/hooks/useTheme";
+import useNotificationPermissions from "@/hooks/useNotificationPermissions";
+import NotificationPermissionCTA from "../ui/NotificationPermissionCTA";
 import Icon from "@/components/ui/Icon";
 
 interface CompactRestTimerProps {
@@ -26,6 +28,7 @@ export const CompactRestTimer: React.FC<CompactRestTimerProps> = ({ duration, on
   const { triggerRestTimerCompleteHaptic } = useHapticFeedback();
   const { colors } = useTheme();
   const styles = createStyles(colors);
+  const { permission, askForPermission, openSettings } = useNotificationPermissions();
 
   const [nativeTimerLaunched, setNativeTimerLaunched] = useState(false);
   const [isStarting, setIsStarting] = useState(false);
@@ -123,6 +126,36 @@ export const CompactRestTimer: React.FC<CompactRestTimerProps> = ({ duration, on
       // Web / PWA: schedule a web notification (best-effort) using expo-notifications/service-worker-aware scheduling
       if (Platform.OS === "web") {
         try {
+          // Ensure we have permission before attempting to schedule.
+          if (permission !== "granted") {
+            if (permission === "default") {
+              // Ask for permission interactively
+              const granted = await askForPermission();
+              if (!granted) {
+                Alert.alert(
+                  "Notifications Disabled",
+                  "Notifications are disabled for this app. Enable them in your browser settings to receive rest timer alerts.",
+                  [
+                    { text: "Cancel", style: "cancel" },
+                    { text: "Open Settings", onPress: async () => await openSettings() },
+                  ]
+                );
+                return;
+              }
+            } else {
+              // permission === "denied"
+              Alert.alert(
+                "Notifications Blocked",
+                "Notifications are blocked for this app. Open your browser or device settings to enable notifications.",
+                [
+                  { text: "Cancel", style: "cancel" },
+                  { text: "Open Settings", onPress: async () => await openSettings() },
+                ]
+              );
+              return;
+            }
+          }
+
           const result = await scheduleNotificationAfterSeconds(duration, "Rest Complete", undefined);
           if (result && result.id) {
             // store cancel function in ref so it can be cleared later
@@ -138,11 +171,20 @@ export const CompactRestTimer: React.FC<CompactRestTimerProps> = ({ duration, on
               })();
               webCancelRef.current = null;
             };
+            setNativeTimerLaunched(true);
+            logger.info("Web notification scheduled for rest timer", { duration }, "timer");
+          } else {
+            // scheduling failed or returned no id — surface a warning to the user
+            logger.warn("Web notification scheduling returned no id", undefined, "timer");
+            Alert.alert("Notification Error", "Unable to schedule a notification for the rest timer on this device.", [
+              { text: "OK" },
+            ]);
           }
-          setNativeTimerLaunched(true);
-          logger.info("Web notification scheduled for rest timer", { duration }, "timer");
         } catch (err) {
           logger.error("Failed to schedule web notification via notification service", err, "timer");
+          Alert.alert("Notification Error", "An error occurred while scheduling the rest timer notification.", [
+            { text: "OK" },
+          ]);
         }
         return;
       }
@@ -189,6 +231,8 @@ export const CompactRestTimer: React.FC<CompactRestTimerProps> = ({ duration, on
       <TextUI variant='bodySmall' color='secondary' style={styles.restText}>
         Rest: {formatMinutes(initialDurationRef.current)}
       </TextUI>
+
+      <NotificationPermissionCTA />
 
       <TouchableOpacity
         accessibilityRole='button'
