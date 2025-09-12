@@ -8,7 +8,6 @@ import { logger } from "../utils/logger";
 
 type PermissionStatus = "granted" | "denied" | "default";
 
-let swRegistration: ServiceWorkerRegistration | null = null;
 let initialized = false;
 
 export interface NotificationScheduleResult {
@@ -26,25 +25,9 @@ export async function initNotificationService(options: { requestPermissionOnInit
   initialized = true;
 
   try {
-    if (Platform.OS === "web") {
-      if ("serviceWorker" in navigator) {
-        try {
-          // Attempt to register the project's service worker (best-effort)
-          swRegistration = await navigator.serviceWorker.register("/service-worker.js");
-          logger.info("Notification service: service worker registered", undefined, "notifications");
-        } catch (err) {
-          logger.warn("Notification service: service worker registration failed", err, "notifications");
-          swRegistration = null;
-        }
-      }
-      if (options.requestPermissionOnInit) {
-        await requestPermission();
-      }
-    } else {
-      // For native platforms, we can optionally request permissions via expo-notifications
-      if (options.requestPermissionOnInit) {
-        await requestPermission();
-      }
+    // Only request permissions automatically on native platforms.
+    if (options.requestPermissionOnInit && Platform.OS !== "web") {
+      await requestPermission();
     }
   } catch (err) {
     logger.error("Notification service init failed", err, "notifications");
@@ -85,17 +68,12 @@ export async function requestPermission(): Promise<boolean> {
 export async function presentImmediateNotification(title: string, body?: string) {
   try {
     if (Platform.OS === "web") {
-      const payload = { body };
-      if (swRegistration && swRegistration.showNotification) {
-        try {
-          await swRegistration.showNotification(title, payload as NotificationOptions);
-          return;
-        } catch (err) {
-          logger.warn("SW showNotification failed, falling back", err, "notifications");
-        }
+      try {
+        // Use the simple Notification constructor on web (no service worker shortcut).
+        new Notification(title, { body });
+      } catch (err) {
+        logger.error("presentImmediateNotification error (web)", err, "notifications");
       }
-      // Fallback
-      new Notification(title, { body });
     } else {
       await Notifications.scheduleNotificationAsync({
         content: { title, body },
@@ -118,33 +96,8 @@ export async function scheduleNotificationAfterSeconds(
 ): Promise<NotificationScheduleResult> {
   try {
     if (Platform.OS === "web") {
-      // Try expo-notifications web scheduling which uses service worker under the hood if configured.
-      try {
-        // expo-notifications exposes scheduleNotificationAsync on web; use it where available.
-        // This call may internally register a background task/service worker presentation.
-        const id = await Notifications.scheduleNotificationAsync({
-          content: { title, body },
-          trigger: { seconds },
-        } as any);
-        return { id };
-      } catch (expoErr) {
-        logger.warn(
-          "expo-notifications schedule failed on web, falling back to setTimeout + SW/Notification",
-          expoErr,
-          "notifications"
-        );
-      }
-
-      // Fallback: schedule in-page setTimeout to use SW or Notification API.
-      const show = async () => {
-        if (swRegistration && swRegistration.showNotification) {
-          try {
-            await swRegistration.showNotification(title, { body });
-            return;
-          } catch (err) {
-            logger.warn("SW showNotification fallback failed", err, "notifications");
-          }
-        }
+      // Simple in-page scheduling for web PWAs: use setTimeout + Notification constructor.
+      const show = () => {
         try {
           new Notification(title, { body });
         } catch (err) {
@@ -153,7 +106,6 @@ export async function scheduleNotificationAfterSeconds(
       };
 
       const timeoutId = window.setTimeout(show, seconds * 1000);
-      // Return a cancel function encoded as id (string)
       return { id: `web-timeout-${timeoutId}` };
     } else {
       const id = await Notifications.scheduleNotificationAsync({
@@ -184,8 +136,7 @@ export async function cancelScheduledNotification(id?: string) {
         }
         return;
       }
-      // If id is a numeric/uuid-like value created by expo-notifications web scheduling,
-      // there is a cancel function in expo-notifications we can attempt to call.
+      // For other ids on web, attempt to cancel via expo API if available
       try {
         await Notifications.cancelScheduledNotificationAsync(id);
       } catch (err) {

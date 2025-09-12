@@ -6,15 +6,12 @@
 // for countdown and notifications where available.
 // ============================================================================
 
-import React, { useCallback, useEffect, useRef, useState } from "react";
-import { View, Text, StyleSheet, Platform, Linking, Alert, TouchableOpacity, ViewStyle } from "react-native";
+import React, { useCallback, useEffect, useState } from "react";
+import { View, StyleSheet, Platform, Linking, Alert, TouchableOpacity, ViewStyle } from "react-native";
 import { useHapticFeedback } from "../../hooks/useHapticFeedback";
 import { logger } from "../../utils/logger";
-import { scheduleNotificationAfterSeconds, cancelScheduledNotification } from "../../services/notification.service";
 import TextUI from "../ui/Text";
 import useTheme from "@/hooks/useTheme";
-import useNotificationPermissions from "@/hooks/useNotificationPermissions";
-import NotificationPermissionCTA from "../ui/NotificationPermissionCTA";
 import Icon from "@/components/ui/Icon";
 
 interface CompactRestTimerProps {
@@ -28,12 +25,10 @@ export const CompactRestTimer: React.FC<CompactRestTimerProps> = ({ duration, on
   const { triggerRestTimerCompleteHaptic } = useHapticFeedback();
   const { colors } = useTheme();
   const styles = createStyles(colors);
-  const { permission, askForPermission, openSettings } = useNotificationPermissions();
 
   const [nativeTimerLaunched, setNativeTimerLaunched] = useState(false);
   const [isStarting, setIsStarting] = useState(false);
-  const webCancelRef = useRef<null | (() => void)>(null);
-  const initialDurationRef = useRef<number>(duration);
+  const initialDurationRef = React.useRef<number>(duration);
 
   useEffect(() => {
     // Update the displayed duration only when a native timer has NOT been launched.
@@ -42,23 +37,7 @@ export const CompactRestTimer: React.FC<CompactRestTimerProps> = ({ duration, on
       initialDurationRef.current = duration;
       setIsStarting(false);
     }
-
-    // clear any scheduled web notification from previous runs
-    if (webCancelRef.current) {
-      webCancelRef.current();
-      webCancelRef.current = null;
-    }
   }, [duration, nativeTimerLaunched]);
-
-  useEffect(() => {
-    return () => {
-      // cleanup scheduled web notification on unmount
-      if (webCancelRef.current) {
-        webCancelRef.current();
-        webCancelRef.current = null;
-      }
-    };
-  }, []);
 
   const handleNativeLaunch = useCallback(async () => {
     setIsStarting(true);
@@ -123,69 +102,12 @@ export const CompactRestTimer: React.FC<CompactRestTimerProps> = ({ duration, on
         }
       }
 
-      // Web / PWA: schedule a web notification (best-effort) using expo-notifications/service-worker-aware scheduling
+      // Web / PWA: show a simple alert — feature only available in mobile app
       if (Platform.OS === "web") {
-        try {
-          // Ensure we have permission before attempting to schedule.
-          if (permission !== "granted") {
-            if (permission === "default") {
-              // Ask for permission interactively
-              const granted = await askForPermission();
-              if (!granted) {
-                Alert.alert(
-                  "Notifications Disabled",
-                  "Notifications are disabled for this app. Enable them in your browser settings to receive rest timer alerts.",
-                  [
-                    { text: "Cancel", style: "cancel" },
-                    { text: "Open Settings", onPress: async () => await openSettings() },
-                  ]
-                );
-                return;
-              }
-            } else {
-              // permission === "denied"
-              Alert.alert(
-                "Notifications Blocked",
-                "Notifications are blocked for this app. Open your browser or device settings to enable notifications.",
-                [
-                  { text: "Cancel", style: "cancel" },
-                  { text: "Open Settings", onPress: async () => await openSettings() },
-                ]
-              );
-              return;
-            }
-          }
-
-          const result = await scheduleNotificationAfterSeconds(duration, "Rest Complete", undefined);
-          if (result && result.id) {
-            // store cancel function in ref so it can be cleared later
-            const scheduledId = result.id;
-            webCancelRef.current = () => {
-              // cancelScheduledNotification can be async; call it but don't await in cleanup paths
-              (async () => {
-                try {
-                  await cancelScheduledNotification(scheduledId);
-                } catch (e) {
-                  // ignore
-                }
-              })();
-              webCancelRef.current = null;
-            };
-            setNativeTimerLaunched(true);
-            logger.info("Web notification scheduled for rest timer", { duration }, "timer");
-          } else {
-            // scheduling failed or returned no id — surface a warning to the user
-            logger.warn("Web notification scheduling returned no id", undefined, "timer");
-            Alert.alert("Notification Error", "Unable to schedule a notification for the rest timer on this device.", [
-              { text: "OK" },
-            ]);
-          }
-        } catch (err) {
-          logger.error("Failed to schedule web notification via notification service", err, "timer");
-          Alert.alert("Notification Error", "An error occurred while scheduling the rest timer notification.", [
-            { text: "OK" },
-          ]);
-        }
+        Alert.alert(
+          "Feature only works on mobile app",
+          "This feature is only available in the mobile app. Please use the mobile app to set timers and receive notifications."
+        );
         return;
       }
 
@@ -231,8 +153,6 @@ export const CompactRestTimer: React.FC<CompactRestTimerProps> = ({ duration, on
       <TextUI variant='bodySmall' color='secondary' style={styles.restText}>
         Rest: {formatMinutes(initialDurationRef.current)}
       </TextUI>
-
-      <NotificationPermissionCTA />
 
       <TouchableOpacity
         accessibilityRole='button'
