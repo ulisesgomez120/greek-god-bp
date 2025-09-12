@@ -57,7 +57,7 @@ config.transformer.getTransformOptions = async () => ({
 });
 
 // Web-specific configuration for Node 22+ compatibility
-config.resolver.unstable_enableSymlinks = false;
-config.resolver.unstable_enablePackageExports = false;
+// Removed unstable resolver overrides (metro defaults are used).
+// These overrides caused an expo doctor warning: "resolver.unstable_enableSymlinks" mismatch.
 
 module.exports = config;

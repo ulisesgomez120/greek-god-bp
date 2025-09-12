@@ -8,10 +8,10 @@ config({ path: envFile });
 export default ({ config }: ConfigContext): ExpoConfig => ({
   ...config,
   name: "TrainSmart",
-  slug: "trainsmart",
+  slug: "trainsmart-mju-givknvilkuvj6qjuk",
   version: "1.0.0",
   orientation: "portrait",
-  icon: "./assets/icon.svg",
+  icon: "./assets/icon.png",
   userInterfaceStyle: "automatic",
   splash: {
     image: "./assets/splash-icon.png",
@@ -21,18 +21,10 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
   assetBundlePatterns: ["**/*"],
   ios: {
     supportsTablet: true,
-    bundleIdentifier: "com.trainsmart.app",
+    bundleIdentifier: "com.greekgodbp.app",
     buildNumber: "1",
-    infoPlist: {
-      NSCameraUsageDescription: "This app uses the camera to capture workout progress photos.",
-      NSPhotoLibraryUsageDescription: "This app accesses your photo library to save and view workout progress photos.",
-      NSMicrophoneUsageDescription: "This app uses the microphone for voice commands during workouts.",
-      NSMotionUsageDescription: "This app uses motion sensors to track workout movements and rest periods.",
-      NSHealthShareUsageDescription: "This app integrates with HealthKit to sync your workout data.",
-      NSHealthUpdateUsageDescription: "This app updates HealthKit with your workout progress.",
-      UIBackgroundModes: ["background-processing", "background-fetch"],
-    },
-    associatedDomains: ["applinks:trainsmart.app"],
+    // Removed unused iOS usage description keys and UIBackgroundModes to avoid unnecessary permission prompts.
+    // Keep minimal config required for App Store submission.
     config: {
       usesNonExemptEncryption: false,
     },
@@ -44,16 +36,8 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
     },
     package: "com.trainsmart.app",
     versionCode: 1,
-    permissions: [
-      "CAMERA",
-      "READ_EXTERNAL_STORAGE",
-      "WRITE_EXTERNAL_STORAGE",
-      "RECORD_AUDIO",
-      "VIBRATE",
-      "WAKE_LOCK",
-      "RECEIVE_BOOT_COMPLETED",
-      "SYSTEM_ALERT_WINDOW",
-    ],
+    // Clear Android permissions for now (iOS-only target). Reintroduce minimal permissions later if Android builds are needed.
+    permissions: [],
     intentFilters: [
       {
         action: "VIEW",
