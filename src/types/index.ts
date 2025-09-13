@@ -13,7 +13,6 @@ export interface EnvironmentConfig {
   apiUrl: string;
   supabaseUrl: string;
   supabaseAnonKey: string;
-  stripePublishableKey: string;
   environment: "development" | "staging" | "production";
   openaiApiKey?: string;
   enableAnalytics?: boolean;
@@ -246,8 +245,6 @@ export interface Subscription {
   id: string;
   userId: string;
   planId: string;
-  stripeSubscriptionId: string;
-  stripeCustomerId: string;
   status: SubscriptionStatus;
   currentPeriodStart: string;
   currentPeriodEnd: string;
@@ -265,7 +262,6 @@ export interface SubscriptionPlan {
   description: string;
   priceCents: number;
   interval: "month" | "year";
-  stripePriceId: string;
   features: string[];
   maxAiQueries: number; // -1 for unlimited
   maxCustomWorkouts: number; // -1 for unlimited
@@ -278,7 +274,7 @@ export interface SubscriptionPlan {
 export interface PaymentHistory {
   id: string;
   subscriptionId: string;
-  stripePaymentIntentId: string;
+  paymentIntentId?: string;
   amountCents: number;
   currency: string;
   status: "succeeded" | "failed" | "pending" | "requires_payment_method";

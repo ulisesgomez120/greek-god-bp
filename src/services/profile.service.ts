@@ -167,7 +167,6 @@ export class ProfileService {
             : (row.preferences as unknown as ProfilePreferences) || DEFAULT_PROFILE_PREFERENCES,
         privacySettings: privacySettingsFromRow,
         role: row.role || "user",
-        stripeCustomerId: row.stripe_customer_id || undefined,
         onboardingCompleted: row.onboarding_completed || false,
         // createdAt/updatedAt already provided by transformUserProfile
       };
@@ -353,7 +352,6 @@ export class ProfileService {
             : (row.preferences as unknown as ProfilePreferences) || DEFAULT_PROFILE_PREFERENCES,
         privacySettings: privacySettingsFromRow,
         role: row.role || "user",
-        stripeCustomerId: row.stripe_customer_id || undefined,
         onboardingCompleted: row.onboarding_completed || false,
         createdAt: row.created_at,
         updatedAt: row.updated_at,
@@ -531,7 +529,6 @@ export class ProfileService {
             : (row.preferences as unknown as ProfilePreferences) || DEFAULT_PROFILE_PREFERENCES,
         privacySettings: privacySettingsFromRow,
         role: row.role || "user",
-        stripeCustomerId: row.stripe_customer_id || undefined,
         onboardingCompleted: row.onboarding_completed || false,
         createdAt: row.created_at,
         updatedAt: row.updated_at,

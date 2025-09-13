@@ -77,7 +77,6 @@ async function mergeUserWithProfile(user: SupabaseUser, accessToken?: string): P
           availableEquipment: data.available_equipment || [],
           privacySettings: data.privacy_settings || {},
           role: data.role || "user",
-          stripeCustomerId: data.stripe_customer_id || undefined,
           onboardingCompleted: data.onboarding_completed || false,
           createdAt: data.created_at,
           updatedAt: data.updated_at,

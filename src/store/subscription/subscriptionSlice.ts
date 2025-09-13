@@ -46,7 +46,6 @@ export const loadSubscriptionPlans = createAsyncThunk("subscription/loadPlans", 
         description: "Basic workout tracking with limited AI coaching",
         priceCents: 0,
         interval: "month",
-        stripePriceId: "",
         features: [
           "Unlimited workout logging",
           "Basic progression tracking",
@@ -68,7 +67,6 @@ export const loadSubscriptionPlans = createAsyncThunk("subscription/loadPlans", 
         description: "Full access to all features with unlimited AI coaching",
         priceCents: 999, // $9.99
         interval: "month",
-        stripePriceId: "price_premium_monthly",
         features: [
           "All free features",
           "All pre-built programs",
@@ -92,7 +90,6 @@ export const loadSubscriptionPlans = createAsyncThunk("subscription/loadPlans", 
         description: "Full access with 2 months free when billed annually",
         priceCents: 7999, // $79.99 (2 months free)
         interval: "year",
-        stripePriceId: "price_premium_yearly",
         features: ["All Premium features", "2 months free (save 17%)", "Priority feature requests"],
         maxAiQueries: -1, // Unlimited
         maxCustomWorkouts: -1, // Unlimited
@@ -107,7 +104,6 @@ export const loadSubscriptionPlans = createAsyncThunk("subscription/loadPlans", 
         description: "For fitness professionals managing multiple clients",
         priceCents: 2999, // $29.99
         interval: "month",
-        stripePriceId: "price_coach_monthly",
         features: [
           "All Premium features",
           "Manage up to 50 clients",
@@ -193,8 +189,6 @@ export const createSubscription = createAsyncThunk(
         id: `sub_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
         userId,
         planId,
-        stripeSubscriptionId: `stripe_sub_${Date.now()}`,
-        stripeCustomerId: `stripe_cus_${Date.now()}`,
         status: "active",
         currentPeriodStart: new Date().toISOString(),
         currentPeriodEnd: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(), // 30 days
@@ -424,7 +418,7 @@ const subscriptionSlice = createSlice({
     ) => {
       const { subscriptionId, status, currentPeriodEnd } = action.payload;
 
-      if (state.currentSubscription && state.currentSubscription.stripeSubscriptionId === subscriptionId) {
+      if (state.currentSubscription && state.currentSubscription.id === subscriptionId) {
         state.currentSubscription.status = status;
         if (currentPeriodEnd) {
           state.currentSubscription.currentPeriodEnd = currentPeriodEnd;

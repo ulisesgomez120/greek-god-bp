@@ -67,7 +67,6 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
     supabaseUrl: process.env.EXPO_PUBLIC_SUPABASE_URL,
     supabaseAnonKey: process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY,
     openaiApiKey: process.env.OPENAI_API_KEY,
-    stripePublishableKey: process.env.EXPO_PUBLIC_STRIPE_PUBLISHABLE_KEY,
     environment: process.env.NODE_ENV || "development",
     apiUrl: process.env.EXPO_PUBLIC_API_URL || "https://api.trainsmart.app",
     sentryDsn: process.env.SENTRY_DSN,

@@ -25,7 +25,6 @@ export interface UserProfile {
   privacySettings: PrivacySettings;
   preferences?: ProfilePreferences;
   role?: "user" | "premium" | "coach" | "admin";
-  stripeCustomerId?: string;
   onboardingCompleted: boolean;
   createdAt: string;
   updatedAt: string;

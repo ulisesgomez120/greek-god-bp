@@ -10,7 +10,6 @@ export const ENV_CONFIG: EnvironmentConfig = {
   supabaseUrl: Constants.expoConfig?.extra?.supabaseUrl || "",
   supabaseAnonKey: Constants.expoConfig?.extra?.supabaseAnonKey || "",
   openaiApiKey: Constants.expoConfig?.extra?.openaiApiKey,
-  stripePublishableKey: Constants.expoConfig?.extra?.stripePublishableKey || "",
   apiUrl: Constants.expoConfig?.extra?.apiUrl || "https://api.trainsmart.app",
   environment: (Constants.expoConfig?.extra?.environment as "development" | "staging" | "production") || "development",
   enableAnalytics: Constants.expoConfig?.extra?.enableAnalytics || false,

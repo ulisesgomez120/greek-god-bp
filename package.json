@@ -29,7 +29,6 @@
     "@react-navigation/stack": "^6.4.1",
     "@reduxjs/toolkit": "^2.2.7",
     "@shopify/react-native-skia": "2.0.0",
-    "@stripe/stripe-react-native": "0.45.0",
     "@supabase/supabase-js": "^2.45.4",
     "babel-plugin-module-resolver": "^5.0.2",
     "date-fns": "^4.1.0",
