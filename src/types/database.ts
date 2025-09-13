@@ -576,7 +576,6 @@ export interface Database {
           description: string | null;
           price_cents: number;
           interval: Database["public"]["Enums"]["subscription_interval_enum"];
-          stripe_price_id: string;
           features: Json;
           max_ai_queries: number | null;
           max_custom_workouts: number | null;
@@ -591,7 +590,6 @@ export interface Database {
           description?: string | null;
           price_cents: number;
           interval: Database["public"]["Enums"]["subscription_interval_enum"];
-          stripe_price_id: string;
           features?: Json;
           max_ai_queries?: number | null;
           max_custom_workouts?: number | null;
@@ -606,7 +604,6 @@ export interface Database {
           description?: string | null;
           price_cents?: number;
           interval?: Database["public"]["Enums"]["subscription_interval_enum"];
-          stripe_price_id?: string;
           features?: Json;
           max_ai_queries?: number | null;
           max_custom_workouts?: number | null;
@@ -622,8 +619,6 @@ export interface Database {
           id: string;
           user_id: string;
           plan_id: string;
-          stripe_subscription_id: string;
-          stripe_customer_id: string;
           status: Database["public"]["Enums"]["subscription_status_enum"];
           current_period_start: string;
           current_period_end: string;
@@ -638,8 +633,6 @@ export interface Database {
           id?: string;
           user_id: string;
           plan_id: string;
-          stripe_subscription_id: string;
-          stripe_customer_id: string;
           status: Database["public"]["Enums"]["subscription_status_enum"];
           current_period_start: string;
           current_period_end: string;
@@ -654,8 +647,6 @@ export interface Database {
           id?: string;
           user_id?: string;
           plan_id?: string;
-          stripe_subscription_id?: string;
-          stripe_customer_id?: string;
           status?: Database["public"]["Enums"]["subscription_status_enum"];
           current_period_start?: string;
           current_period_end?: string;
@@ -698,7 +689,6 @@ export interface Database {
           available_equipment: string[] | null;
           privacy_settings: Json | null;
           role: Database["public"]["Enums"]["user_role_enum"] | null;
-          stripe_customer_id: string | null;
           onboarding_completed: boolean | null;
           created_at: string;
           updated_at: string;
@@ -717,7 +707,6 @@ export interface Database {
           available_equipment?: string[] | null;
           privacy_settings?: Json | null;
           role?: Database["public"]["Enums"]["user_role_enum"] | null;
-          stripe_customer_id?: string | null;
           onboarding_completed?: boolean | null;
           created_at?: string;
           updated_at?: string;
@@ -736,7 +725,6 @@ export interface Database {
           available_equipment?: string[] | null;
           privacy_settings?: Json | null;
           role?: Database["public"]["Enums"]["user_role_enum"] | null;
-          stripe_customer_id?: string | null;
           onboarding_completed?: boolean | null;
           created_at?: string;
           updated_at?: string;
