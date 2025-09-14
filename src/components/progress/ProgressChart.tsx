@@ -2,7 +2,7 @@
 // PROGRESS CHART COMPONENT
 // ============================================================================
 // Simple placeholder chart component (charts will be implemented later)
-
+// Victory Native should not be used at all due to compatibility issues
 import React, { useMemo } from "react";
 import { View, StyleSheet, Dimensions, Platform } from "react-native";
 import { Text } from "../ui/Text";
@@ -233,7 +233,8 @@ export const ProgressChart: React.FC<ProgressChartProps> = ({ type, data, timefr
 
   return (
     <View style={[styles.container, { height }]}>
-      {title && <Text style={styles.title}>{title}</Text>}
+      <Text>Coming soon!</Text>
+      {/* {title && <Text style={styles.title}>{title}</Text>}
 
       {renderChart()}
 
@@ -268,7 +269,7 @@ export const ProgressChart: React.FC<ProgressChartProps> = ({ type, data, timefr
         <Text style={styles.chartInfoValue}>
           {data.length} data point{data.length !== 1 ? "s" : ""} • {timeframe}
         </Text>
-      </View>
+      </View> */}
     </View>
   );
 };

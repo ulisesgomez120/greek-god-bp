@@ -6,14 +6,26 @@
   "build": {
     "development": {
       "developmentClient": true,
-      "distribution": "internal"
+      "distribution": "internal",
+      "env": {
+        "EXPO_USE_POD_INSTALLER": "1",
+        "RCT_NEW_ARCH_ENABLED": "1"
+      }
     },
     "preview": {
-      "distribution": "internal"
+      "distribution": "internal",
+      "env": {
+        "EXPO_USE_POD_INSTALLER": "1",
+        "RCT_NEW_ARCH_ENABLED": "1"
+      }
     },
     "production": {
       "autoIncrement": true,
-      "ios": { "image": "latest" }
+      "ios": { "image": "latest" },
+      "env": {
+        "EXPO_USE_POD_INSTALLER": "1",
+        "RCT_NEW_ARCH_ENABLED": "1"
+      }
     }
   },
   "submit": {

@@ -128,76 +128,79 @@ export const WorkoutSummaryScreen: React.FC<WorkoutSummaryScreenProps> = ({ rout
     if (isImperial()) return formatKgToLbsDisplay(kg);
     return `${kg} kg`;
   };
-
+  // Temporary placeholder while the summary screen is under development
   return (
     <View style={styles.container}>
       <Text variant='h1'>WIP</Text>
     </View>
-    // <View style={styles.container}>
-    //   <ScrollView style={styles.scrollView} contentContainerStyle={styles.scrollContent}>
-    //     <Text variant='h1' color='primary' style={styles.title}>
-    //       Workout Complete! 🎉
-    //     </Text>
-
-    //     <View style={styles.meta}>
-    //       <Text variant='body' color='secondary'>
-    //         Session ID: {session.id}
-    //       </Text>
-    //       <Text variant='body' color='secondary'>
-    //         Name: {session.name || "Workout"}
-    //       </Text>
-    //       <Text variant='body' color='secondary'>
-    //         Duration: {session.durationMinutes ?? "—"} min
-    //       </Text>
-    //       <Text variant='body' color='secondary'>
-    //         Sets logged: {sets.length}
-    //       </Text>
-    //       <Text variant='body' color='secondary'>
-    //         Total volume:{" "}
-    //         {session.totalVolumeKg
-    //           ? isImperial()
-    //             ? formatKgToLbsDisplay(session.totalVolumeKg)
-    //             : `${session.totalVolumeKg} kg`
-    //           : "—"}
-    //       </Text>
-    //       <Text variant='body' color='secondary'>
-    //         Avg RPE: {session.averageRpe ?? "—"}
-    //       </Text>
-    //     </View>
-
-    //     <View style={styles.section}>
-    //       <Text variant='h3' color='primary' style={styles.sectionTitle}>
-    //         Sets
-    //       </Text>
-
-    //       {sets.length === 0 ? (
-    //         <Text variant='body' color='secondary'>
-    //           No sets recorded for this session.
-    //         </Text>
-    //       ) : (
-    //         sets.map((s, idx) => (
-    //           <View key={s.id ?? idx} style={styles.setItem}>
-    //             <Text variant='body' color='primary'>
-    //               Set {s.setNumber}: {s.weightKg ? `${weightDisplay(s.weightKg)}` : "Bodyweight"} × {s.reps}
-    //             </Text>
-    //             {s.rpe ? (
-    //               <Text variant='bodySmall' color='secondary'>
-    //                 RPE {s.rpe}
-    //               </Text>
-    //             ) : null}
-    //             {s.isWarmup ? (
-    //               <Text variant='bodySmall' color='tertiary'>
-    //                 {" "}
-    //                 - Warmup
-    //               </Text>
-    //             ) : null}
-    //           </View>
-    //         ))
-    //       )}
-    //     </View>
-    //   </ScrollView>
-    // </View>
   );
+
+  // return (
+  //   <View style={styles.container}>
+  //     <ScrollView style={styles.scrollView} contentContainerStyle={styles.scrollContent}>
+  //       <Text variant='h1' color='primary' style={styles.title}>
+  //         Workout Complete! 🎉
+  //       </Text>
+
+  //       <View style={styles.meta}>
+  //         <Text variant='body' color='secondary'>
+  //           Session ID: {session.id}
+  //         </Text>
+  //         <Text variant='body' color='secondary'>
+  //           Name: {session.name || "Workout"}
+  //         </Text>
+  //         <Text variant='body' color='secondary'>
+  //           Duration: {session.durationMinutes ?? "—"} min
+  //         </Text>
+  //         <Text variant='body' color='secondary'>
+  //           Sets logged: {sets.length}
+  //         </Text>
+  //         <Text variant='body' color='secondary'>
+  //           Total volume:{" "}
+  //           {session.totalVolumeKg
+  //             ? isImperial()
+  //               ? formatKgToLbsDisplay(session.totalVolumeKg)
+  //               : `${session.totalVolumeKg} kg`
+  //             : "—"}
+  //         </Text>
+  //         <Text variant='body' color='secondary'>
+  //           Avg RPE: {session.averageRpe ?? "—"}
+  //         </Text>
+  //       </View>
+
+  //       <View style={styles.section}>
+  //         <Text variant='h3' color='primary' style={styles.sectionTitle}>
+  //           Sets
+  //         </Text>
+
+  //         {sets.length === 0 ? (
+  //           <Text variant='body' color='secondary'>
+  //             No sets recorded for this session.
+  //           </Text>
+  //         ) : (
+  //           sets.map((s, idx) => (
+  //             <View key={s.id ?? idx} style={styles.setItem}>
+  //               <Text variant='body' color='primary'>
+  //                 Set {s.setNumber}: {s.weightKg ? `${weightDisplay(s.weightKg)}` : "Bodyweight"} × {s.reps}
+  //               </Text>
+  //               {s.rpe ? (
+  //                 <Text variant='bodySmall' color='secondary'>
+  //                   RPE {s.rpe}
+  //                 </Text>
+  //               ) : null}
+  //               {s.isWarmup ? (
+  //                 <Text variant='bodySmall' color='tertiary'>
+  //                   {" "}
+  //                   - Warmup
+  //                 </Text>
+  //               ) : null}
+  //             </View>
+  //           ))
+  //         )}
+  //       </View>
+  //     </ScrollView>
+  //   </View>
+  // );
 };
 
 const styles = StyleSheet.create({
