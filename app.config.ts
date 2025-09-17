@@ -23,6 +23,9 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
     supportsTablet: true,
     bundleIdentifier: "com.greekgodbp.app",
     buildNumber: "1",
+    infoPlist: {
+      LSApplicationQueriesSchemes: ["clock-timer", "clock"],
+    },
     // Removed unused iOS usage description keys and UIBackgroundModes to avoid unnecessary permission prompts.
     // Keep minimal config required for App Store submission.
     config: {

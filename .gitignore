@@ -11,7 +11,7 @@ node_modules/
 dist/
 web-build/
 expo-env.d.ts
-
+ios/
 # Native
 .kotlin/
 *.orig.*
