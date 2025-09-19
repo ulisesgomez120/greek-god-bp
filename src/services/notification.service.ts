@@ -94,6 +94,7 @@ export async function scheduleNotificationAfterSeconds(
   title: string,
   body?: string
 ): Promise<NotificationScheduleResult> {
+  logger.info("scheduleNotificationAfterSeconds called", { seconds, title, body }, "notifications");
   try {
     if (Platform.OS === "web") {
       // Simple in-page scheduling for web PWAs: use setTimeout + Notification constructor.
@@ -101,21 +102,30 @@ export async function scheduleNotificationAfterSeconds(
         try {
           new Notification(title, { body });
         } catch (err) {
-          logger.error("Notification() constructor failed", err, "notifications");
+          logger.error("Notification() constructor failed (web)", err, "notifications");
         }
       };
 
       const timeoutId = window.setTimeout(show, seconds * 1000);
+      logger.info("Scheduled web timeout notification", { timeoutId }, "notifications");
       return { id: `web-timeout-${timeoutId}` };
     } else {
-      const id = await Notifications.scheduleNotificationAsync({
-        content: { title, body },
-        trigger: { seconds },
-      } as any);
-      return { id };
+      try {
+        // Ensure body is a string (iOS native may reject null/undefined)
+        const safeBody = typeof body === "string" && body.length > 0 ? body : title;
+        const id = await Notifications.scheduleNotificationAsync({
+          content: { title, body: safeBody },
+          trigger: { seconds },
+        } as any);
+        logger.info("Scheduled native notification", { id, seconds, title, body: safeBody }, "notifications");
+        return { id };
+      } catch (err) {
+        logger.error("scheduleNotificationAfterSeconds: native schedule failed", err, "notifications");
+        return { error: err };
+      }
     }
   } catch (err) {
-    logger.error("Failed to schedule notification", err, "notifications");
+    logger.error("Failed to schedule notification (unexpected)", err, "notifications");
     return { error: err };
   }
 }

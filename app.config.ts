@@ -62,7 +62,7 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
     lang: "en",
   },
   scheme: "trainsmart",
-  plugins: ["expo-secure-store", "expo-font", "expo-splash-screen"],
+  plugins: ["expo-secure-store", "expo-font", "expo-splash-screen", "expo-notifications"],
   extra: {
     eas: {
       projectId: process.env.EAS_PROJECT_ID,
