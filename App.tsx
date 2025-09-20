@@ -25,6 +25,7 @@ import ErrorBoundary from "./src/components/ui/ErrorBoundary";
 // Utils
 import { logger } from "./src/utils/logger";
 import { registerAuthDispatch } from "@/utils/tokenManager";
+import notificationService from "@/services/notification.service";
 
 // ============================================================================
 // APP CONTENT COMPONENT
@@ -52,6 +53,13 @@ const AppContent: React.FC = () => {
           registerAuthDispatch(store.dispatch);
         } catch (err) {
           logger.warn("Failed to register TokenManager dispatch during app bootstrap", err);
+        }
+
+        // Initialize notification service (register handler) but do NOT prompt for permissions on init.
+        try {
+          void notificationService.initNotificationService({ requestPermissionOnInit: false });
+        } catch (err) {
+          logger.warn("Failed to initialize notification service during app bootstrap", err);
         }
 
         // Wait for store rehydration
