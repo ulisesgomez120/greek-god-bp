@@ -17,7 +17,9 @@ export type SessionMetricEvent =
   | "refresh_failed_temporary"
   | "refresh_failed_permanent"
   | "session_rehydrated"
-  | "session_cleared";
+  | "session_cleared"
+  | "queued_attempt_enqueued"
+  | "queued_attempt_processed";
 
 export type SessionMetric = {
   event: SessionMetricEvent;

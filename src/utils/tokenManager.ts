@@ -9,9 +9,10 @@ import { getAsyncItem, setAsyncItem, removeAsyncItem } from "@/utils/storage";
 import { ENV_CONFIG, STORAGE_KEYS, SESSION_PERSISTENCE_CONFIG } from "@/config/constants";
 import supabase from "@/lib/supabase";
 import { logger } from "@/utils/logger";
-import { forceLogout } from "@/store/auth/authSlice";
-import type { TokenData, TokenValidationResult } from "@/types/auth";
+import type { TokenData, TokenValidationResult, TokenRefreshResult, QueuedRefreshAttempt } from "@/types/auth";
 import { shouldAttemptRefreshOnFocus, recordSessionMetrics, getSessionMetrics } from "@/utils/sessionPersistence";
+import { readSecureItemWithRetry } from "@/lib/storageHelpers";
+import { enqueueRefresh, dequeueAndProcess } from "@/utils/refreshQueue";
 
 // ============================================================================
 // CONSTANTS
@@ -96,9 +97,10 @@ export class TokenManager {
    */
   async getTokens(): Promise<TokenData | null> {
     try {
+      // Use read-with-retry for secure reads to mitigate transient SecureStore failures
       const [accessToken, refreshToken, expiresAt] = await Promise.all([
-        StorageAdapter.secure.getItem(STORAGE_KEYS.secure.accessToken),
-        StorageAdapter.secure.getItem(STORAGE_KEYS.secure.refreshToken),
+        readSecureItemWithRetry(STORAGE_KEYS.secure.accessToken),
+        readSecureItemWithRetry(STORAGE_KEYS.secure.refreshToken),
         // Read expiry metadata via async storage helper
         getAsyncItem<string>("token_expires_at"),
       ]);
@@ -156,8 +158,13 @@ export class TokenManager {
       // app-level state does not remain authenticated after tokens are cleared.
       try {
         if (this.reduxDispatch) {
-          this.reduxDispatch(forceLogout());
-          logger.debug("TokenManager: Dispatched forceLogout via registered reduxDispatch");
+          try {
+            // Dispatch a plain action to avoid importing auth slice (breaks require cycles).
+            this.reduxDispatch({ type: "auth/forceLogout" });
+            logger.debug("TokenManager: Dispatched forceLogout via registered reduxDispatch");
+          } catch (dispatchErr) {
+            logger.warn("TokenManager: Failed to dispatch forceLogout via registered reduxDispatch", dispatchErr);
+          }
         }
       } catch (dispatchErr) {
         logger.warn("TokenManager: Failed to dispatch forceLogout from clearTokens", dispatchErr);
@@ -251,7 +258,60 @@ export class TokenManager {
     }
 
     this.isRefreshing = true;
-    this.refreshPromise = this.performTokenRefresh();
+    // Wrap performTokenRefresh which returns a TokenRefreshResult and map to TokenData|null
+    this.refreshPromise = (async () => {
+      const result = await this.performTokenRefresh();
+      if (!result) return null;
+
+      if (result.success && result.newTokens) {
+        return result.newTokens;
+      }
+
+      // Permanent failure -> clear tokens and record metric
+      if (result.permanentFailure) {
+        try {
+          await recordSessionMetrics("refresh_failed_permanent", {
+            message: result.message ?? result.errorCode,
+          });
+        } catch {}
+        await this.clearTokens();
+        return null;
+      }
+
+      // Temporary failure -> enqueue a queued refresh attempt for later processing
+      try {
+        await recordSessionMetrics("refresh_failed_temporary", { message: result.message ?? result.errorCode });
+      } catch {}
+      try {
+        await enqueueRefresh("startup");
+      } catch (err) {
+        logger.warn("TokenManager: Failed to enqueue refresh after temporary failure", err, "auth");
+      }
+
+      // Schedule a fallback retry with exponential backoff (best-effort)
+      try {
+        const retryDelay =
+          (RETRY_DELAY_BASE ?? 1000) * Math.pow(2, SESSION_PERSISTENCE_CONFIG.maxRetryAttempts ?? MAX_RETRY_ATTEMPTS);
+        logger.info(
+          `TokenManager: Scheduling fallback retry in ${Math.round(retryDelay / 1000)}s after temporary failure`,
+          undefined,
+          "auth"
+        );
+
+        if (this.refreshTimer) {
+          clearTimeout(this.refreshTimer);
+        }
+
+        this.refreshTimer = setTimeout(async () => {
+          logger.info("TokenManager: Fallback retry triggered after temporary refresh failure", undefined, "auth");
+          await this.refreshTokensIfOnline();
+        }, retryDelay);
+      } catch (err) {
+        logger.warn("TokenManager: Failed to schedule fallback retry", err, "auth");
+      }
+
+      return null;
+    })();
 
     try {
       const result = await this.refreshPromise;
@@ -278,7 +338,12 @@ export class TokenManager {
   /**
    * Perform the actual token refresh with retry logic
    */
-  private async performTokenRefresh(): Promise<TokenData | null> {
+  /**
+   * Perform the actual token refresh and return a structured result.
+   * This function will attempt refresh with retries and return a TokenRefreshResult
+   * describing whether the refresh succeeded, failed temporarily, or failed permanently.
+   */
+  private async performTokenRefresh(): Promise<import("@/types/auth").TokenRefreshResult | null> {
     let lastError: Error | null = null;
 
     for (let attempt = 1; attempt <= MAX_RETRY_ATTEMPTS; attempt++) {
@@ -288,7 +353,12 @@ export class TokenManager {
         const currentTokens = await this.getTokens();
         if (!currentTokens?.refreshToken) {
           logger.warn("TokenManager: No refresh token available", undefined, "auth");
-          return null;
+          return {
+            success: false,
+            permanentFailure: true,
+            errorCode: "NO_REFRESH_TOKEN",
+            message: "No refresh token available",
+          };
         }
 
         // Attempt refresh with Supabase
@@ -300,7 +370,7 @@ export class TokenManager {
           throw new Error(`Supabase refresh failed: ${error.message}`);
         }
 
-        if (!data.session) {
+        if (!data?.session) {
           throw new Error("No session returned from refresh");
         }
 
@@ -321,7 +391,10 @@ export class TokenManager {
         }
 
         logger.info("TokenManager: Tokens refreshed successfully", undefined, "auth");
-        return newTokens;
+        return {
+          success: true,
+          newTokens,
+        };
       } catch (error) {
         lastError = error instanceof Error ? error : new Error("Unknown refresh error");
         logger.warn(`TokenManager: Refresh attempt ${attempt} failed`, { error: lastError.message }, "auth");
@@ -340,37 +413,29 @@ export class TokenManager {
     try {
       const permanent = this.isPermanentRefreshError(lastError);
       if (permanent) {
-        await recordSessionMetrics("refresh_failed_permanent", {
+        return {
+          success: false,
+          permanentFailure: true,
+          errorCode: "INVALID_REFRESH",
           message: (lastError as any)?.message ?? String(lastError),
-        });
-        await this.clearTokens();
+        };
       } else {
-        await recordSessionMetrics("refresh_failed_temporary", {
+        return {
+          success: false,
+          permanentFailure: false,
+          errorCode: "NETWORK",
           message: (lastError as any)?.message ?? String(lastError),
-        });
-
-        const retryDelay =
-          (RETRY_DELAY_BASE ?? 1000) * Math.pow(2, SESSION_PERSISTENCE_CONFIG.maxRetryAttempts ?? MAX_RETRY_ATTEMPTS);
-        logger.info(
-          `TokenManager: Scheduling retry in ${Math.round(retryDelay / 1000)}s after temporary failure`,
-          undefined,
-          "auth"
-        );
-
-        if (this.refreshTimer) {
-          clearTimeout(this.refreshTimer);
-        }
-
-        this.refreshTimer = setTimeout(async () => {
-          logger.info("TokenManager: Retry triggered after temporary refresh failure", undefined, "auth");
-          await this.refreshTokensIfOnline();
-        }, retryDelay);
+        };
       }
     } catch (err) {
-      logger.warn("TokenManager: Error while handling failed refresh outcome", err, "auth");
+      logger.warn("TokenManager: Error while classifying refresh outcome", err, "auth");
+      return {
+        success: false,
+        permanentFailure: false,
+        errorCode: "UNKNOWN",
+        message: (lastError as any)?.message ?? String(lastError),
+      };
     }
-
-    return null;
   }
 
   // ============================================================================
@@ -387,23 +452,55 @@ export class TokenManager {
       if (tokens) {
         this.scheduleTokenRefresh(tokens.expiresAt);
 
-        // Attempt to rehydrate the shared Supabase client session using stored tokens.
-        // TokenManager centralizes session rehydration so other modules (auth.service)
-        // should not call supabase.auth.setSession directly.
+        // Rehydrate or attempt refresh-first strategy:
         try {
-          await supabase.auth.setSession({
-            access_token: tokens.accessToken,
-            refresh_token: tokens.refreshToken,
-          });
-          logger.info("TokenManager: Supabase session rehydrated during initialization", undefined, "auth");
-          // Record session rehydration time for heuristics and diagnostics
-          await recordSessionMetrics("session_rehydrated");
-        } catch (rehydErr) {
-          logger.warn("TokenManager: Failed to rehydrate Supabase session during initialization", rehydErr, "auth");
-          await recordSessionMetrics("refresh_failed_temporary", {
-            context: "rehydration",
-            message: (rehydErr as any)?.message ?? String(rehydErr),
-          });
+          await recordSessionMetrics("refresh_attempt", { trigger: "initial_rehydrate" });
+        } catch {}
+
+        const validation = await this.validateTokens();
+        if (validation.isValid) {
+          // Access token still valid — safe to call setSession
+          try {
+            await supabase.auth.setSession({
+              access_token: tokens.accessToken,
+              refresh_token: tokens.refreshToken,
+            });
+            logger.info("TokenManager: Supabase session rehydrated during initialization", undefined, "auth");
+            await recordSessionMetrics("session_rehydrated");
+          } catch (rehydErr) {
+            logger.warn("TokenManager: Failed to rehydrate Supabase session during initialization", rehydErr, "auth");
+            try {
+              await recordSessionMetrics("refresh_failed_temporary", {
+                context: "rehydration",
+                message: (rehydErr as any)?.message ?? String(rehydErr),
+              });
+            } catch {}
+          }
+        } else {
+          // Token expired or needs refresh — attempt refresh first. If offline, enqueue a refresh attempt.
+          try {
+            const refreshed = await this.refreshTokensIfOnline();
+            if (refreshed) {
+              logger.info("TokenManager: Token refresh succeeded during initialization", undefined, "auth");
+              try {
+                await recordSessionMetrics("session_rehydrated");
+              } catch {}
+            } else {
+              logger.warn(
+                "TokenManager: Token refresh unavailable during initialization; enqueuing retry",
+                undefined,
+                "auth"
+              );
+              try {
+                await enqueueRefresh("startup");
+                await recordSessionMetrics("queued_attempt_enqueued", { trigger: "initial_rehydrate" });
+              } catch (err) {
+                logger.warn("TokenManager: Failed to enqueue refresh attempt during initialization", err, "auth");
+              }
+            }
+          } catch (err) {
+            logger.warn("TokenManager: Error during initialization refresh attempt", err, "auth");
+          }
         }
       }
     } catch (error) {
@@ -420,8 +517,22 @@ export class TokenManager {
       clearTimeout(this.refreshTimer);
     }
 
+    if (!expiresAt) {
+      logger.warn(
+        "TokenManager: scheduleTokenRefresh called with empty expiresAt; skipping scheduling",
+        undefined,
+        "auth"
+      );
+      return;
+    }
+
+    const expirationTime = new Date(expiresAt).getTime();
+    if (!isFinite(expirationTime) || isNaN(expirationTime)) {
+      logger.warn("TokenManager: Invalid expiresAt value, cannot schedule refresh", { expiresAt }, "auth");
+      return;
+    }
+
     try {
-      const expirationTime = new Date(expiresAt).getTime();
       const buffer = SESSION_PERSISTENCE_CONFIG.bufferTimeMs ?? REFRESH_BUFFER_TIME;
       const refreshTime = expirationTime - buffer;
       const delay = Math.max(0, refreshTime - Date.now());
@@ -485,13 +596,13 @@ export class TokenManager {
    * Refresh tokens only if network is available
    */
   async refreshTokensIfOnline(): Promise<TokenData | null> {
-    const isOnline = await this.isNetworkAvailable();
+    // const isOnline = await this.isNetworkAvailable();
 
-    if (!isOnline) {
-      logger.warn("TokenManager: Network unavailable, skipping refresh", undefined, "auth");
-      await recordSessionMetrics("refresh_failed_temporary", { reason: "offline" });
-      return null;
-    }
+    // if (!isOnline) {
+    //   logger.warn("TokenManager: Network unavailable, skipping refresh", undefined, "auth");
+    //   await recordSessionMetrics("refresh_failed_temporary", { reason: "offline" });
+    //   return null;
+    // }
 
     return await this.refreshTokens();
   }
@@ -618,6 +729,205 @@ export class TokenManager {
   async forceRefresh(): Promise<TokenData | null> {
     logger.info("TokenManager: Force refresh requested", undefined, "auth");
     return await this.refreshTokens();
+  }
+
+  /**
+   * Validate tokens on app startup and attempt refresh if needed.
+   *
+   * Returns `true` if a valid session has been established (either tokens were valid
+   * or a refresh succeeded). Returns `false` when no stored tokens exist or refresh
+   * failed. This method is intended to be called during app bootstrap so the app can
+   * reliably rehydrate the Supabase client before UI flows depend on authentication.
+   */
+  async validateAndRefreshOnStartup(): Promise<boolean> {
+    try {
+      const tokens = await this.getTokens();
+      if (!tokens) {
+        logger.debug("TokenManager: No stored tokens found during startup validation", undefined, "auth");
+        return false;
+      }
+
+      const validation = await this.validateTokens();
+      if (!validation.isValid || validation.needsRefresh) {
+        logger.info("TokenManager: Tokens need refresh on startup, attempting refresh", undefined, "auth");
+        try {
+          await recordSessionMetrics("refresh_attempt", { trigger: "startup" });
+        } catch {}
+
+        // Attempt refresh; if offline or temporary failure, enqueue and *do not* clear tokens.
+        try {
+          const refreshed = await this.refreshTokensIfOnline();
+          if (refreshed) {
+            logger.info("TokenManager: Token refresh succeeded on startup", undefined, "auth");
+            try {
+              await recordSessionMetrics("session_rehydrated");
+            } catch {}
+            return true;
+          } else {
+            logger.warn("TokenManager: Token refresh unavailable on startup; enqueuing retry", undefined, "auth");
+            try {
+              await enqueueRefresh("startup");
+              await recordSessionMetrics("queued_attempt_enqueued", { trigger: "startup" });
+            } catch (err) {
+              logger.warn("TokenManager: Failed to enqueue refresh attempt on startup", err, "auth");
+            }
+            // Keep existing stored tokens in place and allow app to continue; UI/auth layer
+            // should treat session as potentially valid until a permanent failure is detected.
+            return true;
+          }
+        } catch (err) {
+          logger.warn("TokenManager: Error during startup refresh attempt", err, "auth");
+          // Conservative: do not clear tokens on unexpected errors; enqueue and continue.
+          try {
+            await enqueueRefresh("startup");
+            await recordSessionMetrics("queued_attempt_enqueued", { trigger: "startup", error: (err as any)?.message });
+          } catch {}
+          return true;
+        }
+      }
+
+      // Tokens are valid; rehydrate supabase client session using stored tokens.
+      try {
+        await this.supabaseClient.auth.setSession({
+          access_token: tokens.accessToken,
+          refresh_token: tokens.refreshToken,
+        });
+        logger.info("TokenManager: Supabase session rehydrated on startup", undefined, "auth");
+        try {
+          await recordSessionMetrics("session_rehydrated");
+        } catch {}
+        return true;
+      } catch (rehydErr) {
+        logger.warn("TokenManager: Failed to rehydrate Supabase session on startup", rehydErr, "auth");
+        // Don't clear tokens on transient rehydration failures; enqueue refresh and let foreground processing handle it.
+        try {
+          await enqueueRefresh("startup");
+          await recordSessionMetrics("queued_attempt_enqueued", {
+            context: "rehydration",
+            message: (rehydErr as any)?.message ?? String(rehydErr),
+          });
+        } catch {}
+        return true;
+      }
+    } catch (err) {
+      logger.warn("TokenManager: validateAndRefreshOnStartup failed", err, "auth");
+      return false;
+    }
+  }
+
+  /**
+   * Process persisted queued refresh attempts.
+   *
+   * This method will process a bounded batch of queued attempts (see SESSION_PERSISTENCE_CONFIG.processQueueBatchSize).
+   * For each queued attempt it:
+   *  - ensures network is available
+   *  - attempts a refresh via performTokenRefresh()
+   *  - on success rehydrates supabase with the new tokens
+   *  - on temporary failure throws to let the queue helper increment attempts
+   *  - on permanent failure clears tokens and records a metric
+   */
+  async processQueuedRefreshs(): Promise<void> {
+    try {
+      await dequeueAndProcess(async (attempt: QueuedRefreshAttempt) => {
+        // Ensure network
+        const online = await this.isNetworkAvailable();
+        if (!online) {
+          const err: any = new Error("offline");
+          err.code = "NETWORK";
+          throw err;
+        }
+
+        const result = await this.performTokenRefresh();
+        if (!result) {
+          const err: any = new Error("refresh_failed_unknown");
+          err.code = "UNKNOWN";
+          throw err;
+        }
+
+        if (result.success) {
+          if (result.newTokens) {
+            try {
+              await supabase.auth.setSession({
+                access_token: result.newTokens.accessToken,
+                refresh_token: result.newTokens.refreshToken,
+              });
+              await recordSessionMetrics("queued_attempt_processed", { id: attempt.id, reason: attempt.reason });
+            } catch (err) {
+              const e: any = err instanceof Error ? err : new Error(String(err));
+              e.code = e.code ?? "SETSESSION_FAILED";
+              throw e;
+            }
+          }
+          return;
+        }
+
+        if (result.permanentFailure) {
+          try {
+            await recordSessionMetrics("refresh_failed_permanent", { message: result.message });
+          } catch {}
+          await this.clearTokens();
+          // Do not re-enqueue; treat as terminal.
+          return;
+        }
+
+        // Temporary failure -> throw so the queue helper increments attempts and persists the error
+        const terr: any = new Error(result.message ?? "temporary_refresh_failure");
+        terr.code = result.errorCode ?? "NETWORK";
+        throw terr;
+      });
+    } catch (err) {
+      logger.warn("TokenManager: processQueuedRefreshs failed", err, "auth");
+    }
+  }
+
+  /**
+   * Force refresh and rehydrate supabase session in one call.
+   * Returns the TokenRefreshResult describing the outcome.
+   */
+  async forceRefreshAndRehydrate(): Promise<TokenRefreshResult> {
+    try {
+      const result = await this.performTokenRefresh();
+      if (!result) {
+        return {
+          success: false,
+          permanentFailure: false,
+          errorCode: "UNKNOWN",
+          message: "Unknown refresh failure",
+        };
+      }
+
+      if (result.success && result.newTokens) {
+        try {
+          await supabase.auth.setSession({
+            access_token: result.newTokens.accessToken,
+            refresh_token: result.newTokens.refreshToken,
+          });
+          await recordSessionMetrics("session_rehydrated");
+        } catch (err) {
+          return {
+            success: false,
+            permanentFailure: false,
+            errorCode: "SETSESSION_FAILED",
+            message: (err as any)?.message ?? String(err),
+          };
+        }
+      }
+
+      if (result.permanentFailure) {
+        // clear tokens when refresh is permanently invalid
+        await this.clearTokens();
+      }
+
+      return result;
+    } catch (err) {
+      logger.warn("TokenManager: forceRefreshAndRehydrate failed", err, "auth");
+      return {
+        success: false,
+        permanentFailure: false,
+        errorCode: "UNKNOWN",
+        message: (err as any)?.message ?? String(err),
+      };
+    }
   }
 
   // ============================================================================

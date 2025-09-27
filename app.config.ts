@@ -7,7 +7,7 @@ config({ path: envFile });
 
 export default ({ config }: ConfigContext): ExpoConfig => ({
   ...config,
-  name: "TrainSmart",
+  name: "GreekGod BP",
   slug: "trainsmart-mju-givknvilkuvj6qjuk",
   version: "1.0.0",
   orientation: "portrait",

@@ -153,16 +153,17 @@ export interface TokenData {
  * Store authentication tokens securely
  */
 export const storeTokens = async (tokens: TokenData): Promise<void> => {
+  // Delegate to canonical TokenManager implementation to avoid duplication.
+  // Use dynamic import to avoid creating a circular module dependency at load time.
   try {
-    await Promise.all([
-      setSecureItem(STORAGE_KEYS.secure.accessToken, tokens.accessToken),
-      setSecureItem(STORAGE_KEYS.secure.refreshToken, tokens.refreshToken),
-      setAsyncItem("token_expires_at", tokens.expiresAt),
-    ]);
-    logger.info("Authentication tokens stored securely");
-  } catch (error) {
-    logger.error("Failed to store tokens:", error);
-    throw error;
+    const module = await import("@/utils/tokenManager");
+    if (module && module.tokenManager && typeof module.tokenManager.storeTokens === "function") {
+      return await module.tokenManager.storeTokens(tokens);
+    }
+    throw new Error("TokenManager unavailable");
+  } catch (err) {
+    logger.error("storeTokens: failed to delegate to TokenManager", err);
+    throw err;
   }
 };
 
@@ -170,24 +171,24 @@ export const storeTokens = async (tokens: TokenData): Promise<void> => {
  * Retrieve authentication tokens
  */
 export const getTokens = async (): Promise<TokenData | null> => {
+  // Delegate to canonical TokenManager implementation to avoid duplication.
+  // Use dynamic import to avoid creating a circular module dependency at load time.
   try {
+    const module = await import("@/utils/tokenManager");
+    if (module && typeof module.tokenManager?.getTokens === "function") {
+      return await module.tokenManager.getTokens();
+    }
+    logger.warn("getTokens: TokenManager.getTokens unavailable, falling back to direct storage read");
+    // Fallback: attempt to read directly (best-effort)
     const [accessToken, refreshToken, expiresAt] = await Promise.all([
       getSecureItem(STORAGE_KEYS.secure.accessToken),
       getSecureItem(STORAGE_KEYS.secure.refreshToken),
       getAsyncItem<string>("token_expires_at"),
     ]);
-
-    if (!accessToken || !refreshToken) {
-      return null;
-    }
-
-    return {
-      accessToken,
-      refreshToken,
-      expiresAt: expiresAt || "",
-    };
+    if (!accessToken || !refreshToken) return null;
+    return { accessToken, refreshToken, expiresAt: expiresAt || "" };
   } catch (error) {
-    logger.error("Failed to retrieve tokens:", error);
+    logger.error("getTokens: failed to delegate to TokenManager", error);
     return null;
   }
 };
@@ -196,15 +197,22 @@ export const getTokens = async (): Promise<TokenData | null> => {
  * Clear authentication tokens
  */
 export const clearTokens = async (): Promise<void> => {
+  // Delegate to canonical TokenManager implementation to avoid duplication.
+  // Use dynamic import to avoid creating a circular module dependency at load time.
   try {
+    const module = await import("@/utils/tokenManager");
+    if (module && typeof module.tokenManager?.clearTokens === "function") {
+      return await module.tokenManager.clearTokens();
+    }
+    logger.warn("clearTokens: TokenManager.clearTokens unavailable, falling back to direct removal");
     await Promise.all([
       removeSecureItem(STORAGE_KEYS.secure.accessToken),
       removeSecureItem(STORAGE_KEYS.secure.refreshToken),
       removeAsyncItem("token_expires_at"),
     ]);
-    logger.info("Authentication tokens cleared");
+    logger.info("Authentication tokens cleared (fallback)");
   } catch (error) {
-    logger.error("Failed to clear tokens:", error);
+    logger.error("clearTokens: failed to delegate to TokenManager", error);
     throw error;
   }
 };
@@ -213,20 +221,23 @@ export const clearTokens = async (): Promise<void> => {
  * Check if tokens are expired
  */
 export const areTokensExpired = async (): Promise<boolean> => {
+  // Delegate to TokenManager when available to ensure consistent expiration logic.
   try {
-    const expiresAt = await getAsyncItem<string>("token_expires_at");
-    if (!expiresAt) {
-      return true;
+    const module = await import("@/utils/tokenManager");
+    if (module && typeof module.tokenManager?.areTokensExpired === "function") {
+      return await module.tokenManager.areTokensExpired();
     }
-
+    logger.warn("areTokensExpired: TokenManager unavailable, falling back to simple expiry check");
+    const expiresAt = await getAsyncItem<string>("token_expires_at");
+    if (!expiresAt) return true;
     const expirationTime = new Date(expiresAt).getTime();
+    if (!isFinite(expirationTime)) return true;
     const currentTime = Date.now();
     const bufferTime = 5 * 60 * 1000; // 5 minutes buffer
-
     return currentTime >= expirationTime - bufferTime;
   } catch (error) {
-    logger.error("Failed to check token expiration:", error);
-    return true; // Assume expired on error
+    logger.error("areTokensExpired: failed to delegate to TokenManager", error);
+    return true;
   }
 };
 
@@ -298,39 +309,18 @@ export interface OfflineWorkout {
 /**
  * Add workout to offline queue
  */
-export const addToOfflineQueue = async (
-  _workout: Omit<OfflineWorkout, "timestamp" | "syncAttempts">
-): Promise<void> => {
-  // Offline queueing has been removed in Phase 3. This function is now a no-op.
-  logger.warn("addToOfflineQueue called but offline queueing has been removed (Phase 3).");
-  return;
-};
 
 /**
  * Get offline workout queue
  */
-export const getOfflineQueue = async (): Promise<OfflineWorkout[]> => {
-  // Offline queueing removed — return empty queue as fallback.
-  return [];
-};
 
 /**
  * Remove workout from offline queue
  */
-export const removeFromOfflineQueue = async (_workoutId: string): Promise<void> => {
-  // Offline queueing removed — no-op.
-  logger.warn("removeFromOfflineQueue called but offline queueing has been removed (Phase 3).");
-  return;
-};
 
 /**
  * Update workout sync attempt
  */
-export const updateSyncAttempt = async (_workoutId: string, _error?: string): Promise<void> => {
-  // Offline sync attempts tracking removed — no-op.
-  logger.warn("updateSyncAttempt called but offline sync is removed (Phase 3).");
-  return;
-};
 
 // ============================================================================
 // CACHE MANAGEMENT

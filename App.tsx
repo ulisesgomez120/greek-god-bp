@@ -13,6 +13,7 @@ import { PersistGate } from "redux-persist/integration/react";
 import { ThemeProvider } from "@/contexts/ThemeContext";
 import useTheme from "@/hooks/useTheme";
 import useSplashScreen from "@/hooks/useSplashScreen";
+import useAppLifecycle from "@/hooks/useAppLifecycle";
 
 // Store and persistence
 import { store, persistor, waitForRehydration } from "./src/store";
@@ -25,6 +26,7 @@ import ErrorBoundary from "./src/components/ui/ErrorBoundary";
 // Utils
 import { logger } from "./src/utils/logger";
 import { registerAuthDispatch } from "@/utils/tokenManager";
+import tokenManager from "@/utils/tokenManager";
 import notificationService from "@/services/notification.service";
 
 // ============================================================================
@@ -41,6 +43,9 @@ const AppContent: React.FC = () => {
   } = useSplashScreen({
     minimumDisplayTimeMs: 2500,
   });
+  // Wire centralized lifecycle hook so TokenManager receives foreground/background events.
+  // Keep this call idempotent-safe; the hook itself prevents duplicate global registration.
+  useAppLifecycle();
 
   useEffect(() => {
     const initializeApp = async () => {
@@ -53,6 +58,19 @@ const AppContent: React.FC = () => {
           registerAuthDispatch(store.dispatch);
         } catch (err) {
           logger.warn("Failed to register TokenManager dispatch during app bootstrap", err);
+        }
+
+        // Validate and refresh tokens on startup so the Supabase session is rehydrated
+        // before the app continues to UI flows that depend on authentication.
+        try {
+          const restored = await tokenManager.validateAndRefreshOnStartup();
+          if (restored) {
+            logger.info("TokenManager: Session validated/refreshed on startup", undefined, "auth");
+          } else {
+            logger.info("TokenManager: No valid session restored on startup", undefined, "auth");
+          }
+        } catch (err) {
+          logger.warn("Failed to validate/refresh tokens on startup", err);
         }
 
         // Initialize notification service (register handler) but do NOT prompt for permissions on init.

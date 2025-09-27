@@ -14,7 +14,7 @@ import { Text } from "../../components/ui/Text";
 import { Button } from "../../components/ui/Button";
 import SkeletonLoader from "../../components/ui/SkeletonLoader";
 import Toast from "../../components/ui/Toast";
-import ProgressChart from "../../components/progress/ProgressChart";
+// import ProgressChart from "../../components/progress/ProgressChart";
 import PersonalRecords from "../../components/progress/PersonalRecords";
 import { logger } from "../../utils/logger";
 import useUnitPreferences from "../../hooks/useUnitPreferences";
@@ -304,7 +304,7 @@ export const ProgressDashboard: React.FC<ProgressDashboardProps> = ({ navigation
     return (
       <View style={styles.section}>
         <Text style={styles.sectionTitle}>Volume Progression</Text>
-        <TempFeatureGate
+        {/* <TempFeatureGate
           featureKey='advanced_analytics'
           fallback={
             <View style={styles.premiumPrompt}>
@@ -322,7 +322,7 @@ export const ProgressDashboard: React.FC<ProgressDashboardProps> = ({ navigation
             showTrendLine={true}
             interactive={true}
           />
-        </TempFeatureGate>
+        </TempFeatureGate> */}
       </View>
     );
   };

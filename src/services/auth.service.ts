@@ -9,7 +9,7 @@
 import { ENV_CONFIG } from "@/config/constants";
 import { ERROR_MESSAGES, SUCCESS_MESSAGES } from "@/constants/auth";
 import { logger } from "@/utils/logger";
-import { storeTokens, getTokens, clearTokens, areTokensExpired } from "@/utils/tokenManager";
+import tokenManager, { storeTokens, getTokens, clearTokens, areTokensExpired } from "@/utils/tokenManager";
 import type { Database } from "@/types/database";
 import type {
   LoginCredentials,
@@ -367,29 +367,55 @@ export async function signOut(): Promise<AuthResponse> {
  */
 export async function refreshSession(): Promise<AuthResponse> {
   try {
-    logger.info("Refreshing authentication tokens", undefined, "auth");
+    logger.info("Refreshing authentication tokens via TokenManager", undefined, "auth");
 
-    // Get current session - Supabase will refresh automatically if needed
+    // Use TokenManager's forceRefreshAndRehydrate to attempt refresh and rehydrate Supabase client.
+    const result = await tokenManager.forceRefreshAndRehydrate();
+
+    if (!result || (!result.success && !result.permanentFailure)) {
+      // Temporary failure: do not clear tokens, let queue/foreground processing retry.
+      logger.warn("refreshSession: temporary refresh failure or unknown result", result, "auth");
+      return {
+        success: false,
+        error: {
+          code: "REFRESH_FAILED_TEMPORARY",
+          message: result?.message || "Temporary refresh failure",
+          type: "network",
+        },
+      };
+    }
+
+    if (result.permanentFailure) {
+      // Permanent failure: clear tokens and report failure.
+      logger.warn("refreshSession: permanent refresh failure detected; clearing tokens", result, "auth");
+      await clearTokens();
+      return {
+        success: false,
+        error: {
+          code: "REFRESH_FAILED_PERMANENT",
+          message: result.message || "Refresh failed permanently",
+          type: "auth",
+        },
+      };
+    }
+
+    // Success: fetch the current session from Supabase (should be rehydrated).
     const {
       data: { session },
       error,
     } = await supabase.auth.getSession();
 
     if (error || !session) {
-      logger.error("Token refresh failed", error, "auth");
-      await clearTokens();
+      logger.warn("refreshSession: Supabase returned no session after successful refresh", error, "auth");
       return {
         success: false,
         error: {
-          code: "REFRESH_FAILED",
-          message: "Token refresh failed",
+          code: "REFRESH_NO_SESSION",
+          message: "Refresh succeeded but no session available",
           type: "auth",
         },
       };
     }
-
-    // Store new tokens
-    await handleSuccessfulAuth(session);
 
     logger.info("Tokens refreshed successfully", undefined, "auth", session.user?.id);
 
@@ -405,7 +431,7 @@ export async function refreshSession(): Promise<AuthResponse> {
     };
   } catch (error) {
     logger.error("Token refresh error", error, "auth");
-    await clearTokens();
+    // Do not aggressively clear tokens here; TokenManager will already clear on permanent failures.
     return {
       success: false,
       error: {
@@ -603,31 +629,43 @@ export async function initializeAuth(): Promise<AuthResponse> {
     // Avoid ad-hoc supabase.auth.setSession calls here to prevent race conditions.
     // TokenManager's initialization (import side-effect) will rehydrate the shared Supabase client.
 
-    // Get current session - Supabase handles token validation automatically
+    // Rehydrate and refresh tokens using TokenManager first to avoid calling
+    // supabase.auth.setSession() with expired tokens (which can clear refresh tokens).
+    try {
+      // Attempt to validate/refresh tokens on startup. The TokenManager will
+      // avoid clearing tokens on temporary failures and will clear tokens only
+      // on permanent refresh failures.
+      await tokenManager.validateAndRefreshOnStartup();
+    } catch (err) {
+      logger.warn("initializeAuth: tokenManager.validateAndRefreshOnStartup failed", err, "auth");
+    }
+
+    // After TokenManager attempt, ask Supabase for the current session.
     const {
       data: { session },
       error,
-    } = await supabase.auth.getSession();
+    } = await supabase.auth.getSession().catch((e) => ({ data: { session: null }, error: e }));
 
-    if (error) {
-      logger.error("Failed to get session during initialization", error, "auth");
-      await clearTokens();
-      return {
-        success: true,
-        user: null,
-        session: null,
-      };
-    }
+    // If Supabase returned an error or no session, we consult TokenManager's
+    // forceRefreshAndRehydrate only if needed to determine permanent failure.
+    if (error || !session) {
+      // Try a forced refresh to determine whether tokens are permanently invalid.
+      try {
+        const refreshResult = await tokenManager.forceRefreshAndRehydrate();
+        if (refreshResult.permanentFailure) {
+          logger.warn("initializeAuth: Permanent refresh failure detected; clearing tokens", refreshResult, "auth");
+          await clearTokens();
+          return { success: true, user: null, session: null };
+        }
 
-    if (!session) {
-      logger.info("No valid session found", undefined, "auth");
-      // Ensure local tokens are cleared to avoid inconsistent state
-      await clearTokens();
-      return {
-        success: true,
-        user: null,
-        session: null,
-      };
+        // Temporary failure or no session after refresh: do not clear tokens here.
+        logger.info("initializeAuth: No active session after startup rehydration/refresh", undefined, "auth");
+        return { success: true, user: null, session: null };
+      } catch (err) {
+        logger.warn("initializeAuth: force refresh check failed", err, "auth");
+        // Conservative fallback: do not clear tokens here; TokenManager handles permanent failures.
+        return { success: true, user: null, session: null };
+      }
     }
 
     // Only attempt profile creation if email is confirmed

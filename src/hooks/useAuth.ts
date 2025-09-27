@@ -638,6 +638,14 @@ export function useAuth(): UseAuthReturn {
 
         logger.info("useAuth: Initializing authentication", undefined, "auth");
 
+        // Register redux dispatch early so TokenManager can dispatch forceLogout
+        // during startup flows if a permanent refresh failure is detected.
+        try {
+          registerAuthDispatch(dispatch);
+        } catch (err) {
+          logger.warn("useAuth: Failed to register dispatch with tokenManager during init", err, "auth");
+        }
+
         // Ensure local client + Redux auth state are in sync before initialization.
         // This will attempt a token refresh if necessary and force logout on failure.
         try {
