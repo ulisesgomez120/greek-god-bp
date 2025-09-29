@@ -7,7 +7,7 @@ config({ path: envFile });
 
 export default ({ config }: ConfigContext): ExpoConfig => ({
   ...config,
-  name: "TrainSmart",
+  name: "GreekGod BP",
   slug: "trainsmart-mju-givknvilkuvj6qjuk",
   version: "1.0.0",
   orientation: "portrait",
@@ -23,6 +23,9 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
     supportsTablet: true,
     bundleIdentifier: "com.greekgodbp.app",
     buildNumber: "1",
+    infoPlist: {
+      LSApplicationQueriesSchemes: ["clock-timer", "clock"],
+    },
     // Removed unused iOS usage description keys and UIBackgroundModes to avoid unnecessary permission prompts.
     // Keep minimal config required for App Store submission.
     config: {
@@ -59,7 +62,7 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
     lang: "en",
   },
   scheme: "trainsmart",
-  plugins: ["expo-secure-store", "expo-font", "expo-splash-screen"],
+  plugins: ["expo-secure-store", "expo-font", "expo-splash-screen", "expo-notifications"],
   extra: {
     eas: {
       projectId: process.env.EAS_PROJECT_ID,

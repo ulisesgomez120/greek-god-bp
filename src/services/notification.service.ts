@@ -25,6 +25,23 @@ export async function initNotificationService(options: { requestPermissionOnInit
   initialized = true;
 
   try {
+    // Ensure notifications are shown when app is foregrounded and play sound where supported.
+    if (Platform.OS !== "web") {
+      try {
+        Notifications.setNotificationHandler({
+          handleNotification: async () => ({
+            shouldShowBanner: true,
+            shouldShowList: true,
+            shouldPlaySound: true,
+            shouldSetBadge: false,
+          }),
+        });
+      } catch (err) {
+        // Non-fatal: log and continue
+        logger.warn("Failed to set notification handler", err, "notifications");
+      }
+    }
+
     // Only request permissions automatically on native platforms.
     if (options.requestPermissionOnInit && Platform.OS !== "web") {
       await requestPermission();
@@ -75,10 +92,16 @@ export async function presentImmediateNotification(title: string, body?: string)
         logger.error("presentImmediateNotification error (web)", err, "notifications");
       }
     } else {
-      await Notifications.scheduleNotificationAsync({
-        content: { title, body },
-        trigger: null,
-      });
+      try {
+        // Ensure we include a sound for native platforms where applicable
+        const safeBody = typeof body === "string" && body.length > 0 ? body : title;
+        await Notifications.scheduleNotificationAsync({
+          content: { title, body: safeBody, sound: "default" },
+          trigger: null,
+        });
+      } catch (err) {
+        logger.error("presentImmediateNotification error (native)", err, "notifications");
+      }
     }
   } catch (err) {
     logger.error("presentImmediateNotification error", err, "notifications");
@@ -94,6 +117,7 @@ export async function scheduleNotificationAfterSeconds(
   title: string,
   body?: string
 ): Promise<NotificationScheduleResult> {
+  logger.info("scheduleNotificationAfterSeconds called", { seconds, title, body }, "notifications");
   try {
     if (Platform.OS === "web") {
       // Simple in-page scheduling for web PWAs: use setTimeout + Notification constructor.
@@ -101,21 +125,30 @@ export async function scheduleNotificationAfterSeconds(
         try {
           new Notification(title, { body });
         } catch (err) {
-          logger.error("Notification() constructor failed", err, "notifications");
+          logger.error("Notification() constructor failed (web)", err, "notifications");
         }
       };
 
       const timeoutId = window.setTimeout(show, seconds * 1000);
+      logger.info("Scheduled web timeout notification", { timeoutId }, "notifications");
       return { id: `web-timeout-${timeoutId}` };
     } else {
-      const id = await Notifications.scheduleNotificationAsync({
-        content: { title, body },
-        trigger: { seconds },
-      } as any);
-      return { id };
+      try {
+        // Ensure body is a string (iOS native may reject null/undefined)
+        const safeBody = typeof body === "string" && body.length > 0 ? body : title;
+        const id = await Notifications.scheduleNotificationAsync({
+          content: { title, body: safeBody, sound: "default" },
+          trigger: { type: Notifications.SchedulableTriggerInputTypes.TIME_INTERVAL, seconds },
+        } as any);
+        logger.info("Scheduled native notification", { id, seconds, title, body: safeBody }, "notifications");
+        return { id };
+      } catch (err) {
+        logger.error("scheduleNotificationAfterSeconds: native schedule failed", err, "notifications");
+        return { error: err };
+      }
     }
   } catch (err) {
-    logger.error("Failed to schedule notification", err, "notifications");
+    logger.error("Failed to schedule notification (unexpected)", err, "notifications");
     return { error: err };
   }
 }

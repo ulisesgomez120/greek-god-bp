@@ -57,7 +57,7 @@ export interface ProfileSetupData {
 export interface ProfileEditData {
   displayName?: string;
   heightCm?: number;
-  weightKg?: number;
+  weightKg?: number | string;
   birthDate?: string;
   gender?: Gender;
   fitnessGoals?: string[];

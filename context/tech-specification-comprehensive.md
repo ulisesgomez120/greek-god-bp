@@ -585,7 +585,7 @@ AI Service:
 
 - Progress dashboard exists but needs server endpoint alignment
 - Personal records calculation implemented
-- Charts and visualizations using Victory Native
+- Charts and visualizations using \*decide later
 - Some features behind temporary feature gates
 
 ```typescript

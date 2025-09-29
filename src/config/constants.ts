@@ -434,6 +434,17 @@ export const SESSION_PERSISTENCE_CONFIG = {
   enableRefreshOnForeground: true,
 
   /**
+   * Batch size when processing queued refresh attempts during foreground/startup.
+   * Limits work done during a single processing run to avoid long blocking operations.
+   */
+  processQueueBatchSize: 5,
+
+  /**
+   * Maximum number of queued refresh attempts to persist (keeps queue bounded).
+   */
+  maxQueuedAttempts: 10,
+
+  /**
    * Enable recording lightweight session/refresh metrics (mockable in tests).
    */
   metricsEnabled: true,

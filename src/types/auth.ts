@@ -406,6 +406,49 @@ export interface AuthAnalytics {
 }
 
 // ============================================================================
+// SESSION / REFRESH TYPES (ADDITIONAL)
+// ============================================================================
+
+/**
+ * Result of an attempted token refresh operation.
+ * - success: true when tokens were refreshed and stored
+ * - permanentFailure: set when refresh failed due to invalid/revoked refresh token
+ * - errorCode: normalized code such as 'NETWORK' | 'INVALID_REFRESH' | 'NO_REFRESH_TOKEN'
+ * - newTokens: populated when refresh returned new tokens
+ */
+export type TokenRefreshResult = {
+  success: boolean;
+  permanentFailure?: boolean;
+  errorCode?: string;
+  message?: string;
+  newTokens?: {
+    accessToken: string;
+    refreshToken: string;
+    expiresAt: string; // ISO string
+  } | null;
+};
+
+/**
+ * Persisted queued refresh attempt descriptor.
+ */
+export type QueuedRefreshAttempt = {
+  id: string; // uuid
+  queuedAt: number; // epoch ms
+  reason: "startup" | "foreground" | "scheduled" | "periodic";
+  attempts: number;
+  lastError?: { code?: string; message?: string } | null;
+};
+
+/**
+ * Decision object to determine startup rehydration steps.
+ */
+export type SessionRehydrateDecision = {
+  shouldSetSessionDirectly: boolean; // true only if access token not expired
+  shouldAttemptRefreshFirst: boolean; // true if tokens exist and access token expired
+  reason: string;
+};
+
+// ============================================================================
 // EXPORT ALL TYPES
 // ============================================================================
 
