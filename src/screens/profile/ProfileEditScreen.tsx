@@ -78,7 +78,7 @@ export const ProfileEditScreen: React.FC<ProfileEditScreenProps> = () => {
   const [focusedField, setFocusedField] = useState<string | null>(null);
   // Local controlled inputs to avoid formatting interfering with typing
   const [heightInput, setHeightInput] = useState<string>("");
-  const [weightInput, setWeightInput] = useState<string>("");
+  const [weightEdit, setWeightEdit] = useState<string>("");
   const [birthDateLocal, setBirthDateLocal] = useState<Date | null>(null);
   const [heightPickerValue, setHeightPickerValue] = useState<number | undefined>(undefined);
   // Only show the numeric custom input when user explicitly selects "Custom"
@@ -104,6 +104,14 @@ export const ProfileEditScreen: React.FC<ProfileEditScreenProps> = () => {
       // Initialize local display state for conversion-on-save
       setBirthDateLocal(profile.birthDate ? new Date(profile.birthDate) : null);
       setHeightPickerValue(profile.heightCm ?? undefined);
+      // seed weight edit so users see existing value when editing
+      setWeightEdit(
+        isImperial()
+          ? profile.weightKg
+            ? formatKgToLbsDisplay(profile.weightKg).replace(" lbs", "")
+            : ""
+          : profile.weightKg?.toString() || ""
+      );
       // seed custom input so users see existing value when fallback is active
       setHeightInput(
         isImperial() ? (profile.heightCm ? formatCmToFtIn(profile.heightCm) : "") : profile.heightCm?.toString() || ""
@@ -151,11 +159,6 @@ export const ProfileEditScreen: React.FC<ProfileEditScreenProps> = () => {
     setHeightInput(text);
   };
 
-  const handleWeightInput = (text: string) => {
-    // local display-only; conversion happens on Save
-    setWeightInput(text);
-  };
-
   const validateForm = useCallback(
     (dataToValidate?: ProfileEditData): boolean => {
       const data = dataToValidate || formData;
@@ -165,11 +168,18 @@ export const ProfileEditScreen: React.FC<ProfileEditScreenProps> = () => {
         newErrors.displayName = "Display name must be at least 2 characters";
       }
 
-      if (data.heightCm && (data.heightCm < 100 || data.heightCm > 250)) {
+      if (typeof data.heightCm === "number" && (data.heightCm < 100 || data.heightCm > 250)) {
         newErrors.heightCm = "Height must be between 100cm and 250cm";
       }
 
-      if (data.weightKg && (data.weightKg < 30 || data.weightKg > 300)) {
+      const weightVal =
+        data.weightKg !== undefined && data.weightKg !== null
+          ? typeof data.weightKg === "string"
+            ? parseFloat(data.weightKg)
+            : data.weightKg
+          : undefined;
+
+      if (typeof weightVal === "number" && !isNaN(weightVal) && (weightVal < 30 || weightVal > 300)) {
         newErrors.weightKg = "Weight must be between 30kg and 300kg";
       }
 
@@ -208,13 +218,14 @@ export const ProfileEditScreen: React.FC<ProfileEditScreenProps> = () => {
       canonical.heightCm = undefined;
     }
 
-    // Weight
-    if (weightInput) {
+    // Weight - convert only from the local edit string (weightEdit). Do NOT perform conversions on blur.
+    const weightDisplay = weightEdit;
+    if (weightDisplay && weightDisplay.trim() !== "") {
       if (isImperial()) {
-        const kg = parseDisplayWeightToKg(weightInput);
+        const kg = parseDisplayWeightToKg(weightDisplay);
         canonical.weightKg = kg != null ? Number(kg.toFixed(2)) : undefined;
       } else {
-        canonical.weightKg = weightInput ? parseFloat(weightInput) : undefined;
+        canonical.weightKg = parseFloat(weightDisplay);
       }
     } else {
       canonical.weightKg = undefined;
@@ -251,7 +262,7 @@ export const ProfileEditScreen: React.FC<ProfileEditScreenProps> = () => {
       logger.error("Profile update error", error, "profile");
       Alert.alert("Error", "An unexpected error occurred. Please try again.");
     }
-  }, [formData, updateProfile, validateForm, heightInput, weightInput, birthDateLocal, heightPickerValue, isImperial]);
+  }, [formData, updateProfile, validateForm, heightInput, birthDateLocal, heightPickerValue, isImperial]);
 
   const handleCancel = useCallback(() => {
     if (hasChanges) {
@@ -413,31 +424,33 @@ export const ProfileEditScreen: React.FC<ProfileEditScreenProps> = () => {
         <TextInput
           style={getInputStyle(colors, undefined, getInputState(focusedField === "weightKg", !!errors.weightKg))}
           value={
-            focusedField === "weightKg"
-              ? weightInput
-              : isImperial()
-              ? formData.weightKg
+            // Prefer the local edit string while editing or when the user has typed something.
+            focusedField === "weightKg" || (weightEdit && weightEdit.trim() !== "")
+              ? weightEdit
+              : // Otherwise, show canonical formatted value if it's a number, or the stored string if present.
+              typeof formData.weightKg === "number"
+              ? isImperial()
                 ? formatKgToLbsDisplay(formData.weightKg).replace(" lbs", "")
-                : ""
+                : String(formData.weightKg)
               : formData.weightKg?.toString() || ""
           }
           onChangeText={(text: string) => {
-            setWeightInput(text);
+            setWeightEdit(text);
+            setHasChanges(true);
           }}
           onFocus={() => {
             setFocusedField("weightKg");
-            setWeightInput(
-              isImperial()
-                ? formData.weightKg
+            // seed local edit from current canonical value if present
+            const seed =
+              typeof formData.weightKg === "number"
+                ? isImperial()
                   ? formatKgToLbsDisplay(formData.weightKg).replace(" lbs", "")
-                  : ""
-                : formData.weightKg?.toString() || ""
-            );
+                  : String(formData.weightKg)
+                : formData.weightKg?.toString() || "";
+            setWeightEdit(seed);
           }}
           onBlur={() => {
-            // only clear focus; conversion to canonical happens on Save
             setFocusedField(null);
-            setWeightInput("");
           }}
           {...getInputProps(isImperial() ? undefined : "number")}
           placeholder={isImperial() ? "180" : "70"}

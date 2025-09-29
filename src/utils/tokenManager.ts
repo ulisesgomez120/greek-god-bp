@@ -596,8 +596,8 @@ export class TokenManager {
    * Refresh tokens only if network is available
    */
   async refreshTokensIfOnline(): Promise<TokenData | null> {
+    // this check was causing issues with cold starts and would cause unnecessary signouts!
     // const isOnline = await this.isNetworkAvailable();
-
     // if (!isOnline) {
     //   logger.warn("TokenManager: Network unavailable, skipping refresh", undefined, "auth");
     //   await recordSessionMetrics("refresh_failed_temporary", { reason: "offline" });
