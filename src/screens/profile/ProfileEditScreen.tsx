@@ -423,17 +423,7 @@ export const ProfileEditScreen: React.FC<ProfileEditScreenProps> = () => {
         <Text style={styles.labelBase}>{isImperial() ? "Weight (lbs)" : "Weight (kg)"}</Text>
         <TextInput
           style={getInputStyle(colors, undefined, getInputState(focusedField === "weightKg", !!errors.weightKg))}
-          value={
-            // Prefer the local edit string while editing or when the user has typed something.
-            focusedField === "weightKg" || (weightEdit && weightEdit.trim() !== "")
-              ? weightEdit
-              : // Otherwise, show canonical formatted value if it's a number, or the stored string if present.
-              typeof formData.weightKg === "number"
-              ? isImperial()
-                ? formatKgToLbsDisplay(formData.weightKg).replace(" lbs", "")
-                : String(formData.weightKg)
-              : formData.weightKg?.toString() || ""
-          }
+          value={weightEdit}
           onChangeText={(text: string) => {
             setWeightEdit(text);
             setHasChanges(true);
