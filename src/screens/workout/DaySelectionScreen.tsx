@@ -93,7 +93,7 @@ const DaySelectionScreen: React.FC<DaySelectionScreenProps> = ({ navigation, rou
     loadData({ current: true });
   };
 
-  // Fallback: if sessions empty (for any reason), optionally show a default set matching legacy behavior
+  // remove this fallback. if none are found show an error message on screen or a button to try again
   const fallbackWorkouts = () => {
     switch (programId) {
       case "full_body":
