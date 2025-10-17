@@ -579,7 +579,7 @@ export class DatabaseService {
     }
 
     try {
-      const { data, error } = await (supabase as any)
+      const { data, error } = await supabase
         .from("exercise_tutorial_videos")
         .select("*")
         .eq("exercise_id", exerciseId)
@@ -621,7 +621,7 @@ export class DatabaseService {
     try {
       if (!exerciseIds || exerciseIds.length === 0) return {};
 
-      const { data, error } = await (supabase as any)
+      const { data, error } = await supabase
         .from("exercise_tutorial_videos")
         .select("*")
         .in("exercise_id", exerciseIds)
@@ -1400,6 +1400,233 @@ export class DatabaseService {
       offlineQueueSize: 0,
       isOnline: this.isOnline,
     };
+  }
+
+  // ==========================================================================
+  // WORKOUT PROGRESS HELPERS
+  // ==========================================================================
+
+  /**
+   * Get the user's progress record for a specific plan.
+   * Returns the raw DB row transformed minimally or null if none exists.
+   */
+  async getUserWorkoutProgress(userId: string, planId: string): Promise<any | null> {
+    try {
+      const { data, error } = await supabase
+        .from("user_workout_progress")
+        .select("*")
+        .eq("user_id", userId)
+        .eq("plan_id", planId)
+        .maybeSingle();
+
+      if (error) throw error;
+      if (!data) return null;
+
+      return data;
+    } catch (error) {
+      const dbError = this.handleDatabaseError(error);
+      if (dbError.isNetworkError) {
+        // Try cached lookup
+        const cached = this.queryCache.get(this.getCacheKey("user_workout_progress", { userId, planId }));
+        if (cached) return cached.data;
+      }
+      throw dbError;
+    }
+  }
+
+  /**
+   * Insert or update a user's workout progress record (upsert by user_id + plan_id).
+   * Returns the new/updated progress row.
+   */
+  async updateUserWorkoutProgress(userId: string, planId: string, updates: Partial<any>): Promise<any> {
+    try {
+      const payload = {
+        user_id: userId,
+        plan_id: planId,
+        ...updates,
+        updated_at: new Date().toISOString(),
+      };
+
+      // Upsert on conflict (user_id, plan_id)
+      const { data, error } = await supabase
+        .from("user_workout_progress")
+        .upsert(payload, { onConflict: "user_id,plan_id" })
+        .select()
+        .single();
+
+      if (error) throw error;
+
+      // Clear related cache
+      this.clearCache("user_workout_progress");
+
+      return data;
+    } catch (error) {
+      const dbError = this.handleDatabaseError(error);
+      throw dbError;
+    }
+  }
+
+  /**
+   * Get the most recent incomplete workout_session for the user within a plan.
+   * Returns the workout_sessions row or null.
+   */
+  async getMostRecentIncompleteSession(userId: string, planId?: string): Promise<any | null> {
+    try {
+      let query = supabase
+        .from("workout_sessions")
+        .select("*")
+        .eq("user_id", userId)
+        .is("completed_at", null)
+        .order("started_at", { ascending: false })
+        .limit(1);
+
+      if (planId) query = query.eq("plan_id", planId);
+
+      const { data, error } = await query;
+
+      if (error) throw error;
+      if (!data || (Array.isArray(data) && data.length === 0)) return null;
+
+      // Supabase returns an array (unless .maybeSingle() used) — unify to single row
+      return Array.isArray(data) ? data[0] : data;
+    } catch (error) {
+      const dbError = this.handleDatabaseError(error);
+      throw dbError;
+    }
+  }
+
+  /**
+   * Calculate approximate progress (phase, repetition, day) from workout history.
+   * Uses started sessions (counts as progress) and workout_plan_sessions to determine
+   * total days per phase and phase_repetitions.
+   *
+   * Returns { phaseNumber, repetition, dayNumber }
+   */
+  async calculateProgressFromHistory(
+    userId: string,
+    planId: string
+  ): Promise<{
+    phaseNumber: number;
+    repetition: number;
+    dayNumber: number;
+  }> {
+    try {
+      // 1) Load plan sessions metadata: phase_number, day_number, phase_repetitions
+      const planRes = await supabase
+        .from("workout_plan_sessions")
+        .select("id,phase_number,day_number,phase_repetitions")
+        .eq("plan_id", planId)
+        .order("phase_number", { ascending: true });
+
+      const planSessions = (planRes?.data as any[]) || null;
+      const planError = planRes?.error;
+
+      if (planError) throw planError;
+      if (!planSessions || planSessions.length === 0) {
+        // Fallback to phase 1 day 1
+        return { phaseNumber: 1, repetition: 1, dayNumber: 1 };
+      }
+
+      // Build phase map: phaseNumber -> { totalDays, phaseRepetitions, sessionIds }
+      const phaseMap = new Map<number, { totalDays: number; phaseRepetitions: number; sessionIds: string[] }>();
+      for (const ps of planSessions) {
+        const pn = Number(ps.phase_number) || 1;
+        const entry = phaseMap.get(pn) || {
+          totalDays: 0,
+          phaseRepetitions: Number(ps.phase_repetitions) || 4,
+          sessionIds: [],
+        };
+        entry.totalDays = Math.max(entry.totalDays, Number(ps.day_number) || 1);
+        entry.phaseRepetitions = Number(ps.phase_repetitions) || entry.phaseRepetitions;
+        entry.sessionIds.push(ps.id);
+        phaseMap.set(pn, entry);
+      }
+
+      // 2) Load user workout_sessions joined with plan session metadata
+      // Select relevant fields and join via session_id -> workout_plan_sessions
+      const userRes = await supabase
+        .from("workout_sessions")
+        .select(
+          `
+          id,
+          started_at,
+          session_id,
+          workout_plan_sessions (
+            id,
+            phase_number,
+            day_number
+          )
+        `
+        )
+        .eq("user_id", userId)
+        .eq("plan_id", planId)
+        .order("started_at", { ascending: true })
+        .limit(1000);
+
+      const userSessions = (userRes?.data as any[]) || [];
+      const sessionsError = userRes?.error;
+
+      if (sessionsError) throw sessionsError;
+
+      const sessions = (userSessions || []).filter((s: any) => s.session_id && s.workout_plan_sessions);
+
+      // 3) Tally unique days per phase that have been started
+      const phaseDaySets = new Map<number, Set<number>>();
+      sessions.forEach((s: any) => {
+        const wp = s.workout_plan_sessions;
+        if (!wp) return;
+        const pn = Number(wp.phase_number) || 1;
+        const dn = Number(wp.day_number) || 1;
+        if (!phaseDaySets.has(pn)) phaseDaySets.set(pn, new Set<number>());
+        phaseDaySets.get(pn)!.add(dn);
+      });
+
+      // 4) Iterate phases in ascending order to find current phase/repetition/day
+      const phaseNumbers = Array.from(phaseMap.keys()).sort((a, b) => a - b);
+
+      for (const pn of phaseNumbers) {
+        const meta = phaseMap.get(pn)!;
+        const uniqueDays = phaseDaySets.get(pn) ? phaseDaySets.get(pn)!.size : 0;
+        const totalDays = meta.totalDays || 1;
+        const phaseReps = meta.phaseRepetitions || 4;
+
+        const repetitionsCompleted = Math.floor(uniqueDays / totalDays);
+        const currentRepetition = Math.min(repetitionsCompleted + 1, phaseReps);
+
+        if (repetitionsCompleted < phaseReps) {
+          // Determine next day number: smallest day in 1..totalDays not present
+          const daysCompletedSet = phaseDaySets.get(pn) || new Set<number>();
+          let nextDay = 1;
+          for (let d = 1; d <= totalDays; d++) {
+            if (!daysCompletedSet.has(d)) {
+              nextDay = d;
+              break;
+            }
+            nextDay = Math.min(totalDays, d + 1);
+          }
+
+          return {
+            phaseNumber: pn,
+            repetition: currentRepetition,
+            dayNumber: nextDay,
+          };
+        }
+
+        // else, this phase is fully completed (all repetitions done) — continue to next phase
+      }
+
+      // If all phases completed, return last phase with last repetition and last day
+      const lastPhase = Math.max(...phaseNumbers);
+      const lastMeta = phaseMap.get(lastPhase)!;
+      return {
+        phaseNumber: lastPhase,
+        repetition: lastMeta.phaseRepetitions || 1,
+        dayNumber: lastMeta.totalDays || 1,
+      };
+    } catch (error) {
+      const dbError = this.handleDatabaseError(error);
+      throw dbError;
+    }
   }
 }
 

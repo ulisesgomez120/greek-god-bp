@@ -11,6 +11,9 @@ import { RouteProp } from "@react-navigation/native";
 // Components
 import Text from "../../components/ui/Text";
 import useTheme from "@/hooks/useTheme";
+import NextWorkoutCard from "../../components/workout/NextWorkoutCard";
+import { useAuth } from "@/hooks/useAuth";
+import type { NextWorkoutInfo } from "@/types/workoutProgress";
 
 // Services
 import workoutPlanService, { WorkoutPlanSummary } from "../../services/workoutPlan.service";
@@ -101,6 +104,10 @@ const ProgramSelectionScreen: React.FC<ProgramSelectionScreenProps> = ({ navigat
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
 
+  // Next workout state (minimal)
+  const { user } = useAuth();
+  const [nextInfo, setNextInfo] = useState<NextWorkoutInfo | null>(null);
+
   useEffect(() => {
     let mounted = true;
 
@@ -127,8 +134,56 @@ const ProgramSelectionScreen: React.FC<ProgramSelectionScreenProps> = ({ navigat
     };
   }, []);
 
+  // Auto-fetch next workout for authenticated user
+  useEffect(() => {
+    let mounted = true;
+
+    async function loadNextWorkoutForUser() {
+      if (!user?.id) {
+        return;
+      }
+
+      try {
+        // Delegate plan selection and progression logic to workoutPlanService
+        const next = await workoutPlanService.getNextWorkoutForUser(user.id);
+        if (!mounted) return;
+        setNextInfo(next || null);
+      } catch (err: any) {
+        console.warn("ProgramSelection: failed to load next workout", err);
+        if (!mounted) return;
+      }
+    }
+
+    loadNextWorkoutForUser();
+
+    return () => {
+      mounted = false;
+    };
+  }, [user?.id, plans.length]);
+
   const handleProgramSelect = (programId: string) => {
     navigation.navigate("PhaseSelection", { programId });
+  };
+
+  // Next workout handlers (simple navigation to ExerciseList)
+  const handleResumeWorkout = (resumeInfo?: NextWorkoutInfo["resumeSession"]) => {
+    if (!resumeInfo) return;
+    navigation.navigate("ExerciseList", {
+      programId: resumeInfo.planId,
+      phaseId: resumeInfo.phaseId,
+      dayId: resumeInfo.sessionId,
+      workoutName: resumeInfo.workoutName,
+    });
+  };
+
+  const handleStartNext = (nextSession?: NextWorkoutInfo["nextSession"]) => {
+    if (!nextSession) return;
+    navigation.navigate("ExerciseList", {
+      programId: nextSession.planId,
+      phaseId: nextSession.phaseId,
+      dayId: nextSession.sessionId,
+      workoutName: nextSession.workoutName,
+    });
   };
 
   if (loading) {
@@ -162,6 +217,15 @@ const ProgramSelectionScreen: React.FC<ProgramSelectionScreenProps> = ({ navigat
           <Text variant='body' color='secondary' style={styles.subtitle}>
             Select a workout program that matches your experience level and schedule.
           </Text>
+        </View>
+
+        {/* Next workout card */}
+        <View style={{ paddingHorizontal: 20 }}>
+          <NextWorkoutCard
+            info={nextInfo}
+            onResume={() => handleResumeWorkout(nextInfo?.resumeSession)}
+            onStartNext={() => handleStartNext(nextInfo?.nextSession)}
+          />
         </View>
 
         <View style={styles.programList}>

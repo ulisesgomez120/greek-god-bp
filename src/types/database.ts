@@ -279,6 +279,42 @@ export interface Database {
           }
         ];
       };
+      exercise_tutorial_videos: {
+        Row: {
+          id: string;
+          exercise_id: string;
+          url: string;
+          title: string | null;
+          description: string | null;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          exercise_id: string;
+          url: string;
+          title?: string | null;
+          description?: string | null;
+          created_at?: string;
+        };
+        Update: {
+          id?: string;
+          exercise_id?: string;
+          url?: string;
+          title?: string | null;
+          description?: string | null;
+          created_at?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "exercise_tutorial_videos_exercise_id_fkey";
+            columns: ["exercise_id"];
+            isOneToOne: false;
+            referencedRelation: "exercises";
+            referencedColumns: ["id"];
+          }
+        ];
+      };
+
       exercise_sets: {
         Row: {
           id: string;
@@ -739,12 +775,69 @@ export interface Database {
           }
         ];
       };
+      user_workout_progress: {
+        Row: {
+          id: string;
+          user_id: string;
+          plan_id: string;
+          current_phase: number;
+          current_repetition: number;
+          current_day: number;
+          last_completed_session_id: string | null;
+          last_workout_session_id: string | null;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          user_id: string;
+          plan_id: string;
+          current_phase?: number;
+          current_repetition?: number;
+          current_day?: number;
+          last_completed_session_id?: string | null;
+          last_workout_session_id?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          user_id?: string;
+          plan_id?: string;
+          current_phase?: number;
+          current_repetition?: number;
+          current_day?: number;
+          last_completed_session_id?: string | null;
+          last_workout_session_id?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "user_workout_progress_user_id_fkey";
+            columns: ["user_id"];
+            isOneToOne: false;
+            referencedRelation: "user_profiles";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "user_workout_progress_plan_id_fkey";
+            columns: ["plan_id"];
+            isOneToOne: false;
+            referencedRelation: "workout_plans";
+            referencedColumns: ["id"];
+          }
+        ];
+      };
+
       workout_plan_sessions: {
         Row: {
           id: string;
           plan_id: string;
           name: string;
           day_number: number;
+          phase_number: number;
+          phase_repetitions: number | null;
           week_number: number | null;
           estimated_duration_minutes: number | null;
           created_at: string;
@@ -754,6 +847,8 @@ export interface Database {
           plan_id: string;
           name: string;
           day_number: number;
+          phase_number?: number;
+          phase_repetitions?: number | null;
           week_number?: number | null;
           estimated_duration_minutes?: number | null;
           created_at?: string;
@@ -763,6 +858,8 @@ export interface Database {
           plan_id?: string;
           name?: string;
           day_number?: number;
+          phase_number?: number;
+          phase_repetitions?: number | null;
           week_number?: number | null;
           estimated_duration_minutes?: number | null;
           created_at?: string;

@@ -443,16 +443,29 @@ export class ProfileService {
         if (ps.progressSharing !== undefined) updateData.privacy_progress_sharing = ps.progressSharing;
       }
 
-      // Optimistic update to cache
+      // Optimistic update to cache (coerce types to match UserProfile)
       if (options.optimistic && this.profileCache.has(userId)) {
         const cachedProfile = this.profileCache.get(userId)!;
-        const optimisticProfile = {
+
+        // Ensure weightKg is a number in the optimistic profile (updates may provide string)
+        const weightKgValue =
+          updates.weightKg !== undefined
+            ? typeof updates.weightKg === "string"
+              ? Number(updates.weightKg)
+              : updates.weightKg
+            : cachedProfile.weightKg;
+
+        const optimisticProfile: UserProfile = {
           ...cachedProfile,
+          // spread allowed updates but ensure types for known fields
           ...updates,
+          weightKg: weightKgValue,
           privacySettings: updates.privacySettings
             ? { ...cachedProfile.privacySettings, ...updates.privacySettings }
             : cachedProfile.privacySettings,
         };
+
+        // Only set in cache if type coercion produced a valid number when weight was provided as string
         this.profileCache.set(userId, optimisticProfile);
       }
 
@@ -887,9 +900,10 @@ export class ProfileService {
       }
     }
 
-    // Weight validation
+    // Weight validation (coerce string -> number safely)
     if (data.weightKg !== undefined) {
-      if (data.weightKg < 30 || data.weightKg > 300) {
+      const weightVal = typeof data.weightKg === "string" ? Number(data.weightKg) : data.weightKg;
+      if (isNaN(weightVal as any) || weightVal < 30 || weightVal > 300) {
         errors.push({
           field: "weightKg",
           message: "Weight must be between 30kg and 300kg",
@@ -974,9 +988,10 @@ export class ProfileService {
       }
     }
 
-    // Weight validation
+    // Weight validation (coerce string -> number safely)
     if (data.weightKg !== undefined && data.weightKg !== null) {
-      if (data.weightKg < 30 || data.weightKg > 300) {
+      const weightVal = typeof data.weightKg === "string" ? Number(data.weightKg) : data.weightKg;
+      if (isNaN(weightVal as any) || weightVal < 30 || weightVal > 300) {
         errors.push({
           field: "weightKg",
           message: "Weight must be between 30kg and 300kg",
