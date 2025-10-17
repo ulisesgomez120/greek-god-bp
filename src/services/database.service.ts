@@ -422,12 +422,30 @@ export class DatabaseService {
   ): Promise<ExerciseSet[]> {
     try {
       // Transform application data to database format and ensure required fields
+      // Ensure each set has user_id populated by looking up its session's user if necessary.
+      const sessionIds = Array.from(new Set(sets.map((s) => s.sessionId).filter(Boolean)));
+      let sessionUserMap: Record<string, string> = {};
+      if (sessionIds.length > 0) {
+        const { data: sessionsRes, error: sessionsError } = await supabase
+          .from("workout_sessions")
+          .select("id,user_id")
+          .in("id", sessionIds);
+
+        if (!sessionsError && sessionsRes) {
+          sessionsRes.forEach((sr: any) => {
+            if (sr && sr.id) sessionUserMap[sr.id] = sr.user_id;
+          });
+        }
+      }
+
       const dbSets = sets.map((set) => {
         const dbSet = transformExerciseSetToDb(set);
+        const sessId = dbSet.session_id || set.sessionId;
         return {
-          session_id: dbSet.session_id || set.sessionId,
+          session_id: sessId,
           exercise_id: dbSet.exercise_id || set.exerciseId,
           set_number: dbSet.set_number || set.setNumber,
+          user_id: (dbSet as any).user_id || (set as any).userId || (sessId ? sessionUserMap[sessId] : null) || null,
           ...dbSet,
         };
       });
@@ -960,38 +978,52 @@ export class DatabaseService {
         throw new Error("queryExerciseHistory: plannedExerciseId is required");
       }
 
-      // Query only exercise_sets (no joins). Order by created_at desc so we get newest sets first,
-      // and limit the number of rows scanned for efficiency. We'll group by session_id in-memory.
-      const { data: sets, error } = await supabase
-        .from("exercise_sets")
-        .select("*")
-        .eq("exercise_id", exerciseId)
-        .eq("planned_exercise_id", plannedExerciseId)
-        .order("created_at", { ascending: false })
-        .limit(setLimit);
+      // Query recent workout_sessions for the current user and include exercise_sets.
+      // Then filter sessions in-memory to those that contain sets matching exerciseId + plannedExerciseId.
+      // This avoids PostgREST embedded-resource filtering issues and ensures we use workout_sessions.started_at
+      // as the canonical session date.
+      const { data: sessionsData, error } = await supabase
+        .from("workout_sessions")
+        .select(
+          `
+          id,
+          started_at,
+          exercise_sets (
+            id,
+            session_id,
+            exercise_id,
+            planned_exercise_id,
+            set_number,
+            weight_kg,
+            reps,
+            rpe,
+            is_warmup,
+            notes,
+            created_at
+          )
+        `
+        )
+        .eq("user_id", userId)
+        .order("started_at", { ascending: false })
+        .limit(200); // fetch a reasonable number of recent sessions to scan
 
       if (error) throw error;
-      if (!sets || sets.length === 0) return [];
+      if (!sessionsData || sessionsData.length === 0) return [];
 
-      // Group sets by session_id
-      const sessionMap = new Map<string, any[]>();
-      for (const s of sets) {
-        if (!s || !s.session_id) continue;
-        if (!sessionMap.has(s.session_id)) sessionMap.set(s.session_id, []);
-        sessionMap.get(s.session_id)!.push(s);
-      }
+      // Collect sessions that contain matching sets
+      const matchedSessions: any[] = [];
 
-      // Convert grouped sessions to an array, derive session date from the earliest set.created_at,
-      // sort sets within a session by set_number ascending for display, then sort sessions by date desc.
-      const sessions = Array.from(sessionMap.entries()).map(([sessionId, sessionSets]) => {
-        // Determine session date as the earliest created_at among the sets in that session
-        const createdSorted = sessionSets
-          .slice()
-          .sort((a: any, b: any) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime());
-        const sessionDate = createdSorted.length > 0 ? createdSorted[0].created_at : createdSorted[0];
+      for (const sess of sessionsData as any[]) {
+        const setsForExercise = (sess.exercise_sets || []).filter(
+          (st: any) => st && st.exercise_id === exerciseId && st.planned_exercise_id === plannedExerciseId
+        );
+
+        if (!setsForExercise || setsForExercise.length === 0) continue;
 
         // Sort sets by set_number ascending for display
-        const setsByNumber = sessionSets.slice().sort((a: any, b: any) => (a.set_number || 0) - (b.set_number || 0));
+        const setsByNumber = setsForExercise
+          .slice()
+          .sort((a: any, b: any) => (a.set_number || 0) - (b.set_number || 0));
 
         const mappedSets = setsByNumber.map((set: any) => ({
           setNumber: set.set_number,
@@ -1000,16 +1032,19 @@ export class DatabaseService {
           rpe: set.rpe ?? undefined,
           notes: set.notes ?? undefined,
           isWarmup: !!set.is_warmup,
+          createdAt: set.created_at,
         }));
 
-        return {
-          sessionId,
-          date: sessionDate,
+        matchedSessions.push({
+          sessionId: sess.id,
+          date: sess.started_at,
           sets: mappedSets,
-        };
-      });
+        });
 
-      const sortedSessions = sessions
+        if (matchedSessions.length >= sessionLimit) break;
+      }
+
+      const sortedSessions = matchedSessions
         .sort((a: any, b: any) => new Date(b.date).getTime() - new Date(a.date).getTime())
         .slice(0, sessionLimit);
 
