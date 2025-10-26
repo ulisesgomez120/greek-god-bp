@@ -17,6 +17,7 @@ import type { NextWorkoutInfo } from "@/types/workoutProgress";
 
 // Services
 import workoutPlanService, { WorkoutPlanSummary } from "../../services/workoutPlan.service";
+import { workoutService } from "../../services/workout.service";
 
 // Types
 import { WorkoutStackParamList } from "../../types/navigation";
@@ -107,6 +108,7 @@ const ProgramSelectionScreen: React.FC<ProgramSelectionScreenProps> = ({ navigat
   // Next workout state (minimal)
   const { user } = useAuth();
   const [nextInfo, setNextInfo] = useState<NextWorkoutInfo | null>(null);
+  const [creatingSession, setCreatingSession] = useState<boolean>(false);
 
   useEffect(() => {
     let mounted = true;
@@ -176,14 +178,39 @@ const ProgramSelectionScreen: React.FC<ProgramSelectionScreenProps> = ({ navigat
     });
   };
 
-  const handleStartNext = (nextSession?: NextWorkoutInfo["nextSession"]) => {
-    if (!nextSession) return;
-    navigation.navigate("ExerciseList", {
-      programId: nextSession.planId,
-      phaseId: nextSession.phaseId,
-      dayId: nextSession.sessionId,
-      workoutName: nextSession.workoutName,
-    });
+  const handleStartNext = async (nextSession?: NextWorkoutInfo["nextSession"]) => {
+    if (!nextSession || !user?.id) return;
+
+    try {
+      setCreatingSession(true);
+
+      // Create the next workout session and persist progress
+      const result = await workoutPlanService.advanceToNextWorkout(user.id, nextSession.planId);
+      const created = result?.createdSession;
+
+      // Ensure workoutService has the created session loaded in-memory for immediate use
+      if (created && created.id) {
+        try {
+          await workoutService.recoverWorkoutSession(created.id);
+        } catch (recoverErr) {
+          // Non-fatal: log and continue to navigation so user sees the exercises
+          console.warn("Failed to recover created session into workoutService", recoverErr);
+        }
+      }
+
+      // Navigate to ExerciseList and include workoutSessionId so downstream screens can reference it.
+      navigation.navigate("ExerciseList", {
+        programId: nextSession.planId,
+        phaseId: nextSession.phaseId,
+        dayId: nextSession.sessionId,
+        workoutName: nextSession.workoutName,
+        workoutSessionId: created?.id,
+      } as any);
+    } catch (err: any) {
+      console.warn("ProgramSelection: failed to start next workout", err);
+    } finally {
+      setCreatingSession(false);
+    }
   };
 
   if (loading) {

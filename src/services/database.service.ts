@@ -1507,11 +1507,13 @@ export class DatabaseService {
    */
   async getMostRecentIncompleteSession(userId: string, planId?: string): Promise<any | null> {
     try {
+      // NOTE: This method now returns the most recent session for the user (optionally scoped to a plan),
+      // regardless of whether it has been completed. Callers should inspect `completed_at` to determine
+      // whether the session is an incomplete (resumable) session or a completed session.
       let query = supabase
         .from("workout_sessions")
         .select("*")
         .eq("user_id", userId)
-        .is("completed_at", null)
         .order("started_at", { ascending: false })
         .limit(1);
 

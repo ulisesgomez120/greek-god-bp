@@ -330,8 +330,10 @@ export class WorkoutPlanService {
         } as UserWorkoutProgress;
       }
 
-      // 3) Check for most recent incomplete session (resume)
-      const incomplete = await databaseService.getMostRecentIncompleteSession(userId, planId);
+      // 3) Get the most recent session for this user/plan (may be completed or incomplete).
+      // Treat it as a resume candidate only if `completed_at` is null.
+      const recentSession = await databaseService.getMostRecentIncompleteSession(userId, planId);
+      const incomplete = recentSession && (recentSession as any).completed_at == null ? recentSession : null;
 
       // 4) Find next planned session based on progress
       const next = await this.findNextSession(
@@ -420,6 +422,16 @@ export class WorkoutPlanService {
     | null
   > {
     // Load plan sessions
+    console.log(
+      "Finding next session for plan:",
+      planId,
+      "phase:",
+      currentPhaseNumber,
+      "repetition:",
+      currentRepetition,
+      "day:",
+      currentDayNumber
+    );
     const plan = await this.getWorkoutPlanWithSessions(planId);
     if (!plan) return null;
 
@@ -462,14 +474,12 @@ export class WorkoutPlanService {
 
       // Determine total repetitions for this phase (assume phase_repetitions set on any session row)
       const totalReps = Number(phaseSessions[0].phase_repetitions) || 4;
-      // Find next day within this phase
-      // First, find index of current day in ordered sessions
+      // Locate the session corresponding to the progress `day`.
+      // Note: `day` represents the next day the user should perform (not the last completed day),
+      // so prefer that session when found.
       const dayIndex = phaseSessions.findIndex((s) => Number(s.day_number) === Number(day));
-      // Get the next day after the current day (if found), otherwise start at first session
-      let nextIndex = dayIndex >= 0 ? dayIndex + 1 : 0;
-
-      if (nextIndex < phaseSessions.length) {
-        const s = phaseSessions[nextIndex];
+      if (dayIndex >= 0) {
+        const s = phaseSessions[dayIndex];
         return {
           id: s.id,
           name: s.name,
@@ -484,12 +494,28 @@ export class WorkoutPlanService {
         } as WorkoutSessionSummary & { phaseNumber: number; repetition: number; totalRepetitions: number };
       }
 
-      // Otherwise, we've reached end of days for this repetition — advance repetition or phase
+      // If the requested day isn't found in this phase's sessions, handle repetition/phase rollover:
+      // If we haven't exhausted repetitions for this phase, start the next repetition at day 1.
       if (rep < totalReps) {
-        // Start next repetition at day 1
+        // Start next repetition at day 1 and return the first session of the phase.
         rep = rep + 1;
-        day = 1;
-        // Return first session of phase
+        const s = phaseSessions[0];
+        return {
+          id: s.id,
+          name: s.name,
+          dayNumber: Number(s.day_number) || 1,
+          weekNumber: s.week_number || s.phase_repetitions || 1,
+          estimatedDurationMinutes: s.estimated_duration_minutes || 60,
+          exerciseCount: s.planned_exercises?.length || 0,
+          exercises: normalizePlannedExercises(s.planned_exercises) || [],
+          phaseNumber: pn,
+          repetition: rep,
+          totalRepetitions: totalReps,
+        } as WorkoutSessionSummary & { phaseNumber: number; repetition: number; totalRepetitions: number };
+      }
+
+      // Fallback: return first session of the phase (should be rare if progress is computed correctly)
+      {
         const s = phaseSessions[0];
         return {
           id: s.id,
