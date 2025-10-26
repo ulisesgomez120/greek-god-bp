@@ -549,17 +549,19 @@ export class WorkoutPlanService {
    */
   async getNextWorkoutForUser(userId: string): Promise<NextWorkoutInfo | null> {
     try {
-      // Prefer plan from most recent incomplete session
-      const incomplete = await databaseService.getMostRecentIncompleteSession(userId);
+      // Prefer plan from the most recent session (completed or incomplete).
+      // `getMostRecentIncompleteSession` was intentionally changed to return the most
+      // recent session row — treat it as the primary source for plan context.
+      const recent = await databaseService.getMostRecentIncompleteSession(userId);
       let planId: string | null = null;
 
-      if (incomplete && incomplete.plan_id) {
-        planId = incomplete.plan_id;
+      if (recent && recent.plan_id) {
+        planId = recent.plan_id;
       } else {
-        // Fallback: use most recent workout session's plan
-        const recent = await databaseService.getWorkoutSessions(userId, 1);
-        if (recent && recent.length > 0) {
-          planId = (recent[0] as any).planId || null;
+        // Fallback: use most recent workout session's plan if no recent session row is available
+        const recentSessions = await databaseService.getWorkoutSessions(userId, 1);
+        if (recentSessions && recentSessions.length > 0) {
+          planId = (recentSessions[0] as any).planId || null;
         }
       }
 

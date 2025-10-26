@@ -25,7 +25,6 @@ const NextWorkoutCard: React.FC<Props> = ({ loading, info, onResume, onStartNext
   }
 
   if (!info) return null;
-  console.log("NextWorkoutCard info:", info);
   if (info.type === "complete") {
     return (
       <View style={styles.card}>

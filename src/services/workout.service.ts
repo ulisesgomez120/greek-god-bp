@@ -378,6 +378,71 @@ export class WorkoutService {
         logger.warn("Failed to persist completed workout via DatabaseService", err, "workout", user.id);
       }
 
+      // Update user progress after completion:
+      // Recalculate progress from history (canonical) and upsert the user_workout_progress row so
+      // subsequent calls to getNextWorkout reflect the newly completed session.
+      try {
+        if (completedWorkout && (completedWorkout as any).planId) {
+          const planId = (completedWorkout as any).planId as string;
+          try {
+            logger.info("Completion: calculating progress from history", { userId: user.id, planId }, "workout");
+            const calculated = await databaseService.calculateProgressFromHistory(user.id, planId);
+            logger.info("Completion: calculateProgressFromHistory result", { calculated }, "workout");
+
+            const upsertPayload: any = {
+              current_phase_number: calculated.phaseNumber,
+              current_repetition: calculated.repetition,
+              current_day_number: calculated.dayNumber,
+              // Use the planned session id (workout_plan_sessions.id) for last_completed_session_id.
+              // completedWorkout.id is the workout_sessions row id and will violate the FK.
+              last_completed_session_id: (completedWorkout as any).sessionId || null,
+              // last_workout_session_id should reference the workout_sessions row.
+              last_workout_session_id: completedWorkout.id,
+              updated_at: new Date().toISOString(),
+            };
+
+            logger.info(
+              "Completion: upserting user_workout_progress",
+              {
+                upsertPayloadPreview: {
+                  current_phase_number: upsertPayload.current_phase_number,
+                  current_repetition: upsertPayload.current_repetition,
+                  current_day_number: upsertPayload.current_day_number,
+                  last_completed_session_id: upsertPayload.last_completed_session_id,
+                },
+              },
+              "workout"
+            );
+
+            const upsertRes = await databaseService.updateUserWorkoutProgress(user.id, planId, upsertPayload);
+            logger.info(
+              "Updated user_workout_progress after workout completion",
+              { upsertId: upsertRes?.id, upsertResult: upsertRes },
+              "workout",
+              user.id
+            );
+          } catch (upsertErr) {
+            logger.warn(
+              "Failed to recalculate/upsert user_workout_progress after completion",
+              upsertErr,
+              "workout",
+              user.id
+            );
+          }
+        } else {
+          logger.info(
+            "Completion: no planId found on completed workout; skipping progress upsert",
+            {
+              workoutId: completedWorkout?.id,
+              userId: user.id,
+            },
+            "workout"
+          );
+        }
+      } catch (err) {
+        logger.warn("Unexpected error while updating progress after completion", err, "workout", user.id);
+      }
+
       // Clear current session
       this.currentSession = null;
 
