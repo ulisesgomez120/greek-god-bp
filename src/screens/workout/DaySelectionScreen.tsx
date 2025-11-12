@@ -61,8 +61,8 @@ const DaySelectionScreen: React.FC<DaySelectionScreenProps> = ({ navigation, rou
       ]);
 
       if (!mountedRef.current) return;
-
-      setSessions(sessionsRes || []);
+      console.log("DaySelection: loaded sessions", sessionsRes);
+      setSessions(sessionsRes.sort((a, b) => a.dayNumber - b.dayNumber) || []);
       setPlanName(planRes?.name ?? workoutPlanService.formatProgramName(programId));
     } catch (err: any) {
       console.error("DaySelection: failed to load sessions", err);
