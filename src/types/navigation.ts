@@ -12,7 +12,14 @@ export type WorkoutStackParamList = {
   ProgramSelection: undefined;
   PhaseSelection: { programId: string };
   DaySelection: { programId: string; phaseId: string };
-  ExerciseList: { programId: string; phaseId: string; dayId: string; workoutName: string };
+  // ExerciseList may include an optional workoutSessionId when navigating from a resume/start action.
+  ExerciseList: {
+    programId: string;
+    phaseId: string;
+    dayId: string;
+    workoutName: string;
+    workoutSessionId?: string;
+  };
   ExerciseDetail: {
     exerciseId: string;
     exerciseIndex: number;
@@ -24,6 +31,8 @@ export type WorkoutStackParamList = {
     };
     // Optional plannedExerciseId: present when navigating from a planned session listing.
     plannedExerciseId?: string;
+    // Optional workoutSessionId: present when navigating as a resume of an existing workout session.
+    workoutSessionId?: string;
     exerciseData: {
       name: string;
       targetSets: number;

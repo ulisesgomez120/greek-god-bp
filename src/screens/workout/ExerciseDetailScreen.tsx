@@ -237,7 +237,23 @@ export const ExerciseDetailScreen: React.FC<ExerciseDetailScreenProps> = ({ navi
     async (setData: ExerciseSetFormData) => {
       setIsSubmitting(true);
       try {
-        // Ensure there's an active workout session; if not, start one using workoutContext
+        // Ensure there's an active workout session; if not, attempt to recover a referenced session (resume),
+        // otherwise start a new session using workoutContext.
+        if (!workoutService.hasActiveWorkout()) {
+          // If the route includes a workoutSessionId (resume), try to recover it first.
+          const routeWorkoutSessionId = (route.params as any)?.workoutSessionId;
+          if (routeWorkoutSessionId) {
+            try {
+              await workoutService.recoverWorkoutSession(routeWorkoutSessionId);
+            } catch (recoverErr) {
+              // Non-fatal, continue to attempt to start a new session below.
+              console.warn("ExerciseDetail: failed to recover workoutSessionId before starting", recoverErr);
+            }
+          }
+        }
+
+        // If still no active workout after recovery attempt, start a new session.
+        let didStartNewSession = false;
         if (!workoutService.hasActiveWorkout()) {
           const sessionName = workoutContext?.workoutName || "Workout";
           const startResult = await workoutService.startWorkout(sessionName, [setData.exerciseId], {
@@ -248,6 +264,55 @@ export const ExerciseDetailScreen: React.FC<ExerciseDetailScreenProps> = ({ navi
           if (!startResult.success) {
             Alert.alert("Failed to start workout", startResult.error || "Unable to start workout");
             return startResult;
+          }
+
+          didStartNewSession = true;
+
+          // Create / upsert user_workout_progress when the first set is logged and we actually started a new session.
+          // Use Option A: derive repetition from existing progress if present, otherwise default to 1.
+          try {
+            const startedSession = startResult.data as any;
+            const userId = startedSession?.userId || startedSession?.user_id;
+            const planId = workoutContext?.programId;
+            if (userId && planId) {
+              // Try to load an existing progress row
+              const existingProgress = await databaseService.getUserWorkoutProgress(userId, planId);
+              let phaseNumber: number | null = null;
+              let dayNumber: number | null = null;
+              let repetition: number = 1;
+
+              if (existingProgress) {
+                phaseNumber = existingProgress.current_phase_number ?? null;
+                dayNumber = existingProgress.current_day_number ?? null;
+                repetition = existingProgress.current_repetition ?? 1;
+              } else {
+                // No explicit progress yet — derive from history but default repetition to 1 if not present.
+                try {
+                  const calculated = await databaseService.calculateProgressFromHistory(userId, planId);
+                  phaseNumber = calculated.phaseNumber ?? 1;
+                  dayNumber = calculated.dayNumber ?? 1;
+                  repetition = calculated.repetition ?? 1;
+                } catch (errCalc) {
+                  // Fallback to sensible defaults
+                  phaseNumber = 1;
+                  dayNumber = 1;
+                  repetition = 1;
+                }
+              }
+
+              try {
+                await databaseService.updateUserWorkoutProgress(userId, planId, {
+                  current_phase_number: phaseNumber,
+                  current_repetition: repetition,
+                  current_day_number: dayNumber,
+                  last_workout_session_id: startedSession.id,
+                });
+              } catch (upsertErr) {
+                console.warn("Failed to upsert user_workout_progress on first set", upsertErr);
+              }
+            }
+          } catch (err) {
+            console.warn("Failed to initialize user_workout_progress on first set", err);
           }
         }
 

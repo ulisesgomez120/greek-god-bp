@@ -69,6 +69,22 @@ const ExerciseListScreen: React.FC<ExerciseListScreenProps> = ({ navigation, rou
         setLoading(true);
         setError(null);
 
+        // If caller provided a workoutSessionId (resume), try to recover it into workoutService
+        // so the in-memory session is set and subsequent set logging will resume instead of creating.
+        const maybeWorkoutSessionId = (route.params as any)?.workoutSessionId;
+        if (maybeWorkoutSessionId) {
+          try {
+            await import("../../services/workout.service").then((m) =>
+              m.workoutService.recoverWorkoutSession(maybeWorkoutSessionId).catch(() => {
+                /* non-fatal */
+              })
+            );
+          } catch (recoverErr) {
+            // non-fatal; continue to load planned session
+            console.warn("ExerciseList: failed to recover workoutSessionId before loading session", recoverErr);
+          }
+        }
+
         // Try to fetch the specific session (this leverages workoutPlanService cache when available)
         const fetchedSession = await workoutPlanService.getWorkoutSession(programId, phaseId, dayId);
 
@@ -117,7 +133,7 @@ const ExerciseListScreen: React.FC<ExerciseListScreenProps> = ({ navigation, rou
       mounted = false;
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [programId, phaseId, dayId]);
+  }, [programId, phaseId, dayId, route.params]);
 
   useEffect(() => {
     navigation.setOptions({ title: sessionName || workoutName || "Today's Workout" });
@@ -190,6 +206,8 @@ const ExerciseListScreen: React.FC<ExerciseListScreenProps> = ({ navigation, rou
                   },
                   // Pass plannedExerciseId when available from the session's planned_exercises mapping.
                   plannedExerciseId: session?.exercises?.[index]?.plannedExerciseId,
+                  // Include workoutSessionId when present so downstream screens know this is a resume of an existing session.
+                  workoutSessionId: (route.params as any)?.workoutSessionId,
                   exerciseData: {
                     name: exercise.name,
                     targetSets: exercise.sets,

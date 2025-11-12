@@ -168,14 +168,33 @@ const ProgramSelectionScreen: React.FC<ProgramSelectionScreenProps> = ({ navigat
   };
 
   // Next workout handlers (simple navigation to ExerciseList)
-  const handleResumeWorkout = (resumeInfo?: NextWorkoutInfo["resumeSession"]) => {
+  const handleResumeWorkout = async (resumeInfo?: NextWorkoutInfo["resumeSession"]) => {
     if (!resumeInfo) return;
+
+    // Try to recover the referenced workout_sessions row into workoutService so the in-memory
+    // current session reflects the user's actual session (resume) rather than creating a new one.
+    // Do not modify user_workout_progress here — resuming should not change stored progress.
+    try {
+      if (resumeInfo.workoutSessionId) {
+        try {
+          await workoutService.recoverWorkoutSession(resumeInfo.workoutSessionId);
+        } catch (recoverErr) {
+          // Non-fatal: log and continue to navigation so user can still view the session/day.
+          console.warn("ProgramSelection: failed to recover session for resume", recoverErr);
+        }
+      }
+    } catch (err) {
+      console.warn("ProgramSelection: unexpected error while attempting to recover resume session", err);
+    }
+
     navigation.navigate("ExerciseList", {
       programId: resumeInfo.planId,
       phaseId: resumeInfo.phaseId,
       dayId: resumeInfo.sessionId,
       workoutName: resumeInfo.workoutName,
-    });
+      // Include workoutSessionId so downstream screens know this is a resume of an existing session.
+      workoutSessionId: resumeInfo.workoutSessionId,
+    } as any);
   };
 
   const handleStartNext = async (nextSession?: NextWorkoutInfo["nextSession"]) => {

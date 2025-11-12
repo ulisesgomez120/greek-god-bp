@@ -277,7 +277,7 @@ export class WorkoutPlanService {
   }
 
   // ============================================================================
-  // NEXT WORKOUT / PROGRESSION HELPERS
+  // NEXT WORKOUT / PROGRESSION HELPERS START
   // ============================================================================
 
   /**
@@ -285,7 +285,7 @@ export class WorkoutPlanService {
    * Returns whether user should resume an incomplete session, what the next session is,
    * or that the program is complete.
    */
-  async getNextWorkout(userId: string, planId: string): Promise<NextWorkoutInfo> {
+  async getNextWorkout(userId: string, planId: string): Promise<NextWorkoutInfo | null> {
     try {
       // 1) Try to read explicit progress record
       let progress: UserWorkoutProgress | null = null;
@@ -307,40 +307,75 @@ export class WorkoutPlanService {
         } as UserWorkoutProgress;
       }
 
-      // 2) If no progress, derive from history and persist a minimal progress record
+      // 2) If no progress, do not derive here — per simplified flow, return null so UI hides Next/Resume.
       if (!progress) {
-        const calculated = await databaseService.calculateProgressFromHistory(userId, planId);
-        const upsert = await databaseService.updateUserWorkoutProgress(userId, planId, {
-          current_phase_number: calculated.phaseNumber,
-          current_repetition: calculated.repetition,
-          current_day_number: calculated.dayNumber,
-        });
-        progress = {
-          id: upsert.id,
-          userId,
-          planId,
-          currentPhaseNumber: upsert.current_phase_number,
-          currentRepetition: upsert.current_repetition,
-          currentDayNumber: upsert.current_day_number,
-          lastCompletedSessionId: upsert.last_completed_session_id ?? null,
-          lastWorkoutSessionId: upsert.last_workout_session_id ?? null,
-          completedAt: upsert.completed_at ?? null,
-          updatedAt: upsert.updated_at,
-          createdAt: upsert.created_at,
-        } as UserWorkoutProgress;
+        return null;
       }
 
-      // 3) Get the most recent session for this user/plan (may be completed or incomplete).
-      // Treat it as a resume candidate only if `completed_at` is null.
-      const recentSession = await databaseService.getMostRecentIncompleteSession(userId, planId);
-      const incomplete = recentSession && (recentSession as any).completed_at == null ? recentSession : null;
+      // 3) Resume logic: only resume the session referenced by user_workout_progress.last_workout_session_id.
+      // Only resume when that session exists and has not been completed (completed_at IS NULL).
+      let incomplete: any | null = null;
+      if (progress.lastWorkoutSessionId) {
+        try {
+          const lastSess = await databaseService.getWorkoutSessionById(progress.lastWorkoutSessionId);
+          if (lastSess && lastSess.completed_at == null) {
+            incomplete = lastSess;
+          }
+        } catch (err) {
+          logger.warn("Failed to load last_workout_session_id referenced session", err, "workoutPlan");
+        }
+      }
 
-      // 4) Find next planned session based on progress
-      const next = await this.findNextSession(
-        planId,
-        progress.currentPhaseNumber,
-        progress.currentRepetition,
-        progress.currentDayNumber
+      // Debug: surface the resume candidate derived from progress and whether we consider it resumable.
+      logger.info(
+        "getNextWorkout: resume candidate from progress.last_workout_session_id",
+        {
+          resumeSessionId: incomplete?.id ?? null,
+          resumeSessionCompletedAt: incomplete?.completed_at ?? null,
+          resumeSessionPlanId: incomplete?.plan_id ?? null,
+          resumeSessionPlannedDay: incomplete?.workout_plan_sessions?.day_number ?? null,
+        },
+        "workoutPlan"
+      );
+      logger.info(
+        "getNextWorkout: treating progress.last_workout_session_id as incomplete?",
+        { incomplete: !!incomplete },
+        "workoutPlan"
+      );
+
+      // 4) Determine next planned session.
+      // If there is a recent incomplete session, compute the next session relative to that
+      // incomplete session (i.e. the session after the incomplete one). This ensures Resume
+      // points to the in-progress session and Next points to the following planned day.
+      let next: (WorkoutSessionSummary & { phaseNumber: number; repetition: number; totalRepetitions: number }) | null =
+        null;
+      if (incomplete) {
+        // Use stored progress as the source of truth for "Next" — do not derive from history here.
+        next = await this.findNextSession(
+          planId,
+          progress.currentPhaseNumber,
+          progress.currentRepetition,
+          progress.currentDayNumber
+        );
+      } else {
+        next = await this.findNextSession(
+          planId,
+          progress.currentPhaseNumber,
+          progress.currentRepetition,
+          progress.currentDayNumber
+        );
+      }
+
+      // Debug: log the computed "next" session for verification before returning resume/next
+      logger.info(
+        "getNextWorkout: computed next",
+        {
+          nextSessionId: next?.id ?? null,
+          nextPhaseNumber: next?.phaseNumber ?? null,
+          nextDayNumber: next?.dayNumber ?? null,
+          nextRepetition: next?.repetition ?? null,
+        },
+        "workoutPlan"
       );
 
       if (incomplete) {
@@ -544,15 +579,184 @@ export class WorkoutPlanService {
   }
 
   /**
+   * Find the next session after a given session/day within the same plan.
+   * This walks the plan sequence starting from the provided phase/day and returns the
+   * very next planned session (or null if at the end). Used to compute "Next" when a
+   * resumable (in-progress) workout exists so we don't return the same session for both.
+   */
+  private async findNextSessionAfter(
+    planId: string,
+    currentPhaseNumber: number,
+    currentRepetition: number,
+    currentDayNumber: number
+  ): Promise<
+    | (WorkoutSessionSummary & {
+        phaseNumber: number;
+        repetition: number;
+        totalRepetitions: number;
+      })
+    | null
+  > {
+    // Reuse plan loading & grouping logic from findNextSession
+    const plan = await this.getWorkoutPlanWithSessions(planId);
+    if (!plan) return null;
+
+    const sessions = (plan as any).workout_plan_sessions ?? (plan as any).sessions ?? [];
+    const byPhase = new Map<number, any[]>();
+    sessions.forEach((s: any) => {
+      const pn = Number(s.phase_number) || 1;
+      if (!byPhase.has(pn)) byPhase.set(pn, []);
+      byPhase.get(pn)!.push(s);
+    });
+
+    const phaseNumbers = Array.from(byPhase.keys()).sort((a, b) => a - b);
+
+    const getOrderedPhaseSessions = (pn: number) =>
+      (byPhase.get(pn) || [])
+        .slice()
+        .sort((a: any, b: any) => (Number(a.day_number) || 1) - (Number(b.day_number) || 1));
+
+    // Start from given position and find the session that immediately follows currentDayNumber
+    let pn = currentPhaseNumber;
+    let rep = currentRepetition;
+    let day = currentDayNumber;
+
+    for (;;) {
+      const phaseSessions = getOrderedPhaseSessions(pn);
+
+      // If phase has no sessions, advance to next phase
+      if (!phaseSessions || phaseSessions.length === 0) {
+        const nextPhaseIndex = phaseNumbers.indexOf(pn) + 1;
+        if (nextPhaseIndex >= phaseNumbers.length) return null;
+        pn = phaseNumbers[nextPhaseIndex];
+        rep = 1;
+        day = 1;
+        continue;
+      }
+
+      const totalReps = Number(phaseSessions[0].phase_repetitions) || 4;
+
+      // Find the index of the current day within this phase
+      const dayIndex = phaseSessions.findIndex((s) => Number(s.day_number) === Number(day));
+
+      // If found, the next planned session is the next index in same phase (if any)
+      if (dayIndex >= 0) {
+        const nextIndex = dayIndex + 1;
+        if (nextIndex < phaseSessions.length) {
+          const s = phaseSessions[nextIndex];
+          return {
+            id: s.id,
+            name: s.name,
+            dayNumber: Number(s.day_number) || 1,
+            weekNumber: s.week_number || s.phase_repetitions || 1,
+            estimatedDurationMinutes: s.estimated_duration_minutes || 60,
+            exerciseCount: s.planned_exercises?.length || 0,
+            exercises: normalizePlannedExercises(s.planned_exercises) || [],
+            phaseNumber: pn,
+            repetition: rep,
+            totalRepetitions: totalReps,
+          } as WorkoutSessionSummary & { phaseNumber: number; repetition: number; totalRepetitions: number };
+        }
+
+        // If no more days in this repetition, advance repetition (start at day 1)
+        if (rep < totalReps) {
+          rep = rep + 1;
+          const s = phaseSessions[0];
+          return {
+            id: s.id,
+            name: s.name,
+            dayNumber: Number(s.day_number) || 1,
+            weekNumber: s.week_number || s.phase_repetitions || 1,
+            estimatedDurationMinutes: s.estimated_duration_minutes || 60,
+            exerciseCount: s.planned_exercises?.length || 0,
+            exercises: normalizePlannedExercises(s.planned_exercises) || [],
+            phaseNumber: pn,
+            repetition: rep,
+            totalRepetitions: totalReps,
+          } as WorkoutSessionSummary & { phaseNumber: number; repetition: number; totalRepetitions: number };
+        }
+
+        // Otherwise move to next phase and return its first session
+        const nextPhaseIdx = phaseNumbers.indexOf(pn) + 1;
+        if (nextPhaseIdx >= phaseNumbers.length) return null;
+        pn = phaseNumbers[nextPhaseIdx];
+        rep = 1;
+        day = 1;
+        const nextPhaseSessions = getOrderedPhaseSessions(pn);
+        if (nextPhaseSessions && nextPhaseSessions.length > 0) {
+          const s = nextPhaseSessions[0];
+          return {
+            id: s.id,
+            name: s.name,
+            dayNumber: Number(s.day_number) || 1,
+            weekNumber: s.week_number || s.phase_repetitions || 1,
+            estimatedDurationMinutes: s.estimated_duration_minutes || 60,
+            exerciseCount: s.planned_exercises?.length || 0,
+            exercises: normalizePlannedExercises(s.planned_exercises) || [],
+            phaseNumber: pn,
+            repetition: 1,
+            totalRepetitions: Number(nextPhaseSessions[0].phase_repetitions) || 1,
+          } as WorkoutSessionSummary & { phaseNumber: number; repetition: number; totalRepetitions: number };
+        }
+
+        return null;
+      } else {
+        // If current day not found in this phase, attempt to find first session after day within phase
+        // (take smallest session.day_number > day)
+        const later = phaseSessions.find((s) => Number(s.day_number) > Number(day));
+        if (later) {
+          const s = later;
+          return {
+            id: s.id,
+            name: s.name,
+            dayNumber: Number(s.day_number) || 1,
+            weekNumber: s.week_number || s.phase_repetitions || 1,
+            estimatedDurationMinutes: s.estimated_duration_minutes || 60,
+            exerciseCount: s.planned_exercises?.length || 0,
+            exercises: normalizePlannedExercises(s.planned_exercises) || [],
+            phaseNumber: pn,
+            repetition: rep,
+            totalRepetitions: totalReps,
+          } as WorkoutSessionSummary & { phaseNumber: number; repetition: number; totalRepetitions: number };
+        }
+
+        // No later session in this phase — advance repetition or phase as above
+        if (rep < totalReps) {
+          rep = rep + 1;
+          const s = phaseSessions[0];
+          return {
+            id: s.id,
+            name: s.name,
+            dayNumber: Number(s.day_number) || 1,
+            weekNumber: s.week_number || s.phase_repetitions || 1,
+            estimatedDurationMinutes: s.estimated_duration_minutes || 60,
+            exerciseCount: s.planned_exercises?.length || 0,
+            exercises: normalizePlannedExercises(s.planned_exercises) || [],
+            phaseNumber: pn,
+            repetition: rep,
+            totalRepetitions: totalReps,
+          } as WorkoutSessionSummary & { phaseNumber: number; repetition: number; totalRepetitions: number };
+        }
+
+        const nextPhaseIdx = phaseNumbers.indexOf(pn) + 1;
+        if (nextPhaseIdx >= phaseNumbers.length) return null;
+        pn = phaseNumbers[nextPhaseIdx];
+        rep = 1;
+        day = 1;
+      }
+    }
+  }
+
+  /**
    * Get the next workout for the user's most relevant plan (prefers incomplete session's plan).
    * Returns NextWorkoutInfo or null if no plan context is available.
    */
   async getNextWorkoutForUser(userId: string): Promise<NextWorkoutInfo | null> {
     try {
       // Prefer plan from the most recent session (completed or incomplete).
-      // `getMostRecentIncompleteSession` was intentionally changed to return the most
+      // `getMostRecentSession` was intentionally changed to return the most
       // recent session row — treat it as the primary source for plan context.
-      const recent = await databaseService.getMostRecentIncompleteSession(userId);
+      const recent = await databaseService.getMostRecentSession(userId);
       let planId: string | null = null;
 
       if (recent && recent.plan_id) {
@@ -655,7 +859,9 @@ export class WorkoutPlanService {
       return null;
     }
   }
-
+  // ============================================================================
+  // NEXT WORKOUT / PROGRESSION HELPERS END
+  // ============================================================================
   // ============================================================================
   // UTILITY METHODS
   // ============================================================================

@@ -2,13 +2,13 @@
 -- Table order and constraints may not be valid for execution.
 
 CREATE TABLE public.achievements (
-  id uuid NOT NULL DEFAULT uuid_generate_v4(),
   name text NOT NULL UNIQUE,
   description text NOT NULL,
   category text NOT NULL CHECK (category = ANY (ARRAY['strength'::text, 'consistency'::text, 'volume'::text, 'milestone'::text, 'social'::text, 'special'::text])),
   criteria jsonb NOT NULL,
   icon_name text,
   badge_color text,
+  id uuid NOT NULL DEFAULT uuid_generate_v4(),
   points integer DEFAULT 0 CHECK (points >= 0),
   rarity text DEFAULT 'common'::text CHECK (rarity = ANY (ARRAY['common'::text, 'uncommon'::text, 'rare'::text, 'epic'::text, 'legendary'::text])),
   is_active boolean DEFAULT true,
@@ -17,13 +17,13 @@ CREATE TABLE public.achievements (
   CONSTRAINT achievements_pkey PRIMARY KEY (id)
 );
 CREATE TABLE public.ai_coaching_contexts (
-  id uuid NOT NULL DEFAULT uuid_generate_v4(),
   context_key text NOT NULL UNIQUE,
   context_name text NOT NULL,
   description text,
   system_prompt text NOT NULL,
   suggested_model_id uuid,
   coaching_style text CHECK (coaching_style = ANY (ARRAY['supportive'::text, 'challenging'::text, 'analytical'::text, 'motivational'::text])),
+  id uuid NOT NULL DEFAULT uuid_generate_v4(),
   max_conversation_length integer DEFAULT 20,
   expertise_areas ARRAY DEFAULT '{}'::text[],
   requires_subscription boolean DEFAULT false,
@@ -33,7 +33,6 @@ CREATE TABLE public.ai_coaching_contexts (
   CONSTRAINT ai_coaching_contexts_suggested_model_id_fkey FOREIGN KEY (suggested_model_id) REFERENCES public.ai_models(id)
 );
 CREATE TABLE public.ai_conversation_sessions (
-  id uuid NOT NULL DEFAULT uuid_generate_v4(),
   user_id uuid NOT NULL,
   context_id uuid,
   session_title text,
@@ -42,6 +41,7 @@ CREATE TABLE public.ai_conversation_sessions (
   key_insights ARRAY,
   action_items ARRAY,
   completed_at timestamp with time zone,
+  id uuid NOT NULL DEFAULT uuid_generate_v4(),
   status text DEFAULT 'active'::text CHECK (status = ANY (ARRAY['active'::text, 'paused'::text, 'completed'::text, 'archived'::text])),
   message_count integer DEFAULT 0,
   total_tokens_used integer DEFAULT 0,
@@ -56,13 +56,13 @@ CREATE TABLE public.ai_conversation_sessions (
   CONSTRAINT ai_conversation_sessions_context_id_fkey FOREIGN KEY (context_id) REFERENCES public.ai_coaching_contexts(id)
 );
 CREATE TABLE public.ai_conversations (
-  id uuid NOT NULL DEFAULT uuid_generate_v4(),
   user_id uuid NOT NULL,
   conversation_id uuid NOT NULL,
   message_type text NOT NULL CHECK (message_type = ANY (ARRAY['user_query'::text, 'ai_response'::text, 'system_message'::text, 'function_call'::text, 'function_response'::text])),
   content text NOT NULL,
   context_data jsonb,
   tokens_used integer,
+  id uuid NOT NULL DEFAULT uuid_generate_v4(),
   created_at timestamp with time zone DEFAULT now(),
   session_id uuid,
   model_id uuid,
@@ -79,7 +79,6 @@ CREATE TABLE public.ai_conversations (
   CONSTRAINT ai_conversations_model_id_fkey FOREIGN KEY (model_id) REFERENCES public.ai_models(id)
 );
 CREATE TABLE public.ai_insights (
-  id uuid NOT NULL DEFAULT uuid_generate_v4(),
   user_id uuid NOT NULL,
   session_id uuid,
   insight_type text NOT NULL CHECK (insight_type = ANY (ARRAY['progress_analysis'::text, 'pattern_recognition'::text, 'goal_assessment'::text, 'performance_trend'::text, 'recovery_analysis'::text, 'form_feedback'::text, 'motivation_boost'::text, 'plateau_identification'::text])),
@@ -95,10 +94,11 @@ CREATE TABLE public.ai_insights (
   suggested_next_steps ARRAY,
   user_rating integer CHECK (user_rating >= 1 AND user_rating <= 5),
   user_feedback text,
-  is_bookmarked boolean DEFAULT false,
   model_id uuid,
   confidence_score numeric,
   tokens_used integer,
+  id uuid NOT NULL DEFAULT uuid_generate_v4(),
+  is_bookmarked boolean DEFAULT false,
   created_at timestamp with time zone DEFAULT now(),
   updated_at timestamp with time zone DEFAULT now(),
   CONSTRAINT ai_insights_pkey PRIMARY KEY (id),
@@ -107,7 +107,6 @@ CREATE TABLE public.ai_insights (
   CONSTRAINT ai_insights_model_id_fkey FOREIGN KEY (model_id) REFERENCES public.ai_models(id)
 );
 CREATE TABLE public.ai_learning_data (
-  id uuid NOT NULL DEFAULT uuid_generate_v4(),
   user_id uuid NOT NULL,
   session_id uuid,
   event_type text NOT NULL CHECK (event_type = ANY (ARRAY['recommendation_feedback'::text, 'conversation_rating'::text, 'insight_engagement'::text, 'preference_update'::text, 'behavior_pattern'::text, 'goal_achievement'::text])),
@@ -115,21 +114,17 @@ CREATE TABLE public.ai_learning_data (
   user_response jsonb,
   outcome text CHECK (outcome = ANY (ARRAY['positive'::text, 'negative'::text, 'neutral'::text, 'mixed'::text])),
   context_factors jsonb,
-  contributes_to_training boolean DEFAULT true,
   data_quality_score numeric,
+  id uuid NOT NULL DEFAULT uuid_generate_v4(),
+  contributes_to_training boolean DEFAULT true,
   created_at timestamp with time zone DEFAULT now(),
   CONSTRAINT ai_learning_data_pkey PRIMARY KEY (id),
   CONSTRAINT ai_learning_data_user_id_fkey FOREIGN KEY (user_id) REFERENCES public.user_profiles(id),
   CONSTRAINT ai_learning_data_session_id_fkey FOREIGN KEY (session_id) REFERENCES public.ai_conversation_sessions(id)
 );
 CREATE TABLE public.ai_model_performance (
-  id uuid NOT NULL DEFAULT uuid_generate_v4(),
   model_id uuid NOT NULL,
   metric_date date NOT NULL,
-  total_requests integer DEFAULT 0,
-  total_tokens_input integer DEFAULT 0,
-  total_tokens_output integer DEFAULT 0,
-  total_cost numeric DEFAULT 0,
   average_response_time_ms integer,
   success_rate numeric,
   error_rate numeric,
@@ -139,26 +134,31 @@ CREATE TABLE public.ai_model_performance (
   conversation_completion_rate numeric,
   cost_per_successful_interaction numeric,
   tokens_per_interaction numeric,
+  id uuid NOT NULL DEFAULT uuid_generate_v4(),
+  total_requests integer DEFAULT 0,
+  total_tokens_input integer DEFAULT 0,
+  total_tokens_output integer DEFAULT 0,
+  total_cost numeric DEFAULT 0,
   created_at timestamp with time zone DEFAULT now(),
   CONSTRAINT ai_model_performance_pkey PRIMARY KEY (id),
   CONSTRAINT ai_model_performance_model_id_fkey FOREIGN KEY (model_id) REFERENCES public.ai_models(id)
 );
 CREATE TABLE public.ai_models (
-  id uuid NOT NULL DEFAULT uuid_generate_v4(),
   model_name text NOT NULL UNIQUE,
   model_version text NOT NULL,
   provider text NOT NULL CHECK (provider = ANY (ARRAY['openai'::text, 'anthropic'::text, 'google'::text, 'custom'::text])),
   model_type text NOT NULL CHECK (model_type = ANY (ARRAY['chat'::text, 'completion'::text, 'embedding'::text, 'fine_tuned'::text])),
   max_tokens integer NOT NULL,
-  supports_functions boolean DEFAULT false,
-  supports_streaming boolean DEFAULT false,
   context_window integer NOT NULL,
   cost_per_1k_input_tokens numeric NOT NULL,
   cost_per_1k_output_tokens numeric NOT NULL,
   rate_limit_requests_per_minute integer,
-  default_temperature numeric DEFAULT 0.7,
   default_max_tokens integer,
   system_prompt text,
+  id uuid NOT NULL DEFAULT uuid_generate_v4(),
+  supports_functions boolean DEFAULT false,
+  supports_streaming boolean DEFAULT false,
+  default_temperature numeric DEFAULT 0.7,
   is_active boolean DEFAULT true,
   is_default boolean DEFAULT false,
   created_at timestamp with time zone DEFAULT now(),
@@ -166,7 +166,6 @@ CREATE TABLE public.ai_models (
   CONSTRAINT ai_models_pkey PRIMARY KEY (id)
 );
 CREATE TABLE public.ai_system_alerts (
-  id uuid NOT NULL DEFAULT uuid_generate_v4(),
   alert_type text NOT NULL CHECK (alert_type = ANY (ARRAY['high_error_rate'::text, 'cost_threshold_exceeded'::text, 'performance_degradation'::text, 'unusual_usage_pattern'::text, 'model_unavailable'::text, 'rate_limit_exceeded'::text])),
   severity text NOT NULL CHECK (severity = ANY (ARRAY['info'::text, 'warning'::text, 'error'::text, 'critical'::text])),
   title text NOT NULL,
@@ -175,15 +174,15 @@ CREATE TABLE public.ai_system_alerts (
   alert_data jsonb,
   threshold_value numeric,
   current_value numeric,
-  status text DEFAULT 'active'::text CHECK (status = ANY (ARRAY['active'::text, 'acknowledged'::text, 'resolved'::text, 'suppressed'::text])),
   resolved_at timestamp with time zone,
   resolution_notes text,
+  id uuid NOT NULL DEFAULT uuid_generate_v4(),
+  status text DEFAULT 'active'::text CHECK (status = ANY (ARRAY['active'::text, 'acknowledged'::text, 'resolved'::text, 'suppressed'::text])),
   created_at timestamp with time zone DEFAULT now(),
   updated_at timestamp with time zone DEFAULT now(),
   CONSTRAINT ai_system_alerts_pkey PRIMARY KEY (id)
 );
 CREATE TABLE public.ai_usage_tracking (
-  id uuid NOT NULL DEFAULT uuid_generate_v4(),
   user_id uuid NOT NULL,
   query_type text NOT NULL,
   query_text text,
@@ -194,16 +193,15 @@ CREATE TABLE public.ai_usage_tracking (
   response_time_ms integer CHECK (response_time_ms > 0),
   user_rating integer CHECK (user_rating >= 1 AND user_rating <= 5),
   user_feedback text,
+  id uuid NOT NULL DEFAULT uuid_generate_v4(),
   created_at timestamp with time zone DEFAULT now(),
   CONSTRAINT ai_usage_tracking_pkey PRIMARY KEY (id),
   CONSTRAINT ai_usage_tracking_user_id_fkey FOREIGN KEY (user_id) REFERENCES public.user_profiles(id)
 );
 CREATE TABLE public.ai_workout_recommendations (
-  id uuid NOT NULL DEFAULT uuid_generate_v4(),
   user_id uuid NOT NULL,
   session_id uuid,
   recommendation_type text NOT NULL CHECK (recommendation_type = ANY (ARRAY['next_workout'::text, 'exercise_substitution'::text, 'progression_adjustment'::text, 'recovery_suggestion'::text, 'program_modification'::text, 'goal_alignment'::text])),
-  priority text DEFAULT 'medium'::text CHECK (priority = ANY (ARRAY['low'::text, 'medium'::text, 'high'::text, 'urgent'::text])),
   title text NOT NULL,
   description text NOT NULL,
   reasoning text,
@@ -218,6 +216,8 @@ CREATE TABLE public.ai_workout_recommendations (
   model_id uuid,
   confidence_score numeric,
   tokens_used integer,
+  id uuid NOT NULL DEFAULT uuid_generate_v4(),
+  priority text DEFAULT 'medium'::text CHECK (priority = ANY (ARRAY['low'::text, 'medium'::text, 'high'::text, 'urgent'::text])),
   created_at timestamp with time zone DEFAULT now(),
   updated_at timestamp with time zone DEFAULT now(),
   CONSTRAINT ai_workout_recommendations_pkey PRIMARY KEY (id),
@@ -226,9 +226,7 @@ CREATE TABLE public.ai_workout_recommendations (
   CONSTRAINT ai_workout_recommendations_model_id_fkey FOREIGN KEY (model_id) REFERENCES public.ai_models(id)
 );
 CREATE TABLE public.billing_addresses (
-  id uuid NOT NULL DEFAULT uuid_generate_v4(),
   user_id uuid NOT NULL,
-  is_default boolean DEFAULT false,
   company_name text,
   address_line1 text NOT NULL,
   address_line2 text,
@@ -237,13 +235,14 @@ CREATE TABLE public.billing_addresses (
   postal_code text NOT NULL,
   country text NOT NULL,
   tax_id text,
+  id uuid NOT NULL DEFAULT uuid_generate_v4(),
+  is_default boolean DEFAULT false,
   created_at timestamp with time zone DEFAULT now(),
   updated_at timestamp with time zone DEFAULT now(),
   CONSTRAINT billing_addresses_pkey PRIMARY KEY (id),
   CONSTRAINT billing_addresses_user_id_fkey FOREIGN KEY (user_id) REFERENCES public.user_profiles(id)
 );
 CREATE TABLE public.body_measurements (
-  id uuid NOT NULL DEFAULT uuid_generate_v4(),
   user_id uuid NOT NULL,
   measurement_date date NOT NULL,
   weight_kg numeric CHECK (weight_kg > 0::numeric AND weight_kg < 1000::numeric),
@@ -266,88 +265,88 @@ CREATE TABLE public.body_measurements (
   calf_left_cm numeric CHECK (calf_left_cm > 0::numeric),
   calf_right_cm numeric CHECK (calf_right_cm > 0::numeric),
   measurement_method text,
-  measurement_conditions jsonb DEFAULT '{}'::jsonb,
   notes text,
+  id uuid NOT NULL DEFAULT uuid_generate_v4(),
+  measurement_conditions jsonb DEFAULT '{}'::jsonb,
   created_at timestamp with time zone DEFAULT now(),
   CONSTRAINT body_measurements_pkey PRIMARY KEY (id),
   CONSTRAINT body_measurements_user_id_fkey FOREIGN KEY (user_id) REFERENCES public.user_profiles(id)
 );
 CREATE TABLE public.discount_code_usage (
-  id uuid NOT NULL DEFAULT uuid_generate_v4(),
   discount_code_id uuid NOT NULL,
   user_id uuid NOT NULL,
   subscription_id uuid,
   discount_amount_cents integer NOT NULL,
-  applied_at timestamp with time zone DEFAULT now(),
   stripe_coupon_id text,
   stripe_promotion_code_id text,
+  id uuid NOT NULL DEFAULT uuid_generate_v4(),
+  applied_at timestamp with time zone DEFAULT now(),
   CONSTRAINT discount_code_usage_pkey PRIMARY KEY (id),
   CONSTRAINT discount_code_usage_discount_code_id_fkey FOREIGN KEY (discount_code_id) REFERENCES public.discount_codes(id),
   CONSTRAINT discount_code_usage_user_id_fkey FOREIGN KEY (user_id) REFERENCES public.user_profiles(id),
   CONSTRAINT discount_code_usage_subscription_id_fkey FOREIGN KEY (subscription_id) REFERENCES public.subscriptions(id)
 );
 CREATE TABLE public.discount_codes (
-  id uuid NOT NULL DEFAULT uuid_generate_v4(),
   code text NOT NULL UNIQUE,
   name text NOT NULL,
   description text,
   discount_type text NOT NULL CHECK (discount_type = ANY (ARRAY['percentage'::text, 'fixed_amount'::text, 'free_trial'::text])),
   discount_value integer NOT NULL,
-  currency text DEFAULT 'usd'::text,
   valid_from date NOT NULL,
   valid_until date,
   max_uses integer,
+  created_by uuid,
+  id uuid NOT NULL DEFAULT uuid_generate_v4(),
+  currency text DEFAULT 'usd'::text,
   max_uses_per_user integer DEFAULT 1,
   current_uses integer DEFAULT 0,
   applicable_plan_ids ARRAY DEFAULT '{}'::uuid[],
   new_customers_only boolean DEFAULT false,
   is_active boolean DEFAULT true,
-  created_by uuid,
   created_at timestamp with time zone DEFAULT now(),
   CONSTRAINT discount_codes_pkey PRIMARY KEY (id),
   CONSTRAINT discount_codes_created_by_fkey FOREIGN KEY (created_by) REFERENCES public.user_profiles(id)
 );
 CREATE TABLE public.exercise_contraindications (
-  id uuid NOT NULL DEFAULT uuid_generate_v4(),
   exercise_id uuid NOT NULL,
   condition_type text NOT NULL,
   condition_description text NOT NULL,
   severity text NOT NULL CHECK (severity = ANY (ARRAY['caution'::text, 'avoid'::text, 'modify'::text])),
   modification_suggestion text,
   alternative_exercise_id uuid,
+  id uuid NOT NULL DEFAULT uuid_generate_v4(),
   created_at timestamp with time zone DEFAULT now(),
   CONSTRAINT exercise_contraindications_pkey PRIMARY KEY (id),
   CONSTRAINT exercise_contraindications_exercise_id_fkey FOREIGN KEY (exercise_id) REFERENCES public.exercises(id),
   CONSTRAINT exercise_contraindications_alternative_exercise_id_fkey FOREIGN KEY (alternative_exercise_id) REFERENCES public.exercises(id)
 );
 CREATE TABLE public.exercise_form_checkpoints (
-  id uuid NOT NULL DEFAULT uuid_generate_v4(),
   exercise_id uuid NOT NULL,
   checkpoint_order integer NOT NULL,
   phase text NOT NULL CHECK (phase = ANY (ARRAY['setup'::text, 'eccentric'::text, 'bottom'::text, 'concentric'::text, 'top'::text])),
   description text NOT NULL,
-  safety_critical boolean DEFAULT false,
   common_error text,
   correction_cue text,
+  id uuid NOT NULL DEFAULT uuid_generate_v4(),
+  safety_critical boolean DEFAULT false,
   created_at timestamp with time zone DEFAULT now(),
   CONSTRAINT exercise_form_checkpoints_pkey PRIMARY KEY (id),
   CONSTRAINT exercise_form_checkpoints_exercise_id_fkey FOREIGN KEY (exercise_id) REFERENCES public.exercises(id)
 );
 CREATE TABLE public.exercise_search_analytics (
-  id uuid NOT NULL DEFAULT uuid_generate_v4(),
   user_id uuid,
   search_query text NOT NULL,
   search_filters jsonb,
   results_count integer NOT NULL,
   selected_exercise_id uuid,
   search_duration_ms integer,
+  id uuid NOT NULL DEFAULT uuid_generate_v4(),
   created_at timestamp with time zone DEFAULT now(),
   CONSTRAINT exercise_search_analytics_pkey PRIMARY KEY (id),
   CONSTRAINT exercise_search_analytics_user_id_fkey FOREIGN KEY (user_id) REFERENCES public.user_profiles(id),
   CONSTRAINT exercise_search_analytics_selected_exercise_id_fkey FOREIGN KEY (selected_exercise_id) REFERENCES public.exercises(id)
 );
 CREATE TABLE public.exercise_sets (
-  id uuid NOT NULL DEFAULT uuid_generate_v4(),
   session_id uuid NOT NULL,
   exercise_id uuid NOT NULL,
   planned_exercise_id uuid,
@@ -355,11 +354,12 @@ CREATE TABLE public.exercise_sets (
   weight_kg numeric CHECK (weight_kg >= 0::numeric),
   reps integer CHECK (reps >= 0),
   rpe integer CHECK (rpe >= 1 AND rpe <= 10),
-  is_warmup boolean DEFAULT false,
-  is_failure boolean DEFAULT false,
   rest_seconds integer CHECK (rest_seconds >= 0),
   notes text,
   form_rating integer CHECK (form_rating >= 1 AND form_rating <= 5),
+  id uuid NOT NULL DEFAULT uuid_generate_v4(),
+  is_warmup boolean DEFAULT false,
+  is_failure boolean DEFAULT false,
   created_at timestamp with time zone DEFAULT now(),
   tempo text,
   range_of_motion text CHECK (range_of_motion = ANY (ARRAY['full'::text, 'partial'::text, 'extended'::text])),
@@ -367,17 +367,18 @@ CREATE TABLE public.exercise_sets (
   effort_level integer CHECK (effort_level >= 1 AND effort_level <= 10),
   rest_quality text CHECK (rest_quality = ANY (ARRAY['poor'::text, 'fair'::text, 'good'::text, 'excellent'::text])),
   set_type text DEFAULT 'working'::text CHECK (set_type = ANY (ARRAY['warmup'::text, 'working'::text, 'drop'::text, 'cluster'::text, 'rest_pause'::text, 'failure'::text])),
+  user_id uuid,
   CONSTRAINT exercise_sets_pkey PRIMARY KEY (id),
+  CONSTRAINT exercise_sets_session_id_fkey FOREIGN KEY (session_id) REFERENCES public.workout_sessions(id),
   CONSTRAINT exercise_sets_exercise_id_fkey FOREIGN KEY (exercise_id) REFERENCES public.exercises(id),
-  CONSTRAINT exercise_sets_planned_exercise_id_fkey FOREIGN KEY (planned_exercise_id) REFERENCES public.planned_exercises(id),
-  CONSTRAINT exercise_sets_session_id_fkey FOREIGN KEY (session_id) REFERENCES public.workout_sessions(id)
+  CONSTRAINT exercise_sets_planned_exercise_id_fkey FOREIGN KEY (planned_exercise_id) REFERENCES public.planned_exercises(id)
 );
 CREATE TABLE public.exercise_tutorial_videos (
-  id uuid NOT NULL DEFAULT uuid_generate_v4(),
   exercise_id uuid NOT NULL,
   title text NOT NULL,
   url text NOT NULL,
   created_by uuid,
+  id uuid NOT NULL DEFAULT uuid_generate_v4(),
   created_at timestamp with time zone NOT NULL DEFAULT now(),
   updated_at timestamp with time zone NOT NULL DEFAULT now(),
   CONSTRAINT exercise_tutorial_videos_pkey PRIMARY KEY (id),
@@ -385,18 +386,18 @@ CREATE TABLE public.exercise_tutorial_videos (
   CONSTRAINT exercise_tutorial_videos_created_by_fkey FOREIGN KEY (created_by) REFERENCES auth.users(id)
 );
 CREATE TABLE public.exercises (
-  id uuid NOT NULL DEFAULT uuid_generate_v4(),
   name text NOT NULL,
   description text,
   instructions jsonb,
   muscle_groups ARRAY NOT NULL,
   primary_muscle USER-DEFINED NOT NULL,
   equipment ARRAY NOT NULL,
-  difficulty integer DEFAULT 2 CHECK (difficulty >= 1 AND difficulty <= 5),
-  is_compound boolean DEFAULT false,
   alternatives ARRAY,
   demo_video_url text,
   form_cues ARRAY,
+  id uuid NOT NULL DEFAULT uuid_generate_v4(),
+  difficulty integer DEFAULT 2 CHECK (difficulty >= 1 AND difficulty <= 5),
+  is_compound boolean DEFAULT false,
   created_at timestamp with time zone DEFAULT now(),
   updated_at timestamp with time zone DEFAULT now(),
   movement_pattern USER-DEFINED,
@@ -413,7 +414,6 @@ CREATE TABLE public.exercises (
   CONSTRAINT exercises_parent_exercise_id_fkey FOREIGN KEY (parent_exercise_id) REFERENCES public.exercises(id)
 );
 CREATE TABLE public.fitness_goals (
-  id uuid NOT NULL DEFAULT uuid_generate_v4(),
   user_id uuid NOT NULL,
   goal_type text NOT NULL CHECK (goal_type = ANY (ARRAY['strength'::text, 'weight_loss'::text, 'weight_gain'::text, 'muscle_gain'::text, 'endurance'::text, 'body_composition'::text, 'performance'::text, 'habit'::text, 'custom'::text])),
   title text NOT NULL,
@@ -421,17 +421,18 @@ CREATE TABLE public.fitness_goals (
   target_value numeric,
   current_value numeric,
   unit text,
-  start_date date NOT NULL DEFAULT CURRENT_DATE,
   target_date date,
   completed_date date,
-  is_active boolean DEFAULT true,
-  priority integer DEFAULT 1 CHECK (priority >= 1 AND priority <= 5),
   category text,
-  progress_percentage numeric DEFAULT 0 CHECK (progress_percentage >= 0::numeric AND progress_percentage <= 100::numeric),
   last_updated_value numeric,
   last_updated_date date,
   exercise_id uuid,
   measurement_type text,
+  id uuid NOT NULL DEFAULT uuid_generate_v4(),
+  start_date date NOT NULL DEFAULT CURRENT_DATE,
+  is_active boolean DEFAULT true,
+  priority integer DEFAULT 1 CHECK (priority >= 1 AND priority <= 5),
+  progress_percentage numeric DEFAULT 0 CHECK (progress_percentage >= 0::numeric AND progress_percentage <= 100::numeric),
   created_at timestamp with time zone DEFAULT now(),
   updated_at timestamp with time zone DEFAULT now(),
   CONSTRAINT fitness_goals_pkey PRIMARY KEY (id),
@@ -442,23 +443,23 @@ CREATE TABLE public.fitness_stopwords (
   word text
 );
 CREATE TABLE public.goal_milestones (
-  id uuid NOT NULL DEFAULT uuid_generate_v4(),
   goal_id uuid NOT NULL,
   milestone_name text NOT NULL,
   target_value numeric NOT NULL,
   target_date date,
   achieved_date date,
   achieved_value numeric,
-  is_achieved boolean DEFAULT false,
   reward_description text,
+  id uuid NOT NULL DEFAULT uuid_generate_v4(),
+  is_achieved boolean DEFAULT false,
   created_at timestamp with time zone DEFAULT now(),
   CONSTRAINT goal_milestones_pkey PRIMARY KEY (id),
   CONSTRAINT goal_milestones_goal_id_fkey FOREIGN KEY (goal_id) REFERENCES public.fitness_goals(id)
 );
 CREATE TABLE public.monthly_ai_usage (
-  id uuid NOT NULL DEFAULT uuid_generate_v4(),
   user_id uuid NOT NULL,
   month_year date NOT NULL,
+  id uuid NOT NULL DEFAULT uuid_generate_v4(),
   total_queries integer DEFAULT 0,
   total_tokens integer DEFAULT 0,
   total_cost numeric DEFAULT 0,
@@ -469,11 +470,8 @@ CREATE TABLE public.monthly_ai_usage (
   CONSTRAINT monthly_ai_usage_user_id_fkey FOREIGN KEY (user_id) REFERENCES public.user_profiles(id)
 );
 CREATE TABLE public.monthly_reviews (
-  id uuid NOT NULL DEFAULT uuid_generate_v4(),
   user_id uuid NOT NULL,
   review_month date NOT NULL,
-  workout_count integer NOT NULL DEFAULT 0,
-  total_volume_kg numeric DEFAULT 0,
   average_rpe numeric,
   strength_gains jsonb,
   goal_progress jsonb,
@@ -483,50 +481,52 @@ CREATE TABLE public.monthly_reviews (
   next_month_focus text,
   ai_generated_at timestamp with time zone,
   tokens_used integer,
+  id uuid NOT NULL DEFAULT uuid_generate_v4(),
+  workout_count integer NOT NULL DEFAULT 0,
+  total_volume_kg numeric DEFAULT 0,
   created_at timestamp with time zone DEFAULT now(),
   CONSTRAINT monthly_reviews_pkey PRIMARY KEY (id),
   CONSTRAINT monthly_reviews_user_id_fkey FOREIGN KEY (user_id) REFERENCES public.user_profiles(id)
 );
 CREATE TABLE public.payment_history (
-  id uuid NOT NULL DEFAULT uuid_generate_v4(),
   user_id uuid NOT NULL,
   subscription_id uuid,
   amount_cents integer NOT NULL CHECK (amount_cents >= 0),
-  currency text NOT NULL DEFAULT 'usd'::text,
   status text NOT NULL CHECK (status = ANY (ARRAY['pending'::text, 'succeeded'::text, 'failed'::text, 'canceled'::text, 'refunded'::text])),
   payment_method text,
   failure_reason text,
-  refund_amount_cents integer DEFAULT 0,
   refunded_at timestamp with time zone,
   processed_at timestamp with time zone,
+  id uuid NOT NULL DEFAULT uuid_generate_v4(),
+  currency text NOT NULL DEFAULT 'usd'::text,
+  refund_amount_cents integer DEFAULT 0,
   created_at timestamp with time zone DEFAULT now(),
   CONSTRAINT payment_history_pkey PRIMARY KEY (id),
   CONSTRAINT payment_history_user_id_fkey FOREIGN KEY (user_id) REFERENCES public.user_profiles(id),
   CONSTRAINT payment_history_subscription_id_fkey FOREIGN KEY (subscription_id) REFERENCES public.subscriptions(id)
 );
 CREATE TABLE public.performance_comparison_groups (
-  id uuid NOT NULL DEFAULT uuid_generate_v4(),
   name text NOT NULL,
   description text,
   criteria jsonb NOT NULL,
+  id uuid NOT NULL DEFAULT uuid_generate_v4(),
   is_active boolean DEFAULT true,
   created_at timestamp with time zone DEFAULT now(),
   CONSTRAINT performance_comparison_groups_pkey PRIMARY KEY (id)
 );
 CREATE TABLE public.plan_feature_limits (
-  id uuid NOT NULL DEFAULT uuid_generate_v4(),
   plan_id uuid NOT NULL,
   feature_id uuid NOT NULL,
-  is_enabled boolean DEFAULT true,
   usage_limit integer,
   reset_period text CHECK (reset_period = ANY (ARRAY['daily'::text, 'weekly'::text, 'monthly'::text, 'yearly'::text, 'lifetime'::text])),
+  id uuid NOT NULL DEFAULT uuid_generate_v4(),
+  is_enabled boolean DEFAULT true,
   created_at timestamp with time zone DEFAULT now(),
   CONSTRAINT plan_feature_limits_pkey PRIMARY KEY (id),
   CONSTRAINT plan_feature_limits_plan_id_fkey FOREIGN KEY (plan_id) REFERENCES public.subscription_plans(id),
   CONSTRAINT plan_feature_limits_feature_id_fkey FOREIGN KEY (feature_id) REFERENCES public.subscription_features(id)
 );
 CREATE TABLE public.planned_exercises (
-  id uuid NOT NULL DEFAULT uuid_generate_v4(),
   session_id uuid NOT NULL,
   exercise_id uuid NOT NULL,
   order_in_session integer NOT NULL CHECK (order_in_session > 0),
@@ -537,13 +537,13 @@ CREATE TABLE public.planned_exercises (
   rest_seconds integer CHECK (rest_seconds >= 0),
   notes text,
   progression_scheme jsonb,
+  id uuid NOT NULL DEFAULT uuid_generate_v4(),
   created_at timestamp with time zone DEFAULT now(),
   CONSTRAINT planned_exercises_pkey PRIMARY KEY (id),
   CONSTRAINT planned_exercises_session_id_fkey FOREIGN KEY (session_id) REFERENCES public.workout_plan_sessions(id),
   CONSTRAINT planned_exercises_exercise_id_fkey FOREIGN KEY (exercise_id) REFERENCES public.exercises(id)
 );
 CREATE TABLE public.progress_metrics (
-  id uuid NOT NULL DEFAULT uuid_generate_v4(),
   user_id uuid NOT NULL,
   metric_date date NOT NULL,
   metric_type text NOT NULL CHECK (metric_type = ANY (ARRAY['strength'::text, 'volume'::text, 'frequency'::text, 'consistency'::text, 'body_composition'::text, 'performance'::text, 'recovery'::text, 'motivation'::text])),
@@ -560,12 +560,12 @@ CREATE TABLE public.progress_metrics (
   previous_period_value numeric,
   percentage_change numeric,
   percentile_rank integer CHECK (percentile_rank >= 1 AND percentile_rank <= 100),
+  id uuid NOT NULL DEFAULT uuid_generate_v4(),
   created_at timestamp with time zone DEFAULT now(),
   CONSTRAINT progress_metrics_pkey PRIMARY KEY (id),
   CONSTRAINT progress_metrics_user_id_fkey FOREIGN KEY (user_id) REFERENCES public.user_profiles(id)
 );
 CREATE TABLE public.progressive_overload_records (
-  id uuid NOT NULL DEFAULT uuid_generate_v4(),
   user_id uuid NOT NULL,
   exercise_id uuid NOT NULL,
   progression_date date NOT NULL,
@@ -576,13 +576,13 @@ CREATE TABLE public.progressive_overload_records (
   trigger_reason text,
   user_feedback text,
   success_rating integer CHECK (success_rating >= 1 AND success_rating <= 5),
+  id uuid NOT NULL DEFAULT uuid_generate_v4(),
   created_at timestamp with time zone DEFAULT now(),
   CONSTRAINT progressive_overload_records_pkey PRIMARY KEY (id),
   CONSTRAINT progressive_overload_records_user_id_fkey FOREIGN KEY (user_id) REFERENCES public.user_profiles(id),
   CONSTRAINT progressive_overload_records_exercise_id_fkey FOREIGN KEY (exercise_id) REFERENCES public.exercises(id)
 );
 CREATE TABLE public.strength_standards (
-  id uuid NOT NULL DEFAULT uuid_generate_v4(),
   exercise_id uuid NOT NULL,
   gender USER-DEFINED NOT NULL,
   bodyweight_kg_min numeric NOT NULL,
@@ -591,14 +591,15 @@ CREATE TABLE public.strength_standards (
   standard_1rm_kg numeric NOT NULL,
   percentile integer CHECK (percentile >= 1 AND percentile <= 100),
   data_source text,
+  id uuid NOT NULL DEFAULT uuid_generate_v4(),
   created_at timestamp with time zone DEFAULT now(),
   CONSTRAINT strength_standards_pkey PRIMARY KEY (id),
   CONSTRAINT strength_standards_exercise_id_fkey FOREIGN KEY (exercise_id) REFERENCES public.exercises(id)
 );
 CREATE TABLE public.subscription_analytics (
-  id uuid NOT NULL DEFAULT uuid_generate_v4(),
   subscription_id uuid NOT NULL,
   metric_date date NOT NULL,
+  id uuid NOT NULL DEFAULT uuid_generate_v4(),
   workouts_logged integer DEFAULT 0,
   ai_queries_used integer DEFAULT 0,
   custom_workouts_created integer DEFAULT 0,
@@ -612,7 +613,6 @@ CREATE TABLE public.subscription_analytics (
   CONSTRAINT subscription_analytics_subscription_id_fkey FOREIGN KEY (subscription_id) REFERENCES public.subscriptions(id)
 );
 CREATE TABLE public.subscription_changes (
-  id uuid NOT NULL DEFAULT uuid_generate_v4(),
   user_id uuid NOT NULL,
   current_subscription_id uuid,
   target_plan_id uuid NOT NULL,
@@ -621,9 +621,10 @@ CREATE TABLE public.subscription_changes (
   proration_amount_cents integer,
   reason text,
   user_feedback text,
-  status text DEFAULT 'pending'::text CHECK (status = ANY (ARRAY['pending'::text, 'processing'::text, 'completed'::text, 'failed'::text, 'canceled'::text])),
   processed_at timestamp with time zone,
   stripe_subscription_schedule_id text,
+  id uuid NOT NULL DEFAULT uuid_generate_v4(),
+  status text DEFAULT 'pending'::text CHECK (status = ANY (ARRAY['pending'::text, 'processing'::text, 'completed'::text, 'failed'::text, 'canceled'::text])),
   created_at timestamp with time zone DEFAULT now(),
   updated_at timestamp with time zone DEFAULT now(),
   CONSTRAINT subscription_changes_pkey PRIMARY KEY (id),
@@ -632,24 +633,24 @@ CREATE TABLE public.subscription_changes (
   CONSTRAINT subscription_changes_target_plan_id_fkey FOREIGN KEY (target_plan_id) REFERENCES public.subscription_plans(id)
 );
 CREATE TABLE public.subscription_features (
-  id uuid NOT NULL DEFAULT uuid_generate_v4(),
   feature_key text NOT NULL UNIQUE,
   feature_name text NOT NULL,
   description text,
   category text NOT NULL CHECK (category = ANY (ARRAY['core'::text, 'ai'::text, 'analytics'::text, 'social'::text, 'premium'::text])),
+  id uuid NOT NULL DEFAULT uuid_generate_v4(),
   is_active boolean DEFAULT true,
   created_at timestamp with time zone DEFAULT now(),
   CONSTRAINT subscription_features_pkey PRIMARY KEY (id)
 );
 CREATE TABLE public.subscription_pauses (
-  id uuid NOT NULL DEFAULT uuid_generate_v4(),
   subscription_id uuid NOT NULL,
   pause_start_date date NOT NULL,
   pause_end_date date,
   reason text,
-  auto_resume boolean DEFAULT true,
   billing_cycle_anchor date,
   prorated_amount_cents integer,
+  id uuid NOT NULL DEFAULT uuid_generate_v4(),
+  auto_resume boolean DEFAULT true,
   status text DEFAULT 'active'::text CHECK (status = ANY (ARRAY['active'::text, 'resumed'::text, 'expired'::text])),
   created_at timestamp with time zone DEFAULT now(),
   updated_at timestamp with time zone DEFAULT now(),
@@ -657,11 +658,11 @@ CREATE TABLE public.subscription_pauses (
   CONSTRAINT subscription_pauses_subscription_id_fkey FOREIGN KEY (subscription_id) REFERENCES public.subscriptions(id)
 );
 CREATE TABLE public.subscription_plans (
-  id uuid NOT NULL DEFAULT uuid_generate_v4(),
   name text NOT NULL,
   description text,
   price_cents integer NOT NULL CHECK (price_cents >= 0),
   interval USER-DEFINED NOT NULL,
+  id uuid NOT NULL DEFAULT uuid_generate_v4(),
   features jsonb NOT NULL DEFAULT '[]'::jsonb,
   max_ai_queries integer DEFAULT 0,
   max_custom_workouts integer DEFAULT 0,
@@ -672,7 +673,6 @@ CREATE TABLE public.subscription_plans (
   CONSTRAINT subscription_plans_pkey PRIMARY KEY (id)
 );
 CREATE TABLE public.subscriptions (
-  id uuid NOT NULL DEFAULT uuid_generate_v4(),
   user_id uuid NOT NULL,
   plan_id uuid NOT NULL,
   status USER-DEFINED NOT NULL,
@@ -681,6 +681,7 @@ CREATE TABLE public.subscriptions (
   trial_start timestamp with time zone,
   trial_end timestamp with time zone,
   canceled_at timestamp with time zone,
+  id uuid NOT NULL DEFAULT uuid_generate_v4(),
   cancel_at_period_end boolean DEFAULT false,
   created_at timestamp with time zone DEFAULT now(),
   updated_at timestamp with time zone DEFAULT now(),
@@ -689,12 +690,12 @@ CREATE TABLE public.subscriptions (
   CONSTRAINT subscriptions_plan_id_fkey FOREIGN KEY (plan_id) REFERENCES public.subscription_plans(id)
 );
 CREATE TABLE public.user_achievements (
-  id uuid NOT NULL DEFAULT uuid_generate_v4(),
   user_id uuid NOT NULL,
   achievement_id uuid NOT NULL,
-  earned_date date NOT NULL DEFAULT CURRENT_DATE,
   progress_value numeric,
   context_data jsonb,
+  id uuid NOT NULL DEFAULT uuid_generate_v4(),
+  earned_date date NOT NULL DEFAULT CURRENT_DATE,
   is_featured boolean DEFAULT false,
   created_at timestamp with time zone DEFAULT now(),
   CONSTRAINT user_achievements_pkey PRIMARY KEY (id),
@@ -702,20 +703,20 @@ CREATE TABLE public.user_achievements (
   CONSTRAINT user_achievements_achievement_id_fkey FOREIGN KEY (achievement_id) REFERENCES public.achievements(id)
 );
 CREATE TABLE public.user_ai_preferences (
-  id uuid NOT NULL DEFAULT uuid_generate_v4(),
   user_id uuid NOT NULL UNIQUE,
   preferred_coaching_style text CHECK (preferred_coaching_style = ANY (ARRAY['supportive'::text, 'challenging'::text, 'analytical'::text, 'motivational'::text])),
   communication_frequency text CHECK (communication_frequency = ANY (ARRAY['minimal'::text, 'moderate'::text, 'frequent'::text, 'intensive'::text])),
   preferred_response_length text CHECK (preferred_response_length = ANY (ARRAY['brief'::text, 'moderate'::text, 'detailed'::text, 'comprehensive'::text])),
+  preferred_examples text CHECK (preferred_examples = ANY (ARRAY['personal'::text, 'general'::text, 'scientific'::text, 'motivational'::text])),
+  learning_style text CHECK (learning_style = ANY (ARRAY['visual'::text, 'analytical'::text, 'practical'::text, 'social'::text])),
+  feedback_sensitivity text CHECK (feedback_sensitivity = ANY (ARRAY['direct'::text, 'gentle'::text, 'balanced'::text, 'encouraging'::text])),
+  id uuid NOT NULL DEFAULT uuid_generate_v4(),
   focus_areas ARRAY DEFAULT '{}'::text[],
   avoid_topics ARRAY DEFAULT '{}'::text[],
-  preferred_examples text CHECK (preferred_examples = ANY (ARRAY['personal'::text, 'general'::text, 'scientific'::text, 'motivational'::text])),
   enable_proactive_suggestions boolean DEFAULT true,
   enable_progress_celebrations boolean DEFAULT true,
   enable_form_reminders boolean DEFAULT true,
   enable_recovery_suggestions boolean DEFAULT true,
-  learning_style text CHECK (learning_style = ANY (ARRAY['visual'::text, 'analytical'::text, 'practical'::text, 'social'::text])),
-  feedback_sensitivity text CHECK (feedback_sensitivity = ANY (ARRAY['direct'::text, 'gentle'::text, 'balanced'::text, 'encouraging'::text])),
   allow_data_analysis boolean DEFAULT true,
   allow_pattern_recognition boolean DEFAULT true,
   allow_predictive_insights boolean DEFAULT true,
@@ -725,12 +726,12 @@ CREATE TABLE public.user_ai_preferences (
   CONSTRAINT user_ai_preferences_user_id_fkey FOREIGN KEY (user_id) REFERENCES public.user_profiles(id)
 );
 CREATE TABLE public.user_feature_usage (
-  id uuid NOT NULL DEFAULT uuid_generate_v4(),
   user_id uuid NOT NULL,
   feature_id uuid NOT NULL,
-  usage_count integer DEFAULT 0,
   last_used_at timestamp with time zone,
   reset_at timestamp with time zone,
+  id uuid NOT NULL DEFAULT uuid_generate_v4(),
+  usage_count integer DEFAULT 0,
   period_start timestamp with time zone DEFAULT now(),
   created_at timestamp with time zone DEFAULT now(),
   updated_at timestamp with time zone DEFAULT now(),
@@ -739,11 +740,12 @@ CREATE TABLE public.user_feature_usage (
   CONSTRAINT user_feature_usage_feature_id_fkey FOREIGN KEY (feature_id) REFERENCES public.subscription_features(id)
 );
 CREATE TABLE public.user_profiles (
+  temp_subscription_plan text DEFAULT 'free'::text CHECK (temp_subscription_plan = ANY (ARRAY['free'::text, 'premium'::text, 'coach'::text])),
+  temp_subscription_expires timestamp with time zone,
   id uuid NOT NULL,
   email text NOT NULL,
   display_name text NOT NULL,
   avatar_url text,
-  height_cm smallint CHECK (height_cm > 0 AND height_cm < 300),
   weight_kg numeric CHECK (weight_kg > 0::numeric AND weight_kg < 1000::numeric),
   birth_date date,
   gender USER-DEFINED,
@@ -754,8 +756,7 @@ CREATE TABLE public.user_profiles (
   onboarding_completed boolean DEFAULT false,
   created_at timestamp with time zone DEFAULT now(),
   updated_at timestamp with time zone DEFAULT now(),
-  temp_subscription_plan text DEFAULT 'free'::text CHECK (temp_subscription_plan = ANY (ARRAY['free'::text, 'premium'::text, 'coach'::text])),
-  temp_subscription_expires timestamp with time zone,
+  height_cm smallint CHECK (height_cm > 0 AND height_cm < 300),
   privacy_data_sharing boolean DEFAULT false,
   privacy_analytics boolean DEFAULT true,
   privacy_ai_coaching boolean DEFAULT true,
@@ -766,7 +767,6 @@ CREATE TABLE public.user_profiles (
   CONSTRAINT user_profiles_id_fkey FOREIGN KEY (id) REFERENCES auth.users(id)
 );
 CREATE TABLE public.user_strength_benchmarks (
-  id uuid NOT NULL DEFAULT uuid_generate_v4(),
   user_id uuid NOT NULL,
   exercise_id uuid NOT NULL,
   benchmark_date date NOT NULL,
@@ -777,16 +777,17 @@ CREATE TABLE public.user_strength_benchmarks (
   strength_level text,
   percentile_rank integer CHECK (percentile_rank >= 1 AND percentile_rank <= 100),
   notes text,
+  id uuid NOT NULL DEFAULT uuid_generate_v4(),
   created_at timestamp with time zone DEFAULT now(),
   CONSTRAINT user_strength_benchmarks_pkey PRIMARY KEY (id),
   CONSTRAINT user_strength_benchmarks_user_id_fkey FOREIGN KEY (user_id) REFERENCES public.user_profiles(id),
   CONSTRAINT user_strength_benchmarks_exercise_id_fkey FOREIGN KEY (exercise_id) REFERENCES public.exercises(id)
 );
 CREATE TABLE public.user_workout_customizations (
-  id uuid NOT NULL DEFAULT uuid_generate_v4(),
   user_id uuid NOT NULL,
   template_id uuid NOT NULL,
   customization_data jsonb NOT NULL,
+  id uuid NOT NULL DEFAULT uuid_generate_v4(),
   is_active boolean DEFAULT true,
   created_at timestamp with time zone DEFAULT now(),
   updated_at timestamp with time zone DEFAULT now(),
@@ -794,20 +795,37 @@ CREATE TABLE public.user_workout_customizations (
   CONSTRAINT user_workout_customizations_user_id_fkey FOREIGN KEY (user_id) REFERENCES public.user_profiles(id),
   CONSTRAINT user_workout_customizations_template_id_fkey FOREIGN KEY (template_id) REFERENCES public.workout_templates(id)
 );
-CREATE TABLE public.workout_plan_sessions (
+CREATE TABLE public.user_workout_progress (
+  user_id uuid NOT NULL,
+  plan_id uuid NOT NULL,
+  last_completed_session_id uuid,
+  last_workout_session_id uuid,
+  completed_at timestamp with time zone,
   id uuid NOT NULL DEFAULT uuid_generate_v4(),
+  current_phase_number integer NOT NULL DEFAULT 1 CHECK (current_phase_number > 0),
+  current_repetition integer NOT NULL DEFAULT 1 CHECK (current_repetition > 0),
+  current_day_number integer NOT NULL DEFAULT 1 CHECK (current_day_number > 0),
+  updated_at timestamp with time zone DEFAULT now(),
+  created_at timestamp with time zone DEFAULT now(),
+  CONSTRAINT user_workout_progress_pkey PRIMARY KEY (id),
+  CONSTRAINT user_workout_progress_user_id_fkey FOREIGN KEY (user_id) REFERENCES public.user_profiles(id),
+  CONSTRAINT user_workout_progress_plan_id_fkey FOREIGN KEY (plan_id) REFERENCES public.workout_plans(id),
+  CONSTRAINT user_workout_progress_last_completed_session_id_fkey FOREIGN KEY (last_completed_session_id) REFERENCES public.workout_plan_sessions(id),
+  CONSTRAINT user_workout_progress_last_workout_session_id_fkey FOREIGN KEY (last_workout_session_id) REFERENCES public.workout_sessions(id)
+);
+CREATE TABLE public.workout_plan_sessions (
+  phase_number integer DEFAULT 1 CHECK (phase_number > 0),
   plan_id uuid NOT NULL,
   name text NOT NULL,
   day_number integer NOT NULL CHECK (day_number > 0),
-  week_number integer DEFAULT 1 CHECK (week_number > 0),
   estimated_duration_minutes integer CHECK (estimated_duration_minutes > 0),
+  id uuid NOT NULL DEFAULT uuid_generate_v4(),
   created_at timestamp with time zone DEFAULT now(),
-  phase_number integer DEFAULT 1 CHECK (phase_number > 0),
+  phase_repetitions integer NOT NULL DEFAULT 4 CHECK (phase_repetitions > 0),
   CONSTRAINT workout_plan_sessions_pkey PRIMARY KEY (id),
   CONSTRAINT workout_plan_sessions_plan_id_fkey FOREIGN KEY (plan_id) REFERENCES public.workout_plans(id)
 );
 CREATE TABLE public.workout_plans (
-  id uuid NOT NULL DEFAULT uuid_generate_v4(),
   name text NOT NULL,
   description text,
   type USER-DEFINED NOT NULL,
@@ -816,6 +834,7 @@ CREATE TABLE public.workout_plans (
   difficulty integer CHECK (difficulty >= 1 AND difficulty <= 5),
   target_experience ARRAY NOT NULL,
   created_by uuid,
+  id uuid NOT NULL DEFAULT uuid_generate_v4(),
   is_template boolean DEFAULT false,
   is_public boolean DEFAULT false,
   tags ARRAY DEFAULT '{}'::text[],
@@ -825,7 +844,6 @@ CREATE TABLE public.workout_plans (
   CONSTRAINT workout_plans_created_by_fkey FOREIGN KEY (created_by) REFERENCES public.user_profiles(id)
 );
 CREATE TABLE public.workout_sessions (
-  id uuid NOT NULL DEFAULT uuid_generate_v4(),
   user_id uuid NOT NULL,
   plan_id uuid,
   session_id uuid,
@@ -836,6 +854,7 @@ CREATE TABLE public.workout_sessions (
   total_volume_kg numeric,
   average_rpe numeric,
   notes text,
+  id uuid NOT NULL DEFAULT uuid_generate_v4(),
   sync_status USER-DEFINED DEFAULT 'synced'::sync_status_enum,
   offline_created boolean DEFAULT false,
   created_at timestamp with time zone DEFAULT now(),
@@ -853,12 +872,10 @@ CREATE TABLE public.workout_sessions (
   CONSTRAINT workout_sessions_session_id_fkey FOREIGN KEY (session_id) REFERENCES public.workout_plan_sessions(id)
 );
 CREATE TABLE public.workout_template_exercises (
-  id uuid NOT NULL DEFAULT uuid_generate_v4(),
   template_id uuid NOT NULL,
   exercise_id uuid NOT NULL,
   order_in_workout integer NOT NULL CHECK (order_in_workout > 0),
   superset_group integer,
-  exercise_type text DEFAULT 'main'::text CHECK (exercise_type = ANY (ARRAY['warmup'::text, 'main'::text, 'accessory'::text, 'cooldown'::text])),
   target_sets integer NOT NULL CHECK (target_sets > 0),
   rep_range_min integer CHECK (rep_range_min > 0),
   rep_range_max integer,
@@ -871,13 +888,14 @@ CREATE TABLE public.workout_template_exercises (
   progression_scheme jsonb,
   conditions jsonb,
   alternatives ARRAY,
+  id uuid NOT NULL DEFAULT uuid_generate_v4(),
+  exercise_type text DEFAULT 'main'::text CHECK (exercise_type = ANY (ARRAY['warmup'::text, 'main'::text, 'accessory'::text, 'cooldown'::text])),
   created_at timestamp with time zone DEFAULT now(),
   CONSTRAINT workout_template_exercises_pkey PRIMARY KEY (id),
   CONSTRAINT workout_template_exercises_template_id_fkey FOREIGN KEY (template_id) REFERENCES public.workout_templates(id),
   CONSTRAINT workout_template_exercises_exercise_id_fkey FOREIGN KEY (exercise_id) REFERENCES public.exercises(id)
 );
 CREATE TABLE public.workout_templates (
-  id uuid NOT NULL DEFAULT uuid_generate_v4(),
   name text NOT NULL,
   description text,
   created_by uuid,
@@ -885,6 +903,7 @@ CREATE TABLE public.workout_templates (
   target_experience ARRAY NOT NULL,
   estimated_duration_minutes integer CHECK (estimated_duration_minutes > 0),
   difficulty_rating numeric CHECK (difficulty_rating >= 1.0 AND difficulty_rating <= 5.0),
+  id uuid NOT NULL DEFAULT uuid_generate_v4(),
   muscle_focus ARRAY DEFAULT '{}'::muscle_group_enum[],
   equipment_required ARRAY DEFAULT '{}'::equipment_enum[],
   tags ARRAY DEFAULT '{}'::text[],

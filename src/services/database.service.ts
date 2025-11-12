@@ -1437,10 +1437,91 @@ export class DatabaseService {
     };
   }
 
-  // ==========================================================================
-  // WORKOUT PROGRESS HELPERS
-  // ==========================================================================
+  // ============================================================================
+  // NEXT WORKOUT / PROGRESSION HELPERS START
+  // ============================================================================
 
+  /**
+   * Get all workout progress records for a user (all plans).
+   * Returns an array of raw DB rows (may be empty).
+   */
+  async getUserAllWorkoutProgress(userId: string, options: QueryOptions = {}): Promise<any[]> {
+    const cacheKey = this.getCacheKey("user_workout_progress", { userId, all: true });
+
+    // Check cache first
+    if (options.useCache !== false) {
+      const cached = this.getCachedData(cacheKey);
+      if (cached) return cached;
+    }
+
+    try {
+      const { data, error } = await supabase
+        .from("user_workout_progress")
+        .select("*")
+        .eq("user_id", userId)
+        .order("updated_at", { ascending: false });
+
+      if (error) throw error;
+      const rows = (data || []) as any[];
+
+      if (options.useCache !== false) {
+        this.setCachedData(cacheKey, rows, options.cacheTimeout);
+      }
+
+      return rows;
+    } catch (error) {
+      const dbError = this.handleDatabaseError(error);
+      if (dbError.isNetworkError) {
+        const cached = this.queryCache.get(cacheKey);
+        if (cached) return cached.data;
+        return [];
+      }
+      throw dbError;
+    }
+  }
+
+  /**
+   * Get a single workout_session by id.
+   * Includes exercise_sets on the returned row when available.
+   */
+  async getWorkoutSessionById(sessionId: string, options: QueryOptions = {}): Promise<any | null> {
+    const cacheKey = this.getCacheKey("workout_sessions", { sessionId });
+
+    // Check cache first
+    if (options.useCache !== false) {
+      const cached = this.getCachedData(cacheKey);
+      if (cached) return cached;
+    }
+
+    try {
+      const { data, error } = await supabase
+        .from("workout_sessions")
+        .select(
+          `
+          *,
+          exercise_sets (*)
+        `
+        )
+        .eq("id", sessionId)
+        .maybeSingle();
+
+      if (error) throw error;
+      if (!data) return null;
+
+      if (options.useCache !== false) {
+        this.setCachedData(cacheKey, data, options.cacheTimeout);
+      }
+
+      return data;
+    } catch (error) {
+      const dbError = this.handleDatabaseError(error);
+      if (dbError.isNetworkError) {
+        const cached = this.queryCache.get(cacheKey);
+        if (cached) return cached.data;
+      }
+      throw dbError;
+    }
+  }
   /**
    * Get the user's progress record for a specific plan.
    * Returns the raw DB row transformed minimally or null if none exists.
@@ -1505,7 +1586,7 @@ export class DatabaseService {
    * Get the most recent incomplete workout_session for the user within a plan.
    * Returns the workout_sessions row or null.
    */
-  async getMostRecentIncompleteSession(userId: string, planId?: string): Promise<any | null> {
+  async getMostRecentSession(userId: string, planId?: string): Promise<any | null> {
     try {
       // NOTE: This method now returns the most recent session for the user (optionally scoped to a plan),
       // regardless of whether it has been completed. Callers should inspect `completed_at` to determine
@@ -1541,7 +1622,8 @@ export class DatabaseService {
    */
   async calculateProgressFromHistory(
     userId: string,
-    planId: string
+    planId: string,
+    excludeSessionId?: string
   ): Promise<{
     phaseNumber: number;
     repetition: number;
@@ -1581,7 +1663,7 @@ export class DatabaseService {
 
       // 2) Load user workout_sessions joined with plan session metadata
       // Select relevant fields and join via session_id -> workout_plan_sessions
-      const userRes = await supabase
+      let userQuery: any = supabase
         .from("workout_sessions")
         .select(
           `
@@ -1598,8 +1680,13 @@ export class DatabaseService {
         .eq("user_id", userId)
         .eq("plan_id", planId)
         .order("started_at", { ascending: true })
-        .limit(1000);
+        .limit(300); // limit to 300 sessions for performance
 
+      if (excludeSessionId) {
+        userQuery = userQuery.neq("id", excludeSessionId);
+      }
+
+      const userRes = await userQuery;
       const userSessions = (userRes?.data as any[]) || [];
       const sessionsError = userRes?.error;
 
@@ -1631,15 +1718,25 @@ export class DatabaseService {
         const currentRepetition = Math.min(repetitionsCompleted + 1, phaseReps);
 
         if (repetitionsCompleted < phaseReps) {
-          // Determine next day number: smallest day in 1..totalDays not present
+          // Determine next day number: smallest day in 1..totalDays not present.
+          // If the user has completed a whole number of repetitions (e.g. completed all days once),
+          // start the next repetition at day 1.
           const daysCompletedSet = phaseDaySets.get(pn) || new Set<number>();
+
+          if (uniqueDays > 0 && uniqueDays % totalDays === 0) {
+            return {
+              phaseNumber: pn,
+              repetition: currentRepetition,
+              dayNumber: 1,
+            };
+          }
+
           let nextDay = 1;
           for (let d = 1; d <= totalDays; d++) {
             if (!daysCompletedSet.has(d)) {
               nextDay = d;
               break;
             }
-            nextDay = Math.min(totalDays, d + 1);
           }
 
           return {
@@ -1666,6 +1763,9 @@ export class DatabaseService {
     }
   }
 }
+// ============================================================================
+// NEXT WORKOUT / PROGRESSION HELPERS END
+// ============================================================================
 
 // Export singleton instance
 export const databaseService = DatabaseService.getInstance();

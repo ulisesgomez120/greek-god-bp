@@ -11,6 +11,7 @@ import { logger } from "../utils/logger";
 import { authService } from "./auth.service";
 import supabase from "@/lib/supabase";
 import { databaseService } from "./database.service";
+import workoutPlanService from "./workoutPlan.service";
 import { transformWorkoutSessionWithSets } from "@/types/transforms";
 import type {
   WorkoutSession,
@@ -126,6 +127,7 @@ export class WorkoutService {
         };
 
         // Delegate creation to DatabaseService which handles transforms and offline fallback
+        // here
         const inserted = await databaseService.insertWorkoutSession(payload);
         workout = inserted;
       } catch (err) {
@@ -377,58 +379,32 @@ export class WorkoutService {
       } catch (err) {
         logger.warn("Failed to persist completed workout via DatabaseService", err, "workout", user.id);
       }
-
+      // remove
       // Update user progress after completion:
       // Recalculate progress from history (canonical) and upsert the user_workout_progress row so
       // subsequent calls to getNextWorkout reflect the newly completed session.
       try {
         if (completedWorkout && (completedWorkout as any).planId) {
           const planId = (completedWorkout as any).planId as string;
-          try {
-            logger.info("Completion: calculating progress from history", { userId: user.id, planId }, "workout");
-            const calculated = await databaseService.calculateProgressFromHistory(user.id, planId);
-            logger.info("Completion: calculateProgressFromHistory result", { calculated }, "workout");
 
-            const upsertPayload: any = {
-              current_phase_number: calculated.phaseNumber,
-              current_repetition: calculated.repetition,
-              current_day_number: calculated.dayNumber,
-              // Use the planned session id (workout_plan_sessions.id) for last_completed_session_id.
-              // completedWorkout.id is the workout_sessions row id and will violate the FK.
-              last_completed_session_id: (completedWorkout as any).sessionId || null,
-              // last_workout_session_id should reference the workout_sessions row.
-              last_workout_session_id: completedWorkout.id,
-              updated_at: new Date().toISOString(),
-            };
+          // Recompute progress from history now that the session is persisted as completed.
+          const calculated = await databaseService.calculateProgressFromHistory(user.id, planId);
 
-            logger.info(
-              "Completion: upserting user_workout_progress",
-              {
-                upsertPayloadPreview: {
-                  current_phase_number: upsertPayload.current_phase_number,
-                  current_repetition: upsertPayload.current_repetition,
-                  current_day_number: upsertPayload.current_day_number,
-                  last_completed_session_id: upsertPayload.last_completed_session_id,
-                },
-              },
-              "workout"
-            );
+          const upsertPayload: any = {
+            current_phase_number: calculated.phaseNumber,
+            current_repetition: calculated.repetition,
+            current_day_number: calculated.dayNumber,
+            last_workout_session_id: completedWorkout.id,
+            updated_at: new Date().toISOString(),
+          };
 
-            const upsertRes = await databaseService.updateUserWorkoutProgress(user.id, planId, upsertPayload);
-            logger.info(
-              "Updated user_workout_progress after workout completion",
-              { upsertId: upsertRes?.id, upsertResult: upsertRes },
-              "workout",
-              user.id
-            );
-          } catch (upsertErr) {
-            logger.warn(
-              "Failed to recalculate/upsert user_workout_progress after completion",
-              upsertErr,
-              "workout",
-              user.id
-            );
-          }
+          const upsertRes = await databaseService.updateUserWorkoutProgress(user.id, planId, upsertPayload);
+          logger.info(
+            "Updated user_workout_progress after workout completion",
+            { upsertId: upsertRes?.id, upsertResult: upsertRes },
+            "workout",
+            user.id
+          );
         } else {
           logger.info(
             "Completion: no planId found on completed workout; skipping progress upsert",
