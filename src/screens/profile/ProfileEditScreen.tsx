@@ -93,7 +93,11 @@ export const ProfileEditScreen: React.FC<ProfileEditScreenProps> = () => {
       setFormData({
         displayName: profile.displayName,
         heightCm: profile.heightCm,
-        weightKg: profile.weightKg,
+        weightKg: isImperial()
+          ? profile.weightKg
+            ? formatKgToLbsDisplay(profile.weightKg).replace(" lbs", "")
+            : ""
+          : profile.weightKg?.toString() || "",
         birthDate: profile.birthDate,
         gender: profile.gender,
         fitnessGoals: profile.fitnessGoals,
@@ -104,14 +108,6 @@ export const ProfileEditScreen: React.FC<ProfileEditScreenProps> = () => {
       // Initialize local display state for conversion-on-save
       setBirthDateLocal(profile.birthDate ? new Date(profile.birthDate) : null);
       setHeightPickerValue(profile.heightCm ?? undefined);
-      // seed weight edit so users see existing value when editing
-      setWeightEdit(
-        isImperial()
-          ? profile.weightKg
-            ? formatKgToLbsDisplay(profile.weightKg).replace(" lbs", "")
-            : ""
-          : profile.weightKg?.toString() || ""
-      );
       // seed custom input so users see existing value when fallback is active
       setHeightInput(
         isImperial() ? (profile.heightCm ? formatCmToFtIn(profile.heightCm) : "") : profile.heightCm?.toString() || ""
@@ -218,14 +214,12 @@ export const ProfileEditScreen: React.FC<ProfileEditScreenProps> = () => {
       canonical.heightCm = undefined;
     }
 
-    // Weight - convert only from the local edit string (weightEdit). Do NOT perform conversions on blur.
-    const weightDisplay = weightEdit;
-    if (weightDisplay && weightDisplay.trim() !== "") {
+    if (canonical.weightKg) {
       if (isImperial()) {
-        const kg = parseDisplayWeightToKg(weightDisplay);
+        const kg = parseDisplayWeightToKg(canonical.weightKg as string);
         canonical.weightKg = kg != null ? Number(kg.toFixed(2)) : undefined;
       } else {
-        canonical.weightKg = parseFloat(weightDisplay);
+        canonical.weightKg = parseFloat(canonical.weightKg as string);
       }
     } else {
       canonical.weightKg = undefined;
@@ -423,36 +417,18 @@ export const ProfileEditScreen: React.FC<ProfileEditScreenProps> = () => {
         <Text style={styles.labelBase}>{isImperial() ? "Weight (lbs)" : "Weight (kg)"}</Text>
         <TextInput
           style={getInputStyle(colors, undefined, getInputState(focusedField === "weightKg", !!errors.weightKg))}
-          value={
-            // Prefer the local edit string while editing or when the user has typed something.
-            focusedField === "weightKg" || (weightEdit && weightEdit.trim() !== "")
-              ? weightEdit
-              : // Otherwise, show canonical formatted value if it's a number, or the stored string if present.
-              typeof formData.weightKg === "number"
-              ? isImperial()
-                ? formatKgToLbsDisplay(formData.weightKg).replace(" lbs", "")
-                : String(formData.weightKg)
-              : formData.weightKg?.toString() || ""
-          }
+          value={formData.weightKg !== undefined ? formData.weightKg.toString() : ""}
           onChangeText={(text: string) => {
-            setWeightEdit(text);
-            setHasChanges(true);
+            updateFormData({ weightKg: text.trim() });
           }}
           onFocus={() => {
             setFocusedField("weightKg");
-            // seed local edit from current canonical value if present
-            const seed =
-              typeof formData.weightKg === "number"
-                ? isImperial()
-                  ? formatKgToLbsDisplay(formData.weightKg).replace(" lbs", "")
-                  : String(formData.weightKg)
-                : formData.weightKg?.toString() || "";
-            setWeightEdit(seed);
           }}
           onBlur={() => {
             setFocusedField(null);
+            console.log("onBlur weightEdit value:", weightEdit);
           }}
-          {...getInputProps(isImperial() ? undefined : "number")}
+          {...getInputProps("number")}
           placeholder={isImperial() ? "180" : "70"}
         />
         {errors.weightKg && <Text style={[ERROR_STYLES.text, { color: colors.error }]}>{errors.weightKg}</Text>}

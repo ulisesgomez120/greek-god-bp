@@ -61,8 +61,8 @@ const DaySelectionScreen: React.FC<DaySelectionScreenProps> = ({ navigation, rou
       ]);
 
       if (!mountedRef.current) return;
-
-      setSessions(sessionsRes || []);
+      console.log("DaySelection: loaded sessions", sessionsRes);
+      setSessions(sessionsRes.sort((a, b) => a.dayNumber - b.dayNumber) || []);
       setPlanName(planRes?.name ?? workoutPlanService.formatProgramName(programId));
     } catch (err: any) {
       console.error("DaySelection: failed to load sessions", err);
@@ -93,7 +93,7 @@ const DaySelectionScreen: React.FC<DaySelectionScreenProps> = ({ navigation, rou
     loadData({ current: true });
   };
 
-  // Fallback: if sessions empty (for any reason), optionally show a default set matching legacy behavior
+  // remove this fallback. if none are found show an error message on screen or a button to try again
   const fallbackWorkouts = () => {
     switch (programId) {
       case "full_body":

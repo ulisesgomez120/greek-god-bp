@@ -267,7 +267,6 @@ export const ExerciseDetailScreen: React.FC<ExerciseDetailScreenProps> = ({ navi
           completedSets: [...prev.completedSets, createdSet],
           currentSetNumber: prev.currentSetNumber + 1,
           showRestTimer: !setData.isWarmup,
-          restDuration: setData.restSeconds || exerciseData.restSeconds,
         }));
 
         // Removed immediate background sync: persistence is attempted inline by the service.
