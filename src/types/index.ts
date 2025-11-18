@@ -193,12 +193,14 @@ export interface ProgressMetrics {
 }
 
 export interface VolumeDataPoint {
-  date: string;
-  totalVolume: number;
-  sessionCount: number;
-  volume?: number;
-  sets?: number;
-  averageRpe?: number;
+  date: string; // ISO date string (week start or specific date depending on aggregation)
+  totalVolume: number; // total kg for the point (e.g. week or month)
+  sessionCount: number; // number of sessions contributing to this point
+  volume?: number; // alias for totalVolume
+  sets?: number; // number of sets included
+  averageRpe?: number | null; // null if no RPEs recorded
+  sessionId?: string | null; // optional single session context when applicable
+  plannedExerciseId?: string | null; // optional planned_exercise_id used to scope queries
 }
 
 export interface StrengthDataPoint {
@@ -209,16 +211,47 @@ export interface StrengthDataPoint {
   estimatedOneRepMax?: number;
   weight?: number;
   reps?: number;
-  rpe?: number;
+  rpe?: number | null;
 }
 
 export interface PersonalRecord {
   exerciseId: string;
+  plannedExerciseId?: string | null;
   type: "weight" | "reps" | "volume";
   value: number;
-  achievedAt: string;
+  achievedAt: string; // ISO date string
   sessionId: string;
 }
+
+export interface ExerciseSessionSummary {
+  sessionId: string;
+  sessionName?: string | null;
+  date: string; // ISO date
+  sets: Array<{
+    setNumber: number;
+    weight: number;
+    reps: number;
+    rpe?: number | null;
+    isWarmup: boolean;
+    notes?: string | null;
+  }>;
+  bestSet: {
+    weight: number;
+    reps: number;
+    volume: number;
+    estimatedOneRepMax: number;
+  } | null;
+  totalVolume: number;
+  averageRpe?: number | null;
+}
+
+export interface ExerciseLookupCacheEntry {
+  exerciseId: string;
+  name: string;
+  updatedAt: string; // ISO date when cache entry was last synced
+}
+
+export type TimeframeOption = "4w" | "8w" | "3m" | "6m" | "all";
 
 // ============================================================================
 // SUBSCRIPTION TYPES

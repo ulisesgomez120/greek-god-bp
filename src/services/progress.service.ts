@@ -290,6 +290,63 @@ export class ProgressService {
   }
 
   /**
+   * Wrapper: get exercise volume progress with friendly timeframe option
+   */
+  static async getExerciseVolumeProgress(
+    userId: string,
+    exerciseId: string,
+    plannedExerciseId: string,
+    timeframeOption: string = "8w"
+  ): Promise<VolumeDataPoint[]> {
+    try {
+      // Map timeframeOption to database timeframe
+      let tf: "month" | "quarter" | "year" = "quarter";
+      if (timeframeOption === "4w") tf = "month";
+      else if (timeframeOption === "8w") tf = "quarter";
+      else if (timeframeOption === "3m") tf = "quarter";
+      else if (timeframeOption === "6m") tf = "year";
+      else tf = "year";
+
+      const data = await databaseService.queryVolumeProgression(userId, exerciseId, plannedExerciseId, tf);
+      return data;
+    } catch (err) {
+      logger.error("Failed to get exercise volume progress", err, "progress");
+      throw new Error("Failed to fetch exercise volume progress");
+    }
+  }
+
+  static async getExercisePRs(
+    userId: string,
+    plannedExerciseId: string,
+    exerciseId?: string,
+    limit: number = 10
+  ): Promise<PersonalRecord[]> {
+    try {
+      const records = await databaseService.queryPersonalRecords(userId, plannedExerciseId, exerciseId, limit);
+      return records;
+    } catch (err) {
+      logger.error("Failed to get exercise PRs", err, "progress");
+      throw new Error("Failed to fetch exercise PRs");
+    }
+  }
+
+  static async getLastSessionsForExercise(
+    userId: string,
+    exerciseId: string,
+    plannedExerciseId: string,
+    limit: number = 5
+  ): Promise<ExerciseSessionSummary[]> {
+    try {
+      // Reuse existing getExerciseHistory mapper for consistent formatting
+      const sessions = await ProgressService.getExerciseHistory(userId, exerciseId, plannedExerciseId, limit, 60);
+      return sessions;
+    } catch (err) {
+      logger.error("Failed to get last sessions for exercise", err, "progress");
+      throw new Error("Failed to fetch last sessions for exercise");
+    }
+  }
+
+  /**
    * Get personal records for a user (scoped to a planned exercise)
    */
   static async getPersonalRecords(
