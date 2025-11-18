@@ -953,7 +953,8 @@ export class DatabaseService {
     exerciseId: string,
     plannedExerciseId: string,
     sessionLimit: number = 6,
-    setLimit: number = 60
+    setLimit: number = 60,
+    options: { useCache?: boolean; cacheTTL?: number } = {}
   ) {
     try {
       if (!plannedExerciseId || typeof plannedExerciseId !== "string") {
@@ -962,6 +963,19 @@ export class DatabaseService {
 
       // Query only exercise_sets (no joins). Order by created_at desc so we get newest sets first,
       // and limit the number of rows scanned for efficiency. We'll group by session_id in-memory.
+      const cacheKey = this.getCacheKey("exercise_sets_history", {
+        userId,
+        exerciseId,
+        plannedExerciseId,
+        sessionLimit,
+        setLimit,
+      });
+
+      if (options.useCache !== false) {
+        const cached = this.getCachedData(cacheKey);
+        if (cached) return cached;
+      }
+
       const { data: sets, error } = await supabase
         .from("exercise_sets")
         .select("*")
@@ -971,7 +985,10 @@ export class DatabaseService {
         .limit(setLimit);
 
       if (error) throw error;
-      if (!sets || sets.length === 0) return [];
+      if (!sets || sets.length === 0) {
+        if (options.useCache !== false) this.setCachedData(cacheKey, [], options.cacheTTL ?? 300000);
+        return [];
+      }
 
       // Group sets by session_id
       const sessionMap = new Map<string, any[]>();
@@ -1100,11 +1117,18 @@ export class DatabaseService {
     userId: string,
     exerciseId?: string,
     plannedExerciseId?: string,
-    timeframe: "month" | "quarter" | "year" = "quarter"
+    timeframe: "month" | "quarter" | "year" = "quarter",
+    options: { useCache?: boolean; cacheTTL?: number } = {}
   ) {
     try {
       if (exerciseId && !plannedExerciseId) {
         throw new Error("queryVolumeProgression: plannedExerciseId is required when exerciseId is provided");
+      }
+
+      const cacheKey = this.getCacheKey("volume_progression", { userId, exerciseId, plannedExerciseId, timeframe });
+      if (options.useCache !== false) {
+        const cached = this.getCachedData(cacheKey);
+        if (cached) return cached;
       }
 
       const startDate = this.getStartDateForProgress(timeframe);
