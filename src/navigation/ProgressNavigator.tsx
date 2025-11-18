@@ -3,6 +3,7 @@
 // ============================================================================
 // Progress tracking stack navigation with landing and exercise detail screens
 
+import React from "react";
 import { createStackNavigator } from "@react-navigation/stack";
 import useTheme from "@/hooks/useTheme";
 
@@ -29,7 +30,7 @@ const ProgressStack = createStackNavigator<ProgressStackParamList>();
 // PROGRESS NAVIGATOR COMPONENT
 // ============================================================================
 
-const ProgressNavigator: any = () => {
+const ProgressNavigator: React.FC = () => {
   const { colors } = useTheme();
 
   return (

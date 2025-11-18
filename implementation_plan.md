@@ -216,3 +216,68 @@ Notes and rationale:
 - planned_exercise_id is the canonical scoping field—queries and UI should require it for detailed per-exercise charts. When not available, screens should show a friendly CTA prompting the user to open the exercise from a plan or run a workout.
 - Keep heavy DB filtering server-side when possible; databaseService already contains many useful helper queries—reuse them and add small options instead of duplicating SQL logic.
 - Prefer small, well-tested pure functions for date/aggregation logic to avoid repeating subtle timezone bugs.
+
+[Progress Update]
+This document was updated to reflect work completed during the current implementation sprint focused on Screen 1 (Exercise Detail View). Below is a concise summary of what was added, modified and what remains.
+
+Summary of completed work (high level)
+
+- Added typed models and new progress-specific TypeScript interfaces.
+- Implemented pure date and aggregation utilities used by charts and boxes.
+- Added an ExerciseLookupService (caching exerciseId -> name) and a small hook to preload/look up names.
+- Implemented aggregation helpers to compute weekly volume, monthly volume and basic PR detection.
+- Created a composable hook useExerciseProgress that orchestrates ExerciseLookupService + ProgressService calls.
+- Built UI components used by Screen 1: VolumeChart (wrapper), PRBox, LastSessionsList, TimeframeSelector.
+- Scaffolded and implemented the Exercise Detail screen (src/screens/progress/ExerciseDetailProgress.tsx).
+- Created a small ProgressLanding screen and wired it into the ProgressNavigator as the initial route.
+- Added ProgressService wrapper methods for friendly timeframe usage and small DatabaseService cache options on exercise history & volume progression queries.
+
+Files added or significantly changed in this iteration
+
+- Added
+
+  - src/screens/progress/ProgressLanding.tsx (landing page)
+  - src/screens/progress/ExerciseDetailProgress.tsx (exercise detail screen scaffold)
+  - src/components/progress/VolumeChart.tsx (chart wrapper)
+  - src/components/progress/PRBox.tsx
+  - src/components/progress/LastSessionsList.tsx
+  - src/components/progress/TimeframeSelector.tsx
+  - src/services/exerciseLookup.service.ts (exercise id → name cache)
+  - src/hooks/useExerciseProgress.ts (hook composing services + lookup)
+  - src/utils/dateUtils.ts
+  - src/utils/aggregationUtils.ts
+
+- Modified
+  - src/types/index.ts — added VolumeDataPoint, ExerciseSessionSummary, PersonalRecord, ExerciseLookupCacheEntry, TimeframeOption
+  - src/services/progress.service.ts — added wrapper helpers: getExerciseVolumeProgress, getExercisePRs, getLastSessionsForExercise
+  - src/services/database.service.ts — added optional cache-aware behaviour to queryExerciseHistory and queryVolumeProgression (useCache/cacheTTL params)
+  - src/navigation/ProgressNavigator.tsx — wired ProgressLanding and ExerciseDetailProgress (ProgressLanding set as initialRoute)
+
+Notes on outstanding issues
+
+- VolumeChart: I implemented a working wrapper around react-native-gifted-charts. The library's TypeScript definitions in this project raised some typing warnings for the onDataPoint press handler and data shape. These are non-blocking for runtime — we can either adapt to the library's exact types (preferred) or add a small local shim/casts to silence TS until we add stricter typings.
+- DatabaseService changes: small optional cache params were added; these are backward-compatible. Extra caution taken to avoid large SQL or behaviour changes.
+
+Current task checklist (status)
+
+- [x] Step 1: Add TypeScript types to src/types/index.ts
+- [x] Step 2: Implement dateUtils.ts and aggregationUtils.ts
+- [x] Step 3: Create ExerciseLookupService and integrate (service created)
+- [x] Step 4: Add ProgressService wrapper methods and DatabaseService small enhancements
+- [x] Step 5: Build UI components (VolumeChart, PRBox, LastSessionsList, TimeframeSelector)
+- [x] Step 6: Create ExerciseDetailProgress screen (Screen 1 scaffold & wiring)
+- [x] Step 7: Create ProgressLanding screen with link to Screen 1
+- [x] Step 8: Update ProgressNavigator with new routes and set ProgressLanding as initial route
+- [x] Step 9: Create useExerciseProgress hook (composed hook created; caching options plumbed)
+- [ ] Step 10: Add accessibility features and UX polish (touch targets, contrast, skeletons)
+- [ ] Step 11: Run tests and add snapshot tests (unit tests not yet added)
+- [ ] Step 12: Update documentation and README (developer notes)
+
+Next recommended actions (pick one)
+
+1. Improve VolumeChart TypeScript typings so it's fully type-safe with react-native-gifted-charts (preferred for long-term maintainability).
+2. Add unit tests for dateUtils and aggregationUtils (Jest) to lock aggregation behaviour.
+3. Add accessibility polish and finalize UX details for ExerciseDetailProgress (touch target sizes, empty states, localized labels).
+4. Add documentation notes to README describing new files and how to run the app after native dependency changes (pod install etc.).
+
+If you want me to continue now, pick which of the next recommended actions I should start with and I'll proceed (I'll update this plan after each major change).
