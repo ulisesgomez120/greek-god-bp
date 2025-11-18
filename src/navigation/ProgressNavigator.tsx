@@ -34,62 +34,6 @@ const ProgressStack = createStackNavigator<ProgressStackParamList>();
 
 const ProgressNavigator: React.FC = () => {
   const { colors } = useTheme();
-  return (
-    <ProgressStack.Navigator
-      initialRouteName='ProgressDashboard'
-      screenOptions={{
-        headerShown: true,
-        headerStyle: {
-          backgroundColor: colors.background,
-          borderBottomColor: colors.border ?? colors.surface,
-          borderBottomWidth: 1,
-        },
-        headerTitleStyle: {
-          fontSize: 17,
-          fontWeight: "600",
-          color: colors.text,
-        },
-        headerBackTitleVisible: false,
-        headerTintColor: colors.primary,
-        gestureEnabled: true,
-        cardStyleInterpolator: ({ current, layouts }) => {
-          return {
-            cardStyle: {
-              transform: [
-                {
-                  translateX: current.progress.interpolate({
-                    inputRange: [0, 1],
-                    outputRange: [layouts.screen.width, 0],
-                  }),
-                },
-              ],
-            },
-          };
-        },
-      }}>
-      <ProgressStack.Screen
-        name='ProgressDashboard'
-        component={ProgressDashboard}
-        options={{
-          title: "Progress",
-        }}
-      />
-      <ProgressStack.Screen
-        name='WorkoutHistory'
-        component={WorkoutHistory}
-        options={{
-          title: "Workout History",
-        }}
-      />
-      <ProgressStack.Screen
-        name='StrengthCharts'
-        component={StrengthCharts}
-        options={({ route }) => ({
-          title: "Strength Progress",
-        })}
-      />
-    </ProgressStack.Navigator>
-  );
 };
 
 export default ProgressNavigator;
