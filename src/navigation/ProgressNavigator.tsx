@@ -1,20 +1,21 @@
 // ============================================================================
 // PROGRESS NAVIGATOR
 // ============================================================================
-// Progress tracking stack navigation with dashboard, history, and charts
+// Progress tracking stack navigation with landing and exercise detail screens
 
-import React from "react";
 import { createStackNavigator } from "@react-navigation/stack";
 import useTheme from "@/hooks/useTheme";
+
+// Screens
+import ProgressLanding from "@/screens/progress/ProgressLanding";
+import ExerciseDetailProgress from "@/screens/progress/ExerciseDetailProgress";
 
 // ============================================================================
 // TYPES
 // ============================================================================
 
 export type ProgressStackParamList = {
-  ProgressDashboard: undefined;
-  WorkoutHistory: undefined;
-  StrengthCharts: { exerciseId?: string };
+  ProgressLanding: undefined;
   ExerciseDetailProgress: { exerciseId?: string; plannedExerciseId?: string };
 };
 
@@ -28,16 +29,17 @@ const ProgressStack = createStackNavigator<ProgressStackParamList>();
 // PROGRESS NAVIGATOR COMPONENT
 // ============================================================================
 
-const ProgressNavigator: React.FC = () => {
+const ProgressNavigator: any = () => {
   const { colors } = useTheme();
 
   return (
     <ProgressStack.Navigator
-      initialRouteName='ProgressDashboard'
+      initialRouteName='ProgressLanding'
       screenOptions={{ headerStyle: { backgroundColor: colors.background } }}>
+      <ProgressStack.Screen name='ProgressLanding' component={ProgressLanding} options={{ title: "Progress" }} />
       <ProgressStack.Screen
         name='ExerciseDetailProgress'
-        component={require("../screens/progress/ExerciseDetailProgress").default}
+        component={ExerciseDetailProgress}
         options={{ title: "Exercise" }}
       />
     </ProgressStack.Navigator>
