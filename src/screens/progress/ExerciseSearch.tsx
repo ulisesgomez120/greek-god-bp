@@ -29,7 +29,7 @@ export default function ExerciseSearchScreen() {
       <Text style={{ color: "#666", marginTop: 4 }}>
         {item.planName ? `${item.planName} — ${item.sessionName || ""}` : item.sessionName}
       </Text>
-      <Text style={{ color: "#999", marginTop: 6 }}>{`${item.timesPerformed}x • last: ${
+      <Text style={{ color: "#999", marginTop: 6 }}>{`Sets ${item.targetSets} • Reps ${item.targetRepsMin} • last: ${
         item.lastPerformed ? new Date(item.lastPerformed).toLocaleDateString() : "N/A"
       }`}</Text>
     </TouchableOpacity>

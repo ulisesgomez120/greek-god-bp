@@ -1346,9 +1346,8 @@ export class DatabaseService {
         `
         )
         .eq("workout_sessions.user_id", userId)
-        .eq("exercise_sets.planned_exercise_id", plannedExerciseId)
+        .eq("planned_exercise_id", plannedExerciseId)
         .eq("is_warmup", false)
-        .not("workout_sessions.completed_at", "is", null)
         .order("created_at", { ascending: false });
 
       if (exerciseId) query = query.eq("exercise_id", exerciseId);
