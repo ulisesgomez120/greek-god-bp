@@ -1,5 +1,5 @@
 import React from "react";
-import { View, Text, TouchableOpacity, FlatList } from "react-native";
+import { View, Text, TouchableOpacity } from "react-native";
 import type { ExerciseSessionSummary } from "@/types";
 
 export default function LastSessionsList({
@@ -17,12 +17,13 @@ export default function LastSessionsList({
     );
   }
 
+  // For small lists (typical usage: last 5 sessions), a simple map is fine
+  // and avoids nesting a VirtualizedList inside a ScrollView which causes RN warnings.
   return (
-    <FlatList
-      data={sessions}
-      keyExtractor={(item) => item.sessionId}
-      renderItem={({ item }) => (
+    <View>
+      {sessions.map((item) => (
         <TouchableOpacity
+          key={item.sessionId}
           onPress={() => onPressSession && onPressSession(item.sessionId)}
           style={{ paddingVertical: 12, paddingHorizontal: 8, borderBottomWidth: 1, borderColor: "#eee" }}
           accessibilityRole='button'>
@@ -31,7 +32,7 @@ export default function LastSessionsList({
             Sets: {item.sets.length} • Volume: {item.totalVolume} kg
           </Text>
         </TouchableOpacity>
-      )}
-    />
+      ))}
+    </View>
   );
 }
