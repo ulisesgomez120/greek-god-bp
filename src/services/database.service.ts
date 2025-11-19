@@ -1197,6 +1197,130 @@ export class DatabaseService {
   }
 
   /**
+   * Query performed planned exercises for a user (searchable)
+   * Returns PlannedExerciseSearchResult[]
+   */
+  async queryPerformedPlannedExercises(
+    userId: string,
+    searchQuery: string | null,
+    limit: number = 20,
+    offset: number = 0,
+    options: QueryOptions = {}
+  ) {
+    try {
+      if (!userId) throw new Error("queryPerformedPlannedExercises: userId is required");
+
+      const cacheKey = this.getCacheKey("performed_planned_exercises", { userId, searchQuery, limit, offset });
+      if (options.useCache !== false) {
+        const cached = this.getCachedData(cacheKey);
+        if (cached) return cached;
+      }
+
+      // Fetch exercise_sets joined with planned_exercises, workout_sessions and related plan/session/exercise metadata
+      const { data, error } = await supabase
+        .from("exercise_sets")
+        .select(
+          `
+             session_id,
+             planned_exercise_id,
+             planned_exercises (
+               id,
+               exercise_id,
+               target_sets,
+               target_reps_min,
+               target_reps_max,
+               workout_plan_sessions (
+                 id,
+                 name,
+                 workout_plans ( id, name )
+               ),
+               exercises ( id, name )
+             ),
+             workout_sessions ( id, started_at, user_id, completed_at )
+           `
+        )
+        .eq("workout_sessions.user_id", userId)
+        .not("workout_sessions.completed_at", "is", null)
+        .limit(1000);
+
+      if (error) throw error;
+
+      const rows = data || [];
+
+      // Group by planned_exercise_id
+      const grouped = new Map();
+
+      for (const r of rows) {
+        const peId = r.planned_exercise_id || (r.planned_exercises && r.planned_exercises.id);
+        if (!peId) continue;
+
+        const existing = grouped.get(peId) || {
+          plannedExerciseId: peId,
+          exerciseId: r.planned_exercises?.exercise_id || null,
+          exerciseName: r.planned_exercises?.exercises?.name || null,
+          planName: r.planned_exercises?.workout_plan_sessions?.workout_plans?.name || null,
+          sessionName: r.planned_exercises?.workout_plan_sessions?.name || null,
+          targetSets: r.planned_exercises?.target_sets ?? null,
+          targetRepsMin: r.planned_exercises?.target_reps_min ?? null,
+          targetRepsMax: r.planned_exercises?.target_reps_max ?? null,
+          sessionIds: new Set(),
+          lastPerformed: null,
+        };
+
+        if (r.session_id) existing.sessionIds.add(r.session_id);
+        const startedAt = r.workout_sessions?.started_at;
+        if (startedAt && (!existing.lastPerformed || new Date(startedAt) > new Date(existing.lastPerformed))) {
+          existing.lastPerformed = startedAt;
+        }
+
+        grouped.set(peId, existing);
+      }
+
+      // Convert grouped map to array and apply optional searchQuery filtering client-side
+      let results = Array.from(grouped.values()).map((g: any) => ({
+        plannedExerciseId: g.plannedExerciseId,
+        exerciseId: g.exerciseId,
+        exerciseName: g.exerciseName,
+        planName: g.planName,
+        sessionName: g.sessionName,
+        targetSets: g.targetSets,
+        targetRepsMin: g.targetRepsMin,
+        targetRepsMax: g.targetRepsMax,
+        timesPerformed: g.sessionIds.size,
+        lastPerformed: g.lastPerformed,
+      }));
+
+      if (searchQuery && searchQuery.trim().length > 0) {
+        const q = searchQuery.trim().toLowerCase();
+        results = results.filter((r: any) => {
+          return (
+            (r.exerciseName || "").toLowerCase().includes(q) ||
+            (r.planName || "").toLowerCase().includes(q) ||
+            (r.sessionName || "").toLowerCase().includes(q)
+          );
+        });
+      }
+
+      // sort by lastPerformed desc, then timesPerformed desc
+      results.sort((a: any, b: any) => {
+        const da = a.lastPerformed ? new Date(a.lastPerformed).getTime() : 0;
+        const db = b.lastPerformed ? new Date(b.lastPerformed).getTime() : 0;
+        if (da !== db) return db - da;
+        return b.timesPerformed - a.timesPerformed;
+      });
+
+      const paged = results.slice(offset, offset + limit);
+
+      if (options.useCache !== false) this.setCachedData(cacheKey, paged, options.cacheTimeout ?? 300000);
+
+      return paged;
+    } catch (error) {
+      const dbError = this.handleDatabaseError(error);
+      throw dbError;
+    }
+  }
+
+  /**
    * Query personal records for a user — requires plannedExerciseId to scope records
    */
   async queryPersonalRecords(userId: string, plannedExerciseId: string, exerciseId?: string, limit: number = 50) {

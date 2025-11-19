@@ -17,6 +17,7 @@ import ExerciseDetailProgress from "@/screens/progress/ExerciseDetailProgress";
 
 export type ProgressStackParamList = {
   ProgressLanding: undefined;
+  ExerciseSearch: undefined;
   ExerciseDetailProgress: { exerciseId?: string; plannedExerciseId?: string };
 };
 
@@ -38,6 +39,11 @@ const ProgressNavigator: React.FC = () => {
       initialRouteName='ProgressLanding'
       screenOptions={{ headerStyle: { backgroundColor: colors.background } }}>
       <ProgressStack.Screen name='ProgressLanding' component={ProgressLanding} options={{ title: "Progress" }} />
+      <ProgressStack.Screen
+        name='ExerciseSearch'
+        component={require("@/screens/progress/ExerciseSearch").default}
+        options={{ title: "Select Exercise" }}
+      />
       <ProgressStack.Screen
         name='ExerciseDetailProgress'
         component={ExerciseDetailProgress}

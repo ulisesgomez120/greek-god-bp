@@ -11,10 +11,12 @@ export default function ProgressLanding() {
 
       <TouchableOpacity
         style={styles.card}
-        onPress={() => navigation.navigate("ExerciseDetailProgress")}
+        onPress={() => navigation.navigate("ExerciseSearch")}
         accessibilityRole='button'>
         <Text style={styles.cardTitle}>Exercise Detail</Text>
-        <Text style={styles.cardDesc}>View volume progression, PRs, and recent sessions for a selected exercise.</Text>
+        <Text style={styles.cardDesc}>
+          Search and select a planned exercise to view volume progression, PRs, and recent sessions.
+        </Text>
       </TouchableOpacity>
 
       <TouchableOpacity

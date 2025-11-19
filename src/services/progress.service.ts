@@ -368,6 +368,25 @@ export class ProgressService {
     }
   }
 
+  static async getPerformedPlannedExercises(
+    userId: string,
+    searchQuery: string | null,
+    options: { limit?: number; offset?: number; signal?: AbortSignal } = {}
+  ): Promise<any[]> {
+    try {
+      const res = await databaseService.queryPerformedPlannedExercises(
+        userId,
+        searchQuery,
+        options.limit ?? 20,
+        options.offset ?? 0
+      );
+      return res;
+    } catch (err) {
+      logger.error("Failed to get performed planned exercises", err, "progress");
+      throw new Error("Failed to fetch performed planned exercises");
+    }
+  }
+
   /**
    * Export user progress data (workouts, exercises, personal records, analytics)
    */

@@ -5,7 +5,7 @@ Single sentence describing the overall goal.
 
 Implement three progress-focused screens (Volume Progression Chart — Exercise Detail View, Workout Frequency Heatmap — Analytics Tab, and Last vs. This Session Comparison — Post-Workout View) plus shared infrastructure (lookup/cache, date utilities, aggregation utilities, data fetching/caching, error handling and accessibility) so the app can compute, cache and render per-exercise and per-session analytics using existing Supabase tables and the app's DatabaseService and ProgressService.
 
-The work will add a small set of UI components and screens, new utility/services for lookups and aggregations, and tie them into the existing databaseService/progressService architecture so the endpoints are reusable across all three screens. We will favor server-side scoped queries (planned_exercise_id) already present in exercise_sets, use react-native-gifted-charts for line charts, and react-native-heatmap-calendar-sb for the heatmap. The approach emphasises minimal breaking changes: add new files and augment existing services with clearly-named functions, include unit tests for utilities, and keep UI components encapsulated so they can be re-used or replaced later.
+The work will add a small set of UI components and screens, a couple of service and util files, and tie them into the existing databaseService/progressService architecture so the endpoints are reusable across all three screens. We will favor server-side scoped queries (planned_exercise_id) already present in exercise_sets, use react-native-gifted-charts for line charts, and react-native-heatmap-calendar-sb for the heatmap. The approach emphasises minimal breaking changes: add new files and augment existing services with clearly-named functions, include unit tests for utilities, and keep UI components encapsulated so they can be re-used or replaced later.
 
 [Types]
 Single sentence describing the type system changes.
@@ -281,3 +281,148 @@ Next recommended actions (pick one)
 4. Add documentation notes to README describing new files and how to run the app after native dependency changes (pod install etc.).
 
 If you want me to continue now, pick which of the next recommended actions I should start with and I'll proceed (I'll update this plan after each major change).
+
+[Exercise Search — Planned Exercise Selector]
+Single sentence describing the overall goal.
+
+Add an exercise selection screen that lets users search and pick a planned_exercise_id (from their workout plans) using the database autocomplete/ search capabilities; the selector will only show planned exercises the user has actually performed (has exercise_sets rows) and will surface plan context (plan name, session name, target sets/reps, last performed date).
+
+Scope and rationale:
+
+- This screen is added as a lightweight step before navigating to the existing ExerciseDetailProgress screen so users can select the exact planned exercise instance they want to view progress for.
+- We will use the database autocomplete_exercises function to power typeahead on base exercise names, and then resolve matches to planned_exercises the user has performed by joining exercise_sets -> planned_exercises -> workout_plan_sessions -> workout_plans -> exercises.
+- Showing only performed planned_exercises keeps the selector focused on items that have progress data; it reduces noise and makes the ExerciseDetailProgress chart immediately meaningful.
+
+Types (small additions):
+
+- PlannedExerciseSearchResult
+  - plannedExerciseId: string
+  - exerciseId: string
+  - exerciseName: string
+  - planName?: string
+  - sessionName?: string
+  - targetSets?: number
+  - targetRepsMin?: number
+  - targetRepsMax?: number
+  - timesPerformed: number
+  - lastPerformed?: string (ISO)
+
+Files (new / modified):
+
+- New: src/screens/progress/ExerciseSearch.tsx — Screen: searchable list + autocomplete input; displays results grouped by exercise name with plan/session context and a small metadata row (sets, reps, last performed). Selecting one navigates to ExerciseDetailProgress with { exerciseId, plannedExerciseId }.
+- Modified: src/navigation/ProgressNavigator.tsx — add 'ExerciseSearch' route and wire navigation (ExerciseSearch becomes the route invoked when user taps to change planned exercise from ProgressLanding or ExerciseDetailProgress if plannedExerciseId is missing).
+- Modified: src/services/database.service.ts — add helper method queryPerformedPlannedExercises(userId: string, searchQuery?: string, limit?: number, offset?: number, options?: QueryOptions) that executes the server-side query joining exercise_sets -> planned_exercises -> workout_plan_sessions -> workout_plans -> exercises and returns PlannedExerciseSearchResult[].
+- Modified: src/services/progress.service.ts — add wrapper getPerformedPlannedExercises(userId, searchQuery, options) that calls databaseService.queryPerformedPlannedExercises and applies a small client-side mapping.
+- New (optional): src/hooks/usePerformedPlannedExercises.ts — hook for debounced search + loading/error state used by ExerciseSearch.tsx.
+
+Database query (server-side / supabase SQL outline):
+
+We will reuse the pattern used in migrations for search (fitness_search config) but scope to planned_exercise instances with history. Example SQL:
+
+SELECT
+pe.id AS planned_exercise_id,
+pe.exercise_id,
+e.name AS exercise_name,
+wp.name AS plan_name,
+wps.name AS session_name,
+pe.target_sets,
+pe.target_reps_min,
+pe.target_reps_max,
+COUNT(DISTINCT es.session_id) AS times_performed,
+MAX(ws.started_at) AS last_performed
+FROM exercise_sets es
+JOIN planned_exercises pe ON es.planned_exercise_id = pe.id
+JOIN workout_plan_sessions wps ON pe.session_id = wps.id
+JOIN workout_plans wp ON wps.plan_id = wp.id
+JOIN exercises e ON pe.exercise_id = e.id
+JOIN workout_sessions ws ON es.session_id = ws.id
+WHERE ws.user_id = $1
+AND ws.completed_at IS NOT NULL
+AND (e.name ILIKE $2 || '%' OR e.search_vector @@ plainto_tsquery('fitness_search', $2) OR COALESCE(pe.target_sets::text, '') ILIKE $2 || '%')
+GROUP BY pe.id, pe.exercise_id, e.name, wp.name, wps.name, pe.target_sets, pe.target_reps_min, pe.target_reps_max
+ORDER BY last_performed DESC, times_performed DESC
+LIMIT $3 OFFSET $4;
+
+Notes:
+
+- Use prepared parameters for userId, searchQuery, limit, offset. When searchQuery is empty, return most recently performed planned exercises ordered by last_performed.
+- Use e.search_vector for broader matching and ILIKE for quick prefix matches (auto-complete). The migrations already create GIN indexes to make this efficient.
+
+UI/UX details:
+
+- Top: Autocomplete text input that uses the existing autocomplete_exercises() DB function to provide exercise name suggestions as the user types. On selecting a suggestion or submitting text, call the performed-planned-exercises query to list only the planned_exercises the user has performed matching that exercise name / search.
+- Result row: Exercise name (bold), small badge with plan/session (e.g., "Push Day A — Plan: 12-week Strength"), metadata row: "3×8-12 • last: Nov 15 • done 6x".
+- Empty state: If no performed planned exercises match, show CTA: "No performed instances found — show all planned exercises instead" with a toggle to list all planned exercises (Option B fallback).
+- Accessibility: ensure input has accessible label, result rows are focusable and have sufficient hit area.
+
+Routing and navigation:
+
+- New route: ProgressStackParamList['ExerciseSearch'] = { onSelect?: (plannedExerciseId: string, exerciseId: string) => void } — optional callback for inline selection flows. Default behavior: navigate to ExerciseDetailProgress with params { exerciseId, plannedExerciseId }.
+- From ExerciseDetailProgress: if route.params.plannedExerciseId is missing, show a button "Select Planned Exercise" that navigates to ExerciseSearch.
+- From ProgressLanding: add a shortcut card/button "View Exercise Progress" → opens ExerciseSearch.
+
+Functions and service changes (details):
+
+- databaseService.queryPerformedPlannedExercises(userId, searchQuery, limit=20, offset=0, options) — executes the SQL above via supabase.rpc or supabase.from().select with proper joins. Returns PlannedExerciseSearchResult[] and caches results using DatabaseService queryCache when options.useCache !== false.
+- progressService.getPerformedPlannedExercises(userId, searchQuery, options) — wrapper that calls databaseService.queryPerformedPlannedExercises and maps fields into frontend-friendly names.
+- hooks/usePerformedPlannedExercises.ts — implements debounced search (300ms), paging support and returns { results, loading, error, fetchMore, refresh }.
+
+Types/Validation:
+
+- searchQuery: nullable string; trim and treat empty string as listing recent performed planned exercises.
+- timesPerformed: integer >= 0
+- lastPerformed: ISO timestamp or null
+
+Testing:
+
+- Unit tests for databaseService.queryPerformedPlannedExercises with mocked supabase responses verifying grouping, ordering, and empty result behaviors.
+- Hook tests for usePerformedPlannedExercises: debounce, loading state, paging behavior.
+- Component tests: ExerciseSearch snapshot; keyboard navigation and selection behavior using @testing-library/react-native.
+
+Implementation Order (where this addition fits):
+
+1. Add PlannedExerciseSearchResult type to src/types/index.ts.
+2. Implement databaseService.queryPerformedPlannedExercises — add server-side SQL or supabase RPC wrapper and local cache.
+3. Add progressService.getPerformedPlannedExercises wrapper.
+4. Create hook src/hooks/usePerformedPlannedExercises.ts for debounced search and paging.
+5. Implement src/screens/progress/ExerciseSearch.tsx and wire navigation in ProgressNavigator.
+6. Update ExerciseDetailProgress to navigate here if plannedExerciseId is missing and to accept params from selection.
+7. Add unit & component tests.
+8. QA accessibility and edge-cases (no data, lots of duplicates across plans).
+
+Current focus note:
+
+- This Exercise Search (planned exercise selector) is the current focus for the next implementation step; it should be added to the top of the implementation backlog and completed before finalizing ExerciseDetailProgress UX polish. Keep all other plan content intact.
+
+[End of Exercise Search — Planned Exercise Selector]
+
+---
+
+Addendum — ExerciseSearch progress update (automatically appended)
+
+- Work completed since last plan update:
+
+  - [x] Implemented UI screen: src/screens/progress/ExerciseSearch.tsx (search input, list, selection navigation).
+  - [x] Implemented debounced, cancellable hook: src/hooks/usePerformedPlannedExercises.ts (300ms debounce, paging, abort handling).
+  - [x] Added ProgressService.getPerformedPlannedExercises wrapper and databaseService.queryPerformedPlannedExercises implementation (client-side grouping & caching).
+  - [x] Wired navigation: added ExerciseSearch route to src/navigation/ProgressNavigator.tsx and updated ProgressLanding to navigate to ExerciseSearch.
+  - [x] Hook now receives authenticated userId from useAuth in ExerciseSearch screen to avoid missing-user errors.
+  - [x] Added a basic test scaffold for the hook at src/**tests**/usePerformedPlannedExercises.test.tsx.
+  - [x] Addressed a TypeScript parameter mismatch by ensuring userId passed as string to service calls.
+
+- Current runtime issue observed:
+
+  - [ ] PGRST100 parse error coming from Supabase/PostgREST: "failed to parse order (workout_sessions.started_at.desc)". This arises when PostgREST interprets an order clause referencing a joined column in the generated SQL. Log sample: { code: "PGRST100", details: "unexpected \"s\" expecting \"asc\", \"desc\", \"nullsfirst\" or \"nullslast\"", message: '"failed to parse order (workout_sessions.started_at.desc)" (line 1, column 18)' }
+  - Action taken: removed explicit .order(...) on the joined column in the queryPerformedPlannedExercises flow and moved sorting to client-side after grouping. This prevents the server-side parse error while keeping deterministic ordering (client sorts by lastPerformed / timesPerformed).
+
+- Remaining work to resolve and finalize ExerciseSearch:
+  - [ ] Run full TypeScript and unit test suite (npx tsc --noEmit, npm test) and fix any remaining issues.
+  - [ ] Add unit tests for queryPerformedPlannedExercises (mock supabase) to ensure grouping, sorting and paging behavior are covered and prevent regression.
+  - [ ] Manual QA across platforms: verify typing, debounced search, selection navigation, and that selecting an item navigates to ExerciseDetailProgress with correct params.
+  - [ ] Once QA passes, add documentation notes and open a PR with screenshots and test results.
+
+If you want me to continue now I can (pick one):
+
+- Run the TypeScript check and tests locally (requires approval to run commands).
+- Add unit tests for queryPerformedPlannedExercises.
+- Re-run manual QA steps you described and iterate on any remaining runtime errors.
