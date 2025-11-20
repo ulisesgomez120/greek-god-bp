@@ -1,8 +1,119 @@
 import React from "react";
-import { View, Text, FlatList, TouchableOpacity, TextInput, ActivityIndicator } from "react-native";
+import {
+  View,
+  Text,
+  SectionList,
+  TouchableOpacity,
+  TextInput,
+  ActivityIndicator,
+  ListRenderItemInfo,
+} from "react-native";
 import usePerformedPlannedExercises, { PlannedExerciseSearchResult } from "../../hooks/usePerformedPlannedExercises";
 import { useNavigation } from "@react-navigation/native";
 import useAuth from "@/hooks/useAuth";
+
+/**
+ * Grouping strategy:
+ * - Group results by planName (top-level section)
+ * - Within each plan, group by sessionName
+ * - Sort plans by most recent lastPerformed (desc)
+ * - Sort sessions by most recent lastPerformed (desc)
+ * - Sort exercises within a session by lastPerformed (desc)
+ *
+ * Null/undefined planName or sessionName are normalized to "No Plan" / "No Session"
+ */
+
+type SessionGroup = {
+  sessionName: string;
+  sessionLast?: string | null;
+  items: PlannedExerciseSearchResult[];
+};
+
+type PlanSection = {
+  title: string; // planName
+  planLast?: string | null;
+  data: SessionGroup[]; // SectionList expects `data` array
+};
+
+function groupResults(results: PlannedExerciseSearchResult[]): PlanSection[] {
+  const planMap = new Map<
+    string,
+    { planName: string; sessions: Map<string, SessionGroup>; planLast?: string | null }
+  >();
+
+  for (const r of results) {
+    const planKey = r.planName ?? "__NO_PLAN__";
+    const sessionKey = r.sessionName ?? "__NO_SESSION__";
+
+    if (!planMap.has(planKey)) {
+      planMap.set(planKey, {
+        planName: r.planName ?? "No Plan",
+        sessions: new Map(),
+        planLast: null,
+      });
+    }
+
+    const plan = planMap.get(planKey)!;
+
+    if (!plan.sessions.has(sessionKey)) {
+      plan.sessions.set(sessionKey, {
+        sessionName: r.sessionName ?? "No Session",
+        items: [],
+        sessionLast: null,
+      });
+    }
+
+    const sess = plan.sessions.get(sessionKey)!;
+    sess.items.push(r);
+
+    const lp = r.lastPerformed ?? null;
+    if (lp) {
+      // update session last
+      if (!sess.sessionLast || new Date(lp) > new Date(sess.sessionLast)) {
+        sess.sessionLast = lp;
+      }
+      // update plan last
+      if (!plan.planLast || new Date(lp) > new Date(plan.planLast!)) {
+        plan.planLast = lp;
+      }
+    }
+  }
+
+  // Convert to array and sort
+  const sections: PlanSection[] = Array.from(planMap.values()).map((p) => {
+    const sessions = Array.from(p.sessions.values()).map((s) => {
+      // sort items within session by lastPerformed desc
+      const items = s.items.slice().sort((a, b) => {
+        const ta = a.lastPerformed ? new Date(a.lastPerformed).getTime() : 0;
+        const tb = b.lastPerformed ? new Date(b.lastPerformed).getTime() : 0;
+        return tb - ta;
+      });
+      return { ...s, items };
+    });
+
+    // sort sessions by sessionLast desc
+    sessions.sort((a, b) => {
+      const ta = a.sessionLast ? new Date(a.sessionLast).getTime() : 0;
+      const tb = b.sessionLast ? new Date(b.sessionLast).getTime() : 0;
+      return tb - ta;
+    });
+
+    return {
+      title: p.planName,
+      planLast: p.planLast,
+      data: sessions,
+    };
+  });
+
+  // sort plans by planLast desc
+  sections.sort((a, b) => {
+    const ta = a.planLast ? new Date(a.planLast).getTime() : 0;
+    const tb = b.planLast ? new Date(b.planLast).getTime() : 0;
+    return tb - ta;
+  });
+
+  return sections;
+}
 
 export default function ExerciseSearchScreen() {
   const navigation = useNavigation<any>();
@@ -16,7 +127,9 @@ export default function ExerciseSearchScreen() {
     }
   );
 
-  const renderItem = ({ item }: { item: PlannedExerciseSearchResult }) => (
+  const sections = React.useMemo(() => groupResults(results), [results]);
+
+  const renderExercise = (item: PlannedExerciseSearchResult) => (
     <TouchableOpacity
       onPress={() =>
         navigation.navigate(
@@ -24,16 +137,39 @@ export default function ExerciseSearchScreen() {
           { exerciseId: item.exerciseId, plannedExerciseId: item.plannedExerciseId } as never
         )
       }
-      style={{ padding: 12, borderBottomWidth: 1, borderColor: "#eee" }}>
+      style={{ paddingVertical: 10, paddingHorizontal: 12, borderBottomWidth: 1, borderColor: "#f1f1f1" }}>
       <Text style={{ fontWeight: "600" }}>{item.exerciseName}</Text>
       <Text style={{ color: "#666", marginTop: 4 }}>
         {item.planName ? `${item.planName} — ${item.sessionName || ""}` : item.sessionName}
       </Text>
-      <Text style={{ color: "#999", marginTop: 6 }}>{`Sets ${item.targetSets} • Reps ${item.targetRepsMin} • last: ${
-        item.lastPerformed ? new Date(item.lastPerformed).toLocaleDateString() : "N/A"
-      }`}</Text>
+      <Text style={{ color: "#999", marginTop: 6, fontSize: 12 }}>{`Sets ${item.targetSets} • Reps ${
+        item.targetRepsMin
+      } • last: ${item.lastPerformed ? new Date(item.lastPerformed).toLocaleDateString() : "N/A"}`}</Text>
     </TouchableOpacity>
   );
+
+  const renderSession = ({ item }: ListRenderItemInfo<SessionGroup>) => {
+    const session = item;
+    return (
+      <View style={{ paddingHorizontal: 8 }}>
+        <View style={{ paddingVertical: 10 }}>
+          <Text style={{ fontWeight: "700" }}>{session.sessionName}</Text>
+          {session.sessionLast ? (
+            <Text style={{ color: "#666", marginTop: 4, fontSize: 12 }}>
+              {new Date(session.sessionLast).toLocaleDateString()}
+            </Text>
+          ) : null}
+        </View>
+
+        {/* Exercises for this session */}
+        <View>
+          {session.items.map((ex) => (
+            <View key={ex.plannedExerciseId}>{renderExercise(ex)}</View>
+          ))}
+        </View>
+      </View>
+    );
+  };
 
   return (
     <View style={{ flex: 1, padding: 16 }}>
@@ -48,10 +184,20 @@ export default function ExerciseSearchScreen() {
       {loading && results.length === 0 ? (
         <ActivityIndicator />
       ) : (
-        <FlatList
-          data={results}
-          keyExtractor={(i) => i.plannedExerciseId}
-          renderItem={renderItem}
+        <SectionList
+          sections={sections}
+          keyExtractor={(item, index) => `${item.sessionName}-${index}`}
+          renderSectionHeader={({ section }) => (
+            <View style={{ backgroundColor: "#fafafa", paddingVertical: 8, paddingHorizontal: 8 }}>
+              <Text style={{ fontSize: 16, fontWeight: "800" }}>{(section as any).title}</Text>
+              {(section as any).planLast ? (
+                <Text style={{ color: "#666", fontSize: 12, marginTop: 4 }}>
+                  Last: {new Date((section as any).planLast).toLocaleDateString()}
+                </Text>
+              ) : null}
+            </View>
+          )}
+          renderItem={renderSession}
           onEndReached={() => {
             if (hasMore) fetchMore();
           }}
