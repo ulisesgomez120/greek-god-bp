@@ -1,9 +1,12 @@
 import React from "react";
 import { View, Text, TouchableOpacity, StyleSheet } from "react-native";
 import { useNavigation } from "@react-navigation/native";
+import useTheme from "@/hooks/useTheme";
 
 export default function ProgressLanding() {
   const navigation = useNavigation<any>();
+  const { colors } = useTheme();
+  const styles = createStyles(colors);
 
   return (
     <View style={styles.container}>
@@ -30,17 +33,18 @@ export default function ProgressLanding() {
   );
 }
 
-const styles = StyleSheet.create({
-  container: { padding: 16 },
-  title: { fontSize: 22, fontWeight: "700", marginBottom: 12 },
-  card: {
-    padding: 12,
-    borderRadius: 8,
-    backgroundColor: "#fff",
-    marginBottom: 12,
-    borderWidth: 1,
-    borderColor: "#eee",
-  },
-  cardTitle: { fontWeight: "700" },
-  cardDesc: { color: "#666", marginTop: 6 },
-});
+const createStyles = (colors: any) =>
+  StyleSheet.create({
+    container: { padding: 16, backgroundColor: colors.background },
+    title: { fontSize: 22, fontWeight: "700", marginBottom: 12, color: colors.text },
+    card: {
+      padding: 12,
+      borderRadius: 8,
+      backgroundColor: colors.surface,
+      marginBottom: 12,
+      borderWidth: 1,
+      borderColor: colors.border,
+    },
+    cardTitle: { fontWeight: "700", color: colors.text },
+    cardDesc: { color: colors.subtext, marginTop: 6 },
+  });

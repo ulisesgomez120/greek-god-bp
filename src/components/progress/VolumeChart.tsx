@@ -1,6 +1,7 @@
 import React from "react";
 import { View, Text } from "react-native";
 import { LineChart } from "react-native-gifted-charts";
+import useTheme from "@/hooks/useTheme";
 import type { VolumeDataPoint, TimeframeOption } from "@/types";
 
 function transformToGifted(data: VolumeDataPoint[], timeframe: TimeframeOption) {
@@ -10,11 +11,12 @@ function transformToGifted(data: VolumeDataPoint[], timeframe: TimeframeOption) 
 
 export default function VolumeChart({ data, timeframe }: { data: VolumeDataPoint[]; timeframe: TimeframeOption }) {
   const chartData = transformToGifted(data || [], timeframe);
+  const { colors } = useTheme();
 
   if (!data || data.length === 0) {
     return (
       <View style={{ padding: 12 }}>
-        <Text style={{ color: "#666" }}>No volume data available yet.</Text>
+        <Text style={{ color: colors.subtext }}>No volume data available yet.</Text>
       </View>
     );
   }
@@ -28,7 +30,7 @@ export default function VolumeChart({ data, timeframe }: { data: VolumeDataPoint
         spacing={20}
         initialSpacing={10}
         height={200}
-        color='rgb(31,111,235)'
+        color={colors.primary}
       />
     </View>
   );

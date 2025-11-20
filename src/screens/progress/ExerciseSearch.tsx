@@ -11,6 +11,7 @@ import {
 import usePerformedPlannedExercises, { PlannedExerciseSearchResult } from "../../hooks/usePerformedPlannedExercises";
 import { useNavigation } from "@react-navigation/native";
 import useAuth from "@/hooks/useAuth";
+import useTheme from "@/hooks/useTheme";
 
 /**
  * Grouping strategy:
@@ -118,6 +119,7 @@ function groupResults(results: PlannedExerciseSearchResult[]): PlanSection[] {
 export default function ExerciseSearchScreen() {
   const navigation = useNavigation<any>();
   const { user } = useAuth();
+  const { colors } = useTheme();
   const { searchQuery, setSearchQuery, results, loading, error, fetchMore, hasMore } = usePerformedPlannedExercises(
     "",
     {
@@ -137,14 +139,13 @@ export default function ExerciseSearchScreen() {
           { exerciseId: item.exerciseId, plannedExerciseId: item.plannedExerciseId } as never
         )
       }
-      style={{ paddingVertical: 10, paddingHorizontal: 12, borderBottomWidth: 1, borderColor: "#f1f1f1" }}>
-      <Text style={{ fontWeight: "600" }}>{item.exerciseName}</Text>
-      <Text style={{ color: "#666", marginTop: 4 }}>
-        {item.planName ? `${item.planName} — ${item.sessionName || ""}` : item.sessionName}
+      style={{ paddingVertical: 10, paddingHorizontal: 12, borderBottomWidth: 1, borderColor: colors.border }}>
+      <Text style={{ fontWeight: "600", color: colors.text }}>{item.exerciseName}</Text>
+      <Text style={{ color: colors.subtext, marginTop: 4 }}>
+        {`Sets ${item.targetSets} • Reps ${item.targetRepsMin} • last: ${
+          item.lastPerformed ? new Date(item.lastPerformed).toLocaleDateString() : "N/A"
+        }`}
       </Text>
-      <Text style={{ color: "#999", marginTop: 6, fontSize: 12 }}>{`Sets ${item.targetSets} • Reps ${
-        item.targetRepsMin
-      } • last: ${item.lastPerformed ? new Date(item.lastPerformed).toLocaleDateString() : "N/A"}`}</Text>
     </TouchableOpacity>
   );
 
@@ -153,9 +154,9 @@ export default function ExerciseSearchScreen() {
     return (
       <View style={{ paddingHorizontal: 8 }}>
         <View style={{ paddingVertical: 10 }}>
-          <Text style={{ fontWeight: "700" }}>{session.sessionName}</Text>
+          <Text style={{ fontWeight: "700", color: colors.text }}>{session.sessionName}</Text>
           {session.sessionLast ? (
-            <Text style={{ color: "#666", marginTop: 4, fontSize: 12 }}>
+            <Text style={{ color: colors.subtext, marginTop: 4, fontSize: 12 }}>
               {new Date(session.sessionLast).toLocaleDateString()}
             </Text>
           ) : null}
@@ -172,7 +173,7 @@ export default function ExerciseSearchScreen() {
   };
 
   return (
-    <View style={{ flex: 1, padding: 16 }}>
+    <View style={{ flex: 1, padding: 16, backgroundColor: colors.background }}>
       <TextInput
         placeholder='Search performed planned exercises'
         value={searchQuery}
@@ -188,10 +189,10 @@ export default function ExerciseSearchScreen() {
           sections={sections}
           keyExtractor={(item, index) => `${item.sessionName}-${index}`}
           renderSectionHeader={({ section }) => (
-            <View style={{ backgroundColor: "#fafafa", paddingVertical: 8, paddingHorizontal: 8 }}>
-              <Text style={{ fontSize: 16, fontWeight: "800" }}>{(section as any).title}</Text>
+            <View style={{ backgroundColor: colors.surfaceElevated, paddingVertical: 8, paddingHorizontal: 8 }}>
+              <Text style={{ fontSize: 16, fontWeight: "800", color: colors.text }}>{(section as any).title}</Text>
               {(section as any).planLast ? (
-                <Text style={{ color: "#666", fontSize: 12, marginTop: 4 }}>
+                <Text style={{ color: colors.subtext, fontSize: 12, marginTop: 4 }}>
                   Last: {new Date((section as any).planLast).toLocaleDateString()}
                 </Text>
               ) : null}
@@ -204,7 +205,7 @@ export default function ExerciseSearchScreen() {
           onEndReachedThreshold={0.4}
           ListEmptyComponent={() => (
             <View style={{ padding: 24 }}>
-              <Text style={{ textAlign: "center", color: "#666" }}>No performed planned exercises found.</Text>
+              <Text style={{ textAlign: "center", color: colors.subtext }}>No performed planned exercises found.</Text>
             </View>
           )}
         />
