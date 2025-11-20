@@ -62,11 +62,6 @@ export default function ExerciseDetailProgress() {
           </View>
 
           <View style={{ marginVertical: 8 }}>
-            <Text style={styles.sectionTitle}>Current Month</Text>
-            {/* Placeholder: current month volume box — could be added as separate component */}
-          </View>
-
-          <View style={{ marginVertical: 8 }}>
             <TimeframeSelector value={timeframe} onChange={(v) => setTimeframe(v)} />
             <VolumeChart data={volume || []} timeframe={timeframe} />
           </View>

@@ -24,10 +24,10 @@ export default function LastSessionsList({
   // and avoids nesting a VirtualizedList inside a ScrollView which causes RN warnings.
   return (
     <View>
-      {sessions.map((item) => (
+      {sessions.map((item, index) => (
         <TouchableOpacity
-          key={item.sessionId}
-          onPress={() => onPressSession && onPressSession(item.sessionId)}
+          key={item.sessionId || `${item.date}-${index}`}
+          onPress={() => onPressSession && onPressSession(item.sessionId || `${item.date}-${index}`)}
           style={{ paddingVertical: 12, paddingHorizontal: 8, borderBottomWidth: 1, borderColor: colors.border }}
           accessibilityRole='button'>
           <Text style={{ fontWeight: "600", color: colors.text }}>{new Date(item.date).toLocaleDateString()}</Text>

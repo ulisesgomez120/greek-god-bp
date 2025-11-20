@@ -753,8 +753,8 @@ export class DatabaseService {
           )
         `
         )
-        .eq("user_id", userId)
-        .not("completed_at", "is", null);
+        .eq("user_id", userId);
+      // .not("completed_at", "is", null);
 
       if (exerciseId) {
         workoutQuery = workoutQuery.eq("exercise_sets.exercise_id", exerciseId);
@@ -848,7 +848,7 @@ export class DatabaseService {
         `
         )
         .eq("user_id", userId)
-        .not("completed_at", "is", null)
+        // .not("completed_at", "is", null)
         .order("started_at", { ascending: false });
 
       // Apply filters
@@ -863,8 +863,8 @@ export class DatabaseService {
       const countQuery = supabase
         .from("workout_sessions")
         .select("*", { count: "exact", head: true })
-        .eq("user_id", userId)
-        .not("completed_at", "is", null);
+        .eq("user_id", userId);
+      // .not("completed_at", "is", null);
 
       if (filters.startDate) countQuery.gte("started_at", filters.startDate);
       if (filters.endDate) countQuery.lte("started_at", filters.endDate);
@@ -1150,7 +1150,7 @@ export class DatabaseService {
         `
         )
         .eq("user_id", userId)
-        .not("completed_at", "is", null)
+        // .not("completed_at", "is", null)
         .gte("started_at", startDate)
         .order("started_at", { ascending: true });
 

@@ -14,7 +14,7 @@ export default function PRBox({ prs, onPress }: { prs: PersonalRecord[]; onPress
       </View>
     );
   }
-
+  console.log("PRs available:", prs);
   const best = prs[0];
 
   return (
