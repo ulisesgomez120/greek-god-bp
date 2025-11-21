@@ -1,25 +1,24 @@
 // ============================================================================
 // PROGRESS NAVIGATOR
 // ============================================================================
-// Progress tracking stack navigation with dashboard, history, and charts
+// Progress tracking stack navigation with landing and exercise detail screens
 
 import React from "react";
 import { createStackNavigator } from "@react-navigation/stack";
 import useTheme from "@/hooks/useTheme";
 
 // Screens
-import ProgressDashboard from "../screens/progress/ProgressDashboard";
-import WorkoutHistory from "../screens/progress/WorkoutHistory";
-import StrengthCharts from "../screens/progress/StrengthCharts";
+import ProgressLanding from "@/screens/progress/ProgressLanding";
+import ExerciseDetailProgress from "@/screens/progress/ExerciseDetailProgress";
 
 // ============================================================================
 // TYPES
 // ============================================================================
 
 export type ProgressStackParamList = {
-  ProgressDashboard: undefined;
-  WorkoutHistory: undefined;
-  StrengthCharts: { exerciseId?: string };
+  ProgressLanding: undefined;
+  ExerciseSearch: undefined;
+  ExerciseDetailProgress: { exerciseId?: string; plannedExerciseId?: string };
 };
 
 // ============================================================================
@@ -34,60 +33,18 @@ const ProgressStack = createStackNavigator<ProgressStackParamList>();
 
 const ProgressNavigator: React.FC = () => {
   const { colors } = useTheme();
+
   return (
     <ProgressStack.Navigator
-      initialRouteName='ProgressDashboard'
-      screenOptions={{
-        headerShown: true,
-        headerStyle: {
-          backgroundColor: colors.background,
-          borderBottomColor: colors.border ?? colors.surface,
-          borderBottomWidth: 1,
-        },
-        headerTitleStyle: {
-          fontSize: 17,
-          fontWeight: "600",
-          color: colors.text,
-        },
-        headerBackTitleVisible: false,
-        headerTintColor: colors.primary,
-        gestureEnabled: true,
-        cardStyleInterpolator: ({ current, layouts }) => {
-          return {
-            cardStyle: {
-              transform: [
-                {
-                  translateX: current.progress.interpolate({
-                    inputRange: [0, 1],
-                    outputRange: [layouts.screen.width, 0],
-                  }),
-                },
-              ],
-            },
-          };
-        },
-      }}>
+      initialRouteName='ProgressLanding'
+      screenOptions={{ headerStyle: { backgroundColor: colors.background } }}>
+      <ProgressStack.Screen name='ProgressLanding' component={ProgressLanding} options={{ title: "" }} />
       <ProgressStack.Screen
-        name='ProgressDashboard'
-        component={ProgressDashboard}
-        options={{
-          title: "Progress",
-        }}
+        name='ExerciseSearch'
+        component={require("@/screens/progress/ExerciseSearch").default}
+        options={{ title: "Select Exercise" }}
       />
-      <ProgressStack.Screen
-        name='WorkoutHistory'
-        component={WorkoutHistory}
-        options={{
-          title: "Workout History",
-        }}
-      />
-      <ProgressStack.Screen
-        name='StrengthCharts'
-        component={StrengthCharts}
-        options={({ route }) => ({
-          title: "Strength Progress",
-        })}
-      />
+      <ProgressStack.Screen name='ExerciseDetailProgress' component={ExerciseDetailProgress} options={{ title: "" }} />
     </ProgressStack.Navigator>
   );
 };

@@ -193,12 +193,14 @@ export interface ProgressMetrics {
 }
 
 export interface VolumeDataPoint {
-  date: string;
-  totalVolume: number;
-  sessionCount: number;
-  volume?: number;
-  sets?: number;
-  averageRpe?: number;
+  date: string; // ISO date string (week start or specific date depending on aggregation)
+  totalVolume: number; // total kg for the point (e.g. week or month)
+  sessionCount: number; // number of sessions contributing to this point
+  volume?: number; // alias for totalVolume
+  sets?: number; // number of sets included
+  averageRpe?: number | null; // null if no RPEs recorded
+  sessionId?: string | null; // optional single session context when applicable
+  plannedExerciseId?: string | null; // optional planned_exercise_id used to scope queries
 }
 
 export interface StrengthDataPoint {
@@ -209,16 +211,57 @@ export interface StrengthDataPoint {
   estimatedOneRepMax?: number;
   weight?: number;
   reps?: number;
-  rpe?: number;
+  rpe?: number | null;
 }
 
 export interface PersonalRecord {
   exerciseId: string;
-  type: "weight" | "reps" | "volume";
+  plannedExerciseId?: string | null;
+  // Four PR types:
+  // - max_weight: the heaviest weight lifted (store reps in metadata)
+  // - estimated_1rm: calculated one-rep max (store weight & reps in metadata)
+  // - volume: highest single-set volume (weight * reps)
+  // - reps: most reps ever in a single set (store weight in metadata)
+  type: "max_weight" | "estimated_1rm" | "volume" | "reps";
   value: number;
-  achievedAt: string;
+  achievedAt: string; // ISO date string
   sessionId: string;
+  // Optional metadata to provide context for the PR (weight in kg and reps)
+  metadata?: {
+    weight?: number; // weight used for this PR (kg)
+    reps?: number; // reps performed for this PR
+  };
 }
+
+export interface ExerciseSessionSummary {
+  sessionId: string;
+  sessionName?: string | null;
+  date: string; // ISO date
+  sets: Array<{
+    setNumber: number;
+    weight: number;
+    reps: number;
+    rpe?: number | null;
+    isWarmup: boolean;
+    notes?: string | null;
+  }>;
+  bestSet: {
+    weight: number;
+    reps: number;
+    volume: number;
+    estimatedOneRepMax: number;
+  } | null;
+  totalVolume: number;
+  averageRpe?: number | null;
+}
+
+export interface ExerciseLookupCacheEntry {
+  exerciseId: string;
+  name: string;
+  updatedAt: string; // ISO date when cache entry was last synced
+}
+
+export type TimeframeOption = "4w" | "8w" | "3m" | "6m" | "all";
 
 // ============================================================================
 // SUBSCRIPTION TYPES

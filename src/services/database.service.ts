@@ -753,8 +753,8 @@ export class DatabaseService {
           )
         `
         )
-        .eq("user_id", userId)
-        .not("completed_at", "is", null);
+        .eq("user_id", userId);
+      // .not("completed_at", "is", null);
 
       if (exerciseId) {
         workoutQuery = workoutQuery.eq("exercise_sets.exercise_id", exerciseId);
@@ -848,7 +848,7 @@ export class DatabaseService {
         `
         )
         .eq("user_id", userId)
-        .not("completed_at", "is", null)
+        // .not("completed_at", "is", null)
         .order("started_at", { ascending: false });
 
       // Apply filters
@@ -863,8 +863,8 @@ export class DatabaseService {
       const countQuery = supabase
         .from("workout_sessions")
         .select("*", { count: "exact", head: true })
-        .eq("user_id", userId)
-        .not("completed_at", "is", null);
+        .eq("user_id", userId);
+      // .not("completed_at", "is", null);
 
       if (filters.startDate) countQuery.gte("started_at", filters.startDate);
       if (filters.endDate) countQuery.lte("started_at", filters.endDate);
@@ -953,7 +953,8 @@ export class DatabaseService {
     exerciseId: string,
     plannedExerciseId: string,
     sessionLimit: number = 6,
-    setLimit: number = 60
+    setLimit: number = 60,
+    options: { useCache?: boolean; cacheTTL?: number } = {}
   ) {
     try {
       if (!plannedExerciseId || typeof plannedExerciseId !== "string") {
@@ -962,6 +963,19 @@ export class DatabaseService {
 
       // Query only exercise_sets (no joins). Order by created_at desc so we get newest sets first,
       // and limit the number of rows scanned for efficiency. We'll group by session_id in-memory.
+      const cacheKey = this.getCacheKey("exercise_sets_history", {
+        userId,
+        exerciseId,
+        plannedExerciseId,
+        sessionLimit,
+        setLimit,
+      });
+
+      if (options.useCache !== false) {
+        const cached = this.getCachedData(cacheKey);
+        if (cached) return cached;
+      }
+
       const { data: sets, error } = await supabase
         .from("exercise_sets")
         .select("*")
@@ -971,7 +985,10 @@ export class DatabaseService {
         .limit(setLimit);
 
       if (error) throw error;
-      if (!sets || sets.length === 0) return [];
+      if (!sets || sets.length === 0) {
+        if (options.useCache !== false) this.setCachedData(cacheKey, [], options.cacheTTL ?? 300000);
+        return [];
+      }
 
       // Group sets by session_id
       const sessionMap = new Map<string, any[]>();
@@ -1100,11 +1117,18 @@ export class DatabaseService {
     userId: string,
     exerciseId?: string,
     plannedExerciseId?: string,
-    timeframe: "month" | "quarter" | "year" = "quarter"
+    timeframe: "month" | "quarter" | "year" = "quarter",
+    options: { useCache?: boolean; cacheTTL?: number } = {}
   ) {
     try {
       if (exerciseId && !plannedExerciseId) {
         throw new Error("queryVolumeProgression: plannedExerciseId is required when exerciseId is provided");
+      }
+
+      const cacheKey = this.getCacheKey("volume_progression", { userId, exerciseId, plannedExerciseId, timeframe });
+      if (options.useCache !== false) {
+        const cached = this.getCachedData(cacheKey);
+        if (cached) return cached;
       }
 
       const startDate = this.getStartDateForProgress(timeframe);
@@ -1126,7 +1150,7 @@ export class DatabaseService {
         `
         )
         .eq("user_id", userId)
-        .not("completed_at", "is", null)
+        // .not("completed_at", "is", null)
         .gte("started_at", startDate)
         .order("started_at", { ascending: true });
 
@@ -1173,6 +1197,130 @@ export class DatabaseService {
   }
 
   /**
+   * Query performed planned exercises for a user (searchable)
+   * Returns PlannedExerciseSearchResult[]
+   */
+  async queryPerformedPlannedExercises(
+    userId: string,
+    searchQuery: string | null,
+    limit: number = 20,
+    offset: number = 0,
+    options: QueryOptions = {}
+  ) {
+    try {
+      if (!userId) throw new Error("queryPerformedPlannedExercises: userId is required");
+
+      const cacheKey = this.getCacheKey("performed_planned_exercises", { userId, searchQuery, limit, offset });
+      if (options.useCache !== false) {
+        const cached = this.getCachedData(cacheKey);
+        if (cached) return cached;
+      }
+
+      // Fetch exercise_sets joined with planned_exercises, workout_sessions and related plan/session/exercise metadata
+      const { data, error } = await supabase
+        .from("exercise_sets")
+        .select(
+          `
+             session_id,
+             planned_exercise_id,
+             planned_exercises (
+               id,
+               exercise_id,
+               target_sets,
+               target_reps_min,
+               target_reps_max,
+               workout_plan_sessions (
+                 id,
+                 name,
+                 workout_plans ( id, name )
+               ),
+               exercises ( id, name )
+             ),
+             workout_sessions ( id, started_at, user_id, completed_at )
+           `
+        )
+        .eq("workout_sessions.user_id", userId)
+        .not("workout_sessions.completed_at", "is", null)
+        .limit(1000);
+
+      if (error) throw error;
+
+      const rows = data || [];
+
+      // Group by planned_exercise_id
+      const grouped = new Map();
+
+      for (const r of rows) {
+        const peId = r.planned_exercise_id || (r.planned_exercises && r.planned_exercises.id);
+        if (!peId) continue;
+
+        const existing = grouped.get(peId) || {
+          plannedExerciseId: peId,
+          exerciseId: r.planned_exercises?.exercise_id || null,
+          exerciseName: r.planned_exercises?.exercises?.name || null,
+          planName: r.planned_exercises?.workout_plan_sessions?.workout_plans?.name || null,
+          sessionName: r.planned_exercises?.workout_plan_sessions?.name || null,
+          targetSets: r.planned_exercises?.target_sets ?? null,
+          targetRepsMin: r.planned_exercises?.target_reps_min ?? null,
+          targetRepsMax: r.planned_exercises?.target_reps_max ?? null,
+          sessionIds: new Set(),
+          lastPerformed: null,
+        };
+
+        if (r.session_id) existing.sessionIds.add(r.session_id);
+        const startedAt = r.workout_sessions?.started_at;
+        if (startedAt && (!existing.lastPerformed || new Date(startedAt) > new Date(existing.lastPerformed))) {
+          existing.lastPerformed = startedAt;
+        }
+
+        grouped.set(peId, existing);
+      }
+
+      // Convert grouped map to array and apply optional searchQuery filtering client-side
+      let results = Array.from(grouped.values()).map((g: any) => ({
+        plannedExerciseId: g.plannedExerciseId,
+        exerciseId: g.exerciseId,
+        exerciseName: g.exerciseName,
+        planName: g.planName,
+        sessionName: g.sessionName,
+        targetSets: g.targetSets,
+        targetRepsMin: g.targetRepsMin,
+        targetRepsMax: g.targetRepsMax,
+        timesPerformed: g.sessionIds.size,
+        lastPerformed: g.lastPerformed,
+      }));
+
+      if (searchQuery && searchQuery.trim().length > 0) {
+        const q = searchQuery.trim().toLowerCase();
+        results = results.filter((r: any) => {
+          return (
+            (r.exerciseName || "").toLowerCase().includes(q) ||
+            (r.planName || "").toLowerCase().includes(q) ||
+            (r.sessionName || "").toLowerCase().includes(q)
+          );
+        });
+      }
+
+      // sort by lastPerformed desc, then timesPerformed desc
+      results.sort((a: any, b: any) => {
+        const da = a.lastPerformed ? new Date(a.lastPerformed).getTime() : 0;
+        const db = b.lastPerformed ? new Date(b.lastPerformed).getTime() : 0;
+        if (da !== db) return db - da;
+        return b.timesPerformed - a.timesPerformed;
+      });
+
+      const paged = results.slice(offset, offset + limit);
+
+      if (options.useCache !== false) this.setCachedData(cacheKey, paged, options.cacheTimeout ?? 300000);
+
+      return paged;
+    } catch (error) {
+      const dbError = this.handleDatabaseError(error);
+      throw dbError;
+    }
+  }
+
+  /**
    * Query personal records for a user — requires plannedExerciseId to scope records
    */
   async queryPersonalRecords(userId: string, plannedExerciseId: string, exerciseId?: string, limit: number = 50) {
@@ -1198,9 +1346,8 @@ export class DatabaseService {
         `
         )
         .eq("workout_sessions.user_id", userId)
-        .eq("exercise_sets.planned_exercise_id", plannedExerciseId)
+        .eq("planned_exercise_id", plannedExerciseId)
         .eq("is_warmup", false)
-        .not("workout_sessions.completed_at", "is", null)
         .order("created_at", { ascending: false });
 
       if (exerciseId) query = query.eq("exercise_id", exerciseId);
@@ -1212,27 +1359,51 @@ export class DatabaseService {
 
       for (const set of sets || []) {
         const exId = set.exercise_id;
-        const oneRepMax = this.calculateOneRepMaxForProgress(set.weight_kg || 0, set.reps || 0, set.rpe || undefined);
-        const volume = (set.weight_kg || 0) * (set.reps || 0);
+        const weight = set.weight_kg || 0;
+        const reps = set.reps || 0;
+        const oneRepMax = this.calculateOneRepMaxForProgress(weight, reps, set.rpe || undefined);
+        const volume = weight * reps;
 
         if (!exerciseRecords.has(exId)) exerciseRecords.set(exId, []);
 
         const records = exerciseRecords.get(exId)!;
 
-        const currentMaxRecord = records.find((r) => r.type === "weight");
-        if (!currentMaxRecord || oneRepMax > currentMaxRecord.value) {
-          const index = records.findIndex((r) => r.type === "weight");
+        // 1) Max Weight (raw) - track the heaviest weight ever lifted (store reps for context)
+        const currentMaxWeight = records.find((r) => r.type === "max_weight");
+        const currentMaxWeightValue = currentMaxWeight
+          ? currentMaxWeight.metadata?.weight ?? currentMaxWeight.value
+          : 0;
+        if (!currentMaxWeight || weight > currentMaxWeightValue) {
+          const index = records.findIndex((r) => r.type === "max_weight");
           if (index >= 0) records.splice(index, 1);
 
           records.push({
             exerciseId: exId,
-            type: "weight",
-            value: oneRepMax,
+            type: "max_weight",
+            value: weight,
             achievedAt: set.created_at,
             sessionId: set.session_id,
+            metadata: { weight, reps },
           });
         }
 
+        // 2) Estimated 1RM - best calculated one-rep max (store weight & reps for context)
+        const currentEstOrm = records.find((r) => r.type === "estimated_1rm");
+        if (!currentEstOrm || oneRepMax > currentEstOrm.value) {
+          const index = records.findIndex((r) => r.type === "estimated_1rm");
+          if (index >= 0) records.splice(index, 1);
+
+          records.push({
+            exerciseId: exId,
+            type: "estimated_1rm",
+            value: oneRepMax,
+            achievedAt: set.created_at,
+            sessionId: set.session_id,
+            metadata: { weight, reps },
+          });
+        }
+
+        // 3) Max Volume - highest single-set volume (weight * reps)
         const currentVolumeRecord = records.find((r) => r.type === "volume");
         if (!currentVolumeRecord || volume > currentVolumeRecord.value) {
           const index = records.findIndex((r) => r.type === "volume");
@@ -1244,22 +1415,23 @@ export class DatabaseService {
             value: volume,
             achievedAt: set.created_at,
             sessionId: set.session_id,
+            metadata: { weight, reps },
           });
         }
 
-        const sameWeightRecord = records.find(
-          (r) => r.type === "reps" && Math.abs(r.value - (set.weight_kg || 0)) < 0.5
-        );
-        if (!sameWeightRecord || (set.reps || 0) > sameWeightRecord.value) {
-          const index = records.findIndex((r) => r.type === "reps" && Math.abs(r.value - (set.weight_kg || 0)) < 0.5);
+        // 4) Max Reps - most reps ever achieved in a single set (store weight for context)
+        const currentRepsRecord = records.find((r) => r.type === "reps");
+        if (!currentRepsRecord || reps > currentRepsRecord.value) {
+          const index = records.findIndex((r) => r.type === "reps");
           if (index >= 0) records.splice(index, 1);
 
           records.push({
             exerciseId: exId,
             type: "reps",
-            value: set.reps || 0,
+            value: reps,
             achievedAt: set.created_at,
             sessionId: set.session_id,
+            metadata: { weight },
           });
         }
       }
