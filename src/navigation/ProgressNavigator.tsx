@@ -38,17 +38,13 @@ const ProgressNavigator: React.FC = () => {
     <ProgressStack.Navigator
       initialRouteName='ProgressLanding'
       screenOptions={{ headerStyle: { backgroundColor: colors.background } }}>
-      <ProgressStack.Screen name='ProgressLanding' component={ProgressLanding} options={{ title: "Progress" }} />
+      <ProgressStack.Screen name='ProgressLanding' component={ProgressLanding} options={{ title: "" }} />
       <ProgressStack.Screen
         name='ExerciseSearch'
         component={require("@/screens/progress/ExerciseSearch").default}
         options={{ title: "Select Exercise" }}
       />
-      <ProgressStack.Screen
-        name='ExerciseDetailProgress'
-        component={ExerciseDetailProgress}
-        options={{ title: "Exercise" }}
-      />
+      <ProgressStack.Screen name='ExerciseDetailProgress' component={ExerciseDetailProgress} options={{ title: "" }} />
     </ProgressStack.Navigator>
   );
 };

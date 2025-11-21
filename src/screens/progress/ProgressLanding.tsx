@@ -22,13 +22,13 @@ export default function ProgressLanding() {
         </Text>
       </TouchableOpacity>
 
-      <TouchableOpacity
+      {/* <TouchableOpacity
         style={styles.card}
         onPress={() => navigation.navigate("StrengthCharts")}
         accessibilityRole='button'>
         <Text style={styles.cardTitle}>Strength Charts</Text>
         <Text style={styles.cardDesc}>View strength progression charts across exercises.</Text>
-      </TouchableOpacity>
+      </TouchableOpacity> */}
     </View>
   );
 }

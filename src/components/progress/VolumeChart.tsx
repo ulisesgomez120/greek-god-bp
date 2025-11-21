@@ -1,19 +1,20 @@
-import React from "react";
-import { View, Text } from "react-native";
+import React, { useState, useMemo } from "react";
+import { View, Text, LayoutChangeEvent } from "react-native";
 import { LineChart } from "react-native-gifted-charts";
 import useTheme from "@/hooks/useTheme";
 import useUnitPreferences from "@/hooks/useUnitPreferences";
 import { kgToLbs, formatKgToLbsDisplay } from "@/utils/unitConversions";
 import { adjustHexAlpha } from "@/utils/colorUtils";
+import { getChartConfig } from "@/utils/chartUtils";
+import { formatShortDate } from "@/utils/dateUtils";
 import type { VolumeDataPoint, TimeframeOption } from "@/types";
 
 function transformToGifted(data: VolumeDataPoint[], timeframe: TimeframeOption, isMetric: boolean) {
-  // Map weekly volume points to array of { value, label }
-  console.log("Transforming volume data for timeframe:", data);
+  // Map volume points to array of { value, label } using compact date labels
   return (data || []).map((d) => {
     const valueKg = d.totalVolume || 0;
     const numericValue = isMetric ? Math.round(valueKg) : Math.round(kgToLbs(valueKg));
-    return { value: numericValue, label: new Date(d.date).toLocaleDateString() };
+    return { value: numericValue, label: formatShortDate(d.date, timeframe) };
   });
 }
 
@@ -34,7 +35,17 @@ export default function VolumeChart({
   };
 }) {
   const { isMetric } = useUnitPreferences();
-  const chartData = transformToGifted(data || [], timeframe, isMetric());
+  const [containerWidth, setContainerWidth] = useState<number>(0);
+
+  const onLayout = (e: LayoutChangeEvent) => {
+    const w = e.nativeEvent.layout.width;
+    if (w && w > 0) setContainerWidth(w);
+  };
+
+  const chartConfig = getChartConfig(containerWidth || 0, (data || []).length);
+
+  const chartData = useMemo(() => transformToGifted(data || [], timeframe, isMetric()), [data, timeframe, isMetric]);
+
   const { colors } = useTheme();
 
   // Determine colors with sensible fallbacks and allow optional overrides
@@ -56,16 +67,19 @@ export default function VolumeChart({
   }
 
   return (
-    <View style={{ height: 220, paddingHorizontal: 8 }}>
+    <View onLayout={onLayout} style={{ height: 220, width: "100%" }}>
       <LineChart
         data={chartData}
         areaChart
-        spacing={20}
-        initialSpacing={10}
+        spacing={chartConfig.spacing}
+        initialSpacing={chartConfig.initialSpacing}
+        endSpacing={chartConfig.endSpacing}
         height={200}
         color={lineColor}
         dataPointsColor={dotColor}
-        xAxisLabelTextStyle={{ color: axisTextColor }}
+        xAxisLabelTextStyle={{ color: axisTextColor, fontSize: 11 }}
+        xAxisLabelsHeight={34}
+        xAxisLabelsVerticalShift={-8}
         yAxisTextStyle={{ color: axisTextColor }}
         rulesColor={rulesColor}
         startFillColor={startFill}

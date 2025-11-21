@@ -9,6 +9,7 @@ import {
   addMonths,
   isSameYear,
 } from "date-fns";
+import type { TimeframeOption } from "@/types";
 
 export type WeekStart = 0 | 1; // 0 = Sunday, 1 = Monday
 
@@ -89,4 +90,26 @@ export function generateMonthsBetween(start: Date | string, end: Date | string) 
     cursor = addMonths(cursor, 1);
   }
   return months;
+}
+
+export function formatShortDate(date: Date | string, timeframe: TimeframeOption): string {
+  const d = typeof date === "string" ? new Date(date) : date;
+  if (!d || Number.isNaN(d.getTime())) return "";
+
+  // Compact formats tuned per timeframe
+  switch (timeframe) {
+    case "4w":
+    case "8w":
+      // show month and day for weekly views
+      return format(d, "MMM d");
+    case "3m":
+    case "6m":
+      // monthly label is compact; prefer month abbreviation
+      return format(d, "MMM");
+    case "all":
+      // long-range view: include year
+      return format(d, "MMM yyyy");
+    default:
+      return format(d, "MMM d");
+  }
 }
