@@ -1359,27 +1359,51 @@ export class DatabaseService {
 
       for (const set of sets || []) {
         const exId = set.exercise_id;
-        const oneRepMax = this.calculateOneRepMaxForProgress(set.weight_kg || 0, set.reps || 0, set.rpe || undefined);
-        const volume = (set.weight_kg || 0) * (set.reps || 0);
+        const weight = set.weight_kg || 0;
+        const reps = set.reps || 0;
+        const oneRepMax = this.calculateOneRepMaxForProgress(weight, reps, set.rpe || undefined);
+        const volume = weight * reps;
 
         if (!exerciseRecords.has(exId)) exerciseRecords.set(exId, []);
 
         const records = exerciseRecords.get(exId)!;
 
-        const currentMaxRecord = records.find((r) => r.type === "weight");
-        if (!currentMaxRecord || oneRepMax > currentMaxRecord.value) {
-          const index = records.findIndex((r) => r.type === "weight");
+        // 1) Max Weight (raw) - track the heaviest weight ever lifted (store reps for context)
+        const currentMaxWeight = records.find((r) => r.type === "max_weight");
+        const currentMaxWeightValue = currentMaxWeight
+          ? currentMaxWeight.metadata?.weight ?? currentMaxWeight.value
+          : 0;
+        if (!currentMaxWeight || weight > currentMaxWeightValue) {
+          const index = records.findIndex((r) => r.type === "max_weight");
           if (index >= 0) records.splice(index, 1);
 
           records.push({
             exerciseId: exId,
-            type: "weight",
-            value: oneRepMax,
+            type: "max_weight",
+            value: weight,
             achievedAt: set.created_at,
             sessionId: set.session_id,
+            metadata: { weight, reps },
           });
         }
 
+        // 2) Estimated 1RM - best calculated one-rep max (store weight & reps for context)
+        const currentEstOrm = records.find((r) => r.type === "estimated_1rm");
+        if (!currentEstOrm || oneRepMax > currentEstOrm.value) {
+          const index = records.findIndex((r) => r.type === "estimated_1rm");
+          if (index >= 0) records.splice(index, 1);
+
+          records.push({
+            exerciseId: exId,
+            type: "estimated_1rm",
+            value: oneRepMax,
+            achievedAt: set.created_at,
+            sessionId: set.session_id,
+            metadata: { weight, reps },
+          });
+        }
+
+        // 3) Max Volume - highest single-set volume (weight * reps)
         const currentVolumeRecord = records.find((r) => r.type === "volume");
         if (!currentVolumeRecord || volume > currentVolumeRecord.value) {
           const index = records.findIndex((r) => r.type === "volume");
@@ -1391,22 +1415,23 @@ export class DatabaseService {
             value: volume,
             achievedAt: set.created_at,
             sessionId: set.session_id,
+            metadata: { weight, reps },
           });
         }
 
-        const sameWeightRecord = records.find(
-          (r) => r.type === "reps" && Math.abs(r.value - (set.weight_kg || 0)) < 0.5
-        );
-        if (!sameWeightRecord || (set.reps || 0) > sameWeightRecord.value) {
-          const index = records.findIndex((r) => r.type === "reps" && Math.abs(r.value - (set.weight_kg || 0)) < 0.5);
+        // 4) Max Reps - most reps ever achieved in a single set (store weight for context)
+        const currentRepsRecord = records.find((r) => r.type === "reps");
+        if (!currentRepsRecord || reps > currentRepsRecord.value) {
+          const index = records.findIndex((r) => r.type === "reps");
           if (index >= 0) records.splice(index, 1);
 
           records.push({
             exerciseId: exId,
             type: "reps",
-            value: set.reps || 0,
+            value: reps,
             achievedAt: set.created_at,
             sessionId: set.session_id,
+            metadata: { weight },
           });
         }
       }

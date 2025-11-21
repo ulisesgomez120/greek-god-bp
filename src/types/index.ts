@@ -217,10 +217,20 @@ export interface StrengthDataPoint {
 export interface PersonalRecord {
   exerciseId: string;
   plannedExerciseId?: string | null;
-  type: "weight" | "reps" | "volume";
+  // Four PR types:
+  // - max_weight: the heaviest weight lifted (store reps in metadata)
+  // - estimated_1rm: calculated one-rep max (store weight & reps in metadata)
+  // - volume: highest single-set volume (weight * reps)
+  // - reps: most reps ever in a single set (store weight in metadata)
+  type: "max_weight" | "estimated_1rm" | "volume" | "reps";
   value: number;
   achievedAt: string; // ISO date string
   sessionId: string;
+  // Optional metadata to provide context for the PR (weight in kg and reps)
+  metadata?: {
+    weight?: number; // weight used for this PR (kg)
+    reps?: number; // reps performed for this PR
+  };
 }
 
 export interface ExerciseSessionSummary {
