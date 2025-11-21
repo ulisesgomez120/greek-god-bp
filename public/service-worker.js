@@ -3,7 +3,7 @@
 // - Runtime cache for navigation and images
 // - Posts messages to clients when a new SW is installed
 
-const CACHE_VERSION = "v1";
+const CACHE_VERSION = "v20251120";
 const PRECACHE = `ggbp-precache-${CACHE_VERSION}`;
 const RUNTIME = `ggbp-runtime-${CACHE_VERSION}`;
 
@@ -35,9 +35,23 @@ self.addEventListener("install", (event) => {
 self.addEventListener("activate", (event) => {
   clients.claim();
   event.waitUntil(
-    caches.keys().then((keys) => {
-      return Promise.all(keys.filter((key) => key !== PRECACHE && key !== RUNTIME).map((key) => caches.delete(key)));
-    })
+    caches
+      .keys()
+      .then((keys) => {
+        return Promise.all(keys.filter((key) => key !== PRECACHE && key !== RUNTIME).map((key) => caches.delete(key)));
+      })
+      .then(() => {
+        // Notify clients that a new version is active so clients can refresh.
+        return self.clients.matchAll({ includeUncontrolled: true }).then((clientList) => {
+          for (const client of clientList) {
+            try {
+              client.postMessage({ type: "NEW_VERSION_ACTIVE" });
+            } catch (e) {
+              // ignore postMessage failures
+            }
+          }
+        });
+      })
   );
 });
 

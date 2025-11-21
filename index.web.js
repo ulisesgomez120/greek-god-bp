@@ -26,6 +26,16 @@ registerRootComponent(App);
 if (typeof navigator !== "undefined" && "serviceWorker" in navigator) {
   // Defer registration until window load so assets are available
   window.addEventListener("load", () => {
+    let refreshing = false;
+
+    // Ensure we reload the page when a new service worker takes control
+    navigator.serviceWorker.addEventListener("controllerchange", () => {
+      if (refreshing) return;
+      refreshing = true;
+      console.log("ServiceWorker controller changed — reloading to apply update.");
+      window.location.reload();
+    });
+
     navigator.serviceWorker
       .register("/service-worker.js")
       .then((registration) => {
@@ -38,14 +48,25 @@ if (typeof navigator !== "undefined" && "serviceWorker" in navigator) {
           };
         }
 
+        // When updatefound occurs, automatically activate the waiting worker and reload.
         registration.onupdatefound = () => {
           const installingWorker = registration.installing;
           if (!installingWorker) return;
           installingWorker.onstatechange = () => {
             if (installingWorker.state === "installed") {
               if (navigator.serviceWorker.controller) {
-                // New content available
-                console.log("New content is available; please refresh.");
+                // New content available: immediately skip waiting to activate new SW and apply update
+                console.log("New content is available; applying update now.");
+                // If a waiting worker exists, ask it to skip waiting. Otherwise, try to post to installing.
+                if (registration.waiting) {
+                  registration.waiting.postMessage("SKIP_WAITING");
+                } else {
+                  try {
+                    installingWorker.postMessage("SKIP_WAITING");
+                  } catch (e) {
+                    // ignore if postMessage not supported
+                  }
+                }
               } else {
                 // Content cached for offline use
                 console.log("Content cached for offline use.");
