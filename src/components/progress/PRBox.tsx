@@ -1,6 +1,8 @@
 import React from "react";
 import { View, Text, TouchableOpacity } from "react-native";
 import useTheme from "@/hooks/useTheme";
+import useUnitPreferences from "@/hooks/useUnitPreferences";
+import { formatKgToLbsDisplay } from "@/utils/unitConversions";
 import type { PersonalRecord } from "@/types";
 
 function round1(v: number) {
@@ -9,6 +11,7 @@ function round1(v: number) {
 
 export default function PRBox({ prs, onPress }: { prs: PersonalRecord[]; onPress?: () => void }) {
   const { colors } = useTheme();
+  const { isMetric } = useUnitPreferences();
 
   if (!prs || prs.length === 0) {
     return (
@@ -30,28 +33,54 @@ export default function PRBox({ prs, onPress }: { prs: PersonalRecord[]; onPress
   // Formatters
   const formatMaxWeight = (r?: PersonalRecord) => {
     if (!r) return "—";
-    const w = r.metadata?.weight ?? r.value;
-    const rp = r.metadata?.reps ?? undefined;
-    return rp ? `${round1(w)} kg × ${rp} reps` : `${round1(w)} kg`;
+    const kg = r.metadata?.weight ?? r.value;
+    const repsMeta = r.metadata?.reps;
+    if (isMetric()) {
+      const kgDisplay = Math.round(kg);
+      return repsMeta ? `${kgDisplay} kg × ${repsMeta} reps` : `${kgDisplay} kg`;
+    } else {
+      // Show whole pounds for MAX WEIGHT (user-entered style)
+      const lbsDisplay = formatKgToLbsDisplay(kg, 1); // step = 1 lb
+      return repsMeta ? `${lbsDisplay} × ${repsMeta} reps` : lbsDisplay;
+    }
   };
 
   const formatEst1RM = (r?: PersonalRecord) => {
     if (!r) return "—";
-    return `${round1(r.value)} kg`;
+    const kg = r.value;
+    if (isMetric()) {
+      return `${round1(kg)} kg`;
+    } else {
+      return formatKgToLbsDisplay(kg, 0.5);
+    }
   };
 
   const formatVolume = (r?: PersonalRecord) => {
     if (!r) return "—";
+    const kgValue = r.value;
     const w = r.metadata?.weight;
     const rp = r.metadata?.reps;
-    const ctx = w && rp ? ` (${round1(w)}×${rp})` : "";
-    return `${Math.round(r.value)} kg${ctx}`;
+    if (isMetric()) {
+      const ctx = w && rp ? ` (${Math.round(w)}×${rp})` : "";
+      return `${Math.round(kgValue)} kg${ctx}`;
+    } else {
+      const display = formatKgToLbsDisplay(kgValue, 1);
+      const ctx = w && rp ? ` (${formatKgToLbsDisplay(w, 1)}×${rp})` : "";
+      return `${display}${ctx}`;
+    }
   };
 
   const formatReps = (r?: PersonalRecord) => {
     if (!r) return "—";
-    const w = r.metadata?.weight;
-    return w ? `${r.value} reps @ ${round1(w)} kg` : `${r.value} reps`;
+    const kg = r.metadata?.weight;
+    if (kg) {
+      if (isMetric()) {
+        return `${r.value} reps @ ${Math.round(kg)} kg`;
+      } else {
+        return `${r.value} reps @ ${formatKgToLbsDisplay(kg, 1)}`;
+      }
+    }
+    return `${r.value} reps`;
   };
 
   const formatDate = (r?: PersonalRecord) => {

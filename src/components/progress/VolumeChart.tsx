@@ -2,13 +2,19 @@ import React from "react";
 import { View, Text } from "react-native";
 import { LineChart } from "react-native-gifted-charts";
 import useTheme from "@/hooks/useTheme";
+import useUnitPreferences from "@/hooks/useUnitPreferences";
+import { kgToLbs, formatKgToLbsDisplay } from "@/utils/unitConversions";
 import { adjustHexAlpha } from "@/utils/colorUtils";
 import type { VolumeDataPoint, TimeframeOption } from "@/types";
 
-function transformToGifted(data: VolumeDataPoint[], timeframe: TimeframeOption) {
+function transformToGifted(data: VolumeDataPoint[], timeframe: TimeframeOption, isMetric: boolean) {
   // Map weekly volume points to array of { value, label }
   console.log("Transforming volume data for timeframe:", data);
-  return (data || []).map((d) => ({ value: d.totalVolume || 0, label: new Date(d.date).toLocaleDateString() }));
+  return (data || []).map((d) => {
+    const valueKg = d.totalVolume || 0;
+    const numericValue = isMetric ? Math.round(valueKg) : Math.round(kgToLbs(valueKg));
+    return { value: numericValue, label: new Date(d.date).toLocaleDateString() };
+  });
 }
 
 export default function VolumeChart({
@@ -27,7 +33,8 @@ export default function VolumeChart({
     endFill?: string;
   };
 }) {
-  const chartData = transformToGifted(data || [], timeframe);
+  const { isMetric } = useUnitPreferences();
+  const chartData = transformToGifted(data || [], timeframe, isMetric());
   const { colors } = useTheme();
 
   // Determine colors with sensible fallbacks and allow optional overrides

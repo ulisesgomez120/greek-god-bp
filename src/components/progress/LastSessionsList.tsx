@@ -1,6 +1,8 @@
 import React from "react";
 import { View, Text, TouchableOpacity } from "react-native";
 import useTheme from "@/hooks/useTheme";
+import useUnitPreferences from "@/hooks/useUnitPreferences";
+import { formatKgToLbsDisplay } from "@/utils/unitConversions";
 import type { ExerciseSessionSummary } from "@/types";
 
 export default function LastSessionsList({
@@ -11,6 +13,7 @@ export default function LastSessionsList({
   onPressSession?: (id: string) => void;
 }) {
   const { colors } = useTheme();
+  const { isMetric } = useUnitPreferences();
 
   if (!sessions || sessions.length === 0) {
     return (
@@ -32,7 +35,8 @@ export default function LastSessionsList({
           accessibilityRole='button'>
           <Text style={{ fontWeight: "600", color: colors.text }}>{new Date(item.date).toLocaleDateString()}</Text>
           <Text style={{ color: colors.subtext, marginTop: 4 }}>
-            Sets: {item.sets.length} • Volume: {item.totalVolume} kg
+            Sets: {item.sets.length} • Volume:{" "}
+            {isMetric() ? `${Math.round(item.totalVolume)} kg` : formatKgToLbsDisplay(item.totalVolume, 1)}
           </Text>
         </TouchableOpacity>
       ))}
