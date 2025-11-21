@@ -4,6 +4,41 @@
   environment = { NODE_ENV = "production" }
 
 [[redirects]]
+  from = "/_expo/*"
+  to = "/_expo/:splat"
+  status = 200
+
+[[redirects]]
+  from = "/_expo/static/*"
+  to = "/_expo/static/:splat"
+  status = 200
+
+[[redirects]]
+  from = "/static/*"
+  to = "/static/:splat"
+  status = 200
+
+[[redirects]]
+  from = "/icons/*"
+  to = "/icons/:splat"
+  status = 200
+
+[[redirects]]
+  from = "/manifest.json"
+  to = "/manifest.json"
+  status = 200
+
+[[redirects]]
+  from = "/service-worker.js"
+  to = "/service-worker.js"
+  status = 200
+
+[[redirects]]
+  from = "/favicon.ico"
+  to = "/favicon.ico"
+  status = 200
+
+[[redirects]]
   from = "/*"
   to = "/index.html"
   status = 200
