@@ -53,9 +53,9 @@ const SwipeableHistoryRow: React.FC<Props> = ({ children, onEdit, onDelete }) =>
               onEdit?.();
               translateX.value = withSpring(0, { damping: 20, stiffness: 90 });
             }}
-            style={[styles.button, { backgroundColor: colors.primary }]}
+            style={[styles.button]}
             accessibilityLabel='Edit set'>
-            <Icon name='create-outline' size={22} color='#fff' />
+            <Icon name='create-outline' color={colors.primary} size={22} />
           </TouchableOpacity>
 
           <TouchableOpacity
@@ -63,9 +63,9 @@ const SwipeableHistoryRow: React.FC<Props> = ({ children, onEdit, onDelete }) =>
               onDelete?.();
               translateX.value = withSpring(0, { damping: 20, stiffness: 90 });
             }}
-            style={[styles.button, { backgroundColor: "#d9534f" }]}
+            style={[styles.button]}
             accessibilityLabel='Delete set'>
-            <Icon name='trash-outline' size={22} color='#fff' />
+            <Icon name='trash-outline' color={colors.error} size={22} />
           </TouchableOpacity>
         </View>
       </View>

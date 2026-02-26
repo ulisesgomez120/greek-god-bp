@@ -563,7 +563,7 @@ export const ExerciseDetailScreen: React.FC<ExerciseDetailScreenProps> = ({ navi
         </View>
       );
     }
-    console.log("Rendering exercise history:", state.exerciseHistory);
+    console.log("Rendering exercise history:", state.exerciseHistory[0].sets);
     return (
       <View style={styles.historySection}>
         <Text variant='h3' color='primary' style={styles.sectionTitle}>
@@ -571,7 +571,7 @@ export const ExerciseDetailScreen: React.FC<ExerciseDetailScreenProps> = ({ navi
         </Text>
         {state.exerciseHistory.map((session, index) => (
           <View key={session.date} style={styles.historyItem}>
-            <Text variant='bodySmall' color='secondary' style={styles.historyDate}>
+            <Text color='secondary' style={styles.historyDate}>
               {new Date(session.date).toLocaleDateString()}
             </Text>
             <View style={styles.historySets}>
@@ -580,7 +580,7 @@ export const ExerciseDetailScreen: React.FC<ExerciseDetailScreenProps> = ({ navi
                   key={`${session.date}-${setIndex}`}
                   onEdit={() => console.log("Edit set:", { sessionDate: session.date, setIndex })}
                   onDelete={() => console.log("Delete set:", { sessionDate: session.date, setIndex })}>
-                  <View style={{ marginBottom: 6 }}>
+                  <View style={{ marginBottom: 10 }}>
                     <Text variant='body' color='primary' style={styles.historySetItem}>
                       • Set {setIndex + 1}: {set.weight ? `${weightDisplay(set.weight)}` : "BW"} × {set.reps}
                       {set.rpe ? ` @ RPE ${set.rpe}` : ""}
