@@ -27,6 +27,7 @@ import useTheme from "@/hooks/useTheme";
 import { Button } from "../../components/ui/Button";
 import SetLogger from "../../components/workout/SetLogger";
 import CompactRestTimer from "../../components/workout/CompactRestTimer";
+import SwipeableHistoryRow from "../../components/workout/SwipeableHistoryRow";
 
 // Services
 import workoutService from "../../services/workout.service";
@@ -207,7 +208,7 @@ export const ExerciseDetailScreen: React.FC<ExerciseDetailScreenProps> = ({ navi
       const session = await workoutPlanService.getWorkoutSession(
         workoutContext.programId,
         workoutContext.phaseId,
-        workoutContext.dayId
+        workoutContext.dayId,
       );
 
       if (session && session.exercises) {
@@ -280,7 +281,7 @@ export const ExerciseDetailScreen: React.FC<ExerciseDetailScreenProps> = ({ navi
         setIsSubmitting(false);
       }
     },
-    [exerciseData.restSeconds, workoutContext]
+    [exerciseData.restSeconds, workoutContext],
   );
 
   // ============================================================================
@@ -308,7 +309,7 @@ export const ExerciseDetailScreen: React.FC<ExerciseDetailScreenProps> = ({ navi
     const cachedSession = workoutPlanService.getCachedWorkoutSession(
       workoutContext.programId,
       workoutContext.phaseId,
-      workoutContext.dayId
+      workoutContext.dayId,
     );
 
     const nextExercisePayload =
@@ -442,7 +443,7 @@ export const ExerciseDetailScreen: React.FC<ExerciseDetailScreenProps> = ({ navi
         Alert.alert("Unable to open link", url);
       }
     },
-    [extractYouTubeId]
+    [extractYouTubeId],
   );
 
   const handleToggleFormCues = useCallback(() => {
@@ -562,12 +563,12 @@ export const ExerciseDetailScreen: React.FC<ExerciseDetailScreenProps> = ({ navi
         </View>
       );
     }
+    console.log("Rendering exercise history:", state.exerciseHistory);
     return (
       <View style={styles.historySection}>
         <Text variant='h3' color='primary' style={styles.sectionTitle}>
           Exercise History
         </Text>
-
         {state.exerciseHistory.map((session, index) => (
           <View key={session.date} style={styles.historyItem}>
             <Text variant='bodySmall' color='secondary' style={styles.historyDate}>
@@ -575,23 +576,28 @@ export const ExerciseDetailScreen: React.FC<ExerciseDetailScreenProps> = ({ navi
             </Text>
             <View style={styles.historySets}>
               {session.sets.map((set, setIndex) => (
-                <View key={setIndex} style={{ marginBottom: 6 }}>
-                  <Text variant='body' color='primary' style={styles.historySetItem}>
-                    • Set {setIndex + 1}: {set.weight ? `${weightDisplay(set.weight)}` : "BW"} × {set.reps}
-                    {set.rpe ? ` @ RPE ${set.rpe}` : ""}
-                    {set.isWarmup && (
-                      <Text variant='bodySmall' color='secondary'>
-                        {" "}
-                        - Warmup
-                      </Text>
-                    )}
-                  </Text>
-                  {set.notes ? (
-                    <Text variant='bodySmall' color='secondary' style={{ marginLeft: 12 }}>
-                      Notes: {set.notes}
+                <SwipeableHistoryRow
+                  key={`${session.date}-${setIndex}`}
+                  onEdit={() => console.log("Edit set:", { sessionDate: session.date, setIndex })}
+                  onDelete={() => console.log("Delete set:", { sessionDate: session.date, setIndex })}>
+                  <View style={{ marginBottom: 6 }}>
+                    <Text variant='body' color='primary' style={styles.historySetItem}>
+                      • Set {setIndex + 1}: {set.weight ? `${weightDisplay(set.weight)}` : "BW"} × {set.reps}
+                      {set.rpe ? ` @ RPE ${set.rpe}` : ""}
+                      {set.isWarmup && (
+                        <Text variant='bodySmall' color='secondary'>
+                          {" "}
+                          - Warmup
+                        </Text>
+                      )}
                     </Text>
-                  ) : null}
-                </View>
+                    {set.notes ? (
+                      <Text variant='bodySmall' color='secondary' style={{ marginLeft: 12 }}>
+                        Notes: {set.notes}
+                      </Text>
+                    ) : null}
+                  </View>
+                </SwipeableHistoryRow>
               ))}
             </View>
           </View>

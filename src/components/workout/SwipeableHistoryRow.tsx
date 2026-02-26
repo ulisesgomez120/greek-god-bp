@@ -17,6 +17,8 @@ type Props = {
 
 const SwipeableHistoryRow: React.FC<Props> = ({ children, onEdit, onDelete }) => {
   const { colors } = useTheme();
+  const styles = createStyles(colors);
+
   const translateX = useSharedValue(0);
   const startX = useSharedValue(0);
 
@@ -75,30 +77,31 @@ const SwipeableHistoryRow: React.FC<Props> = ({ children, onEdit, onDelete }) =>
   );
 };
 
-const styles = StyleSheet.create({
-  wrapper: {
-    width: "100%",
-    position: "relative",
-    overflow: "hidden",
-  },
-  actionButtonsContainer: {
-    position: "absolute",
-    right: 0,
-    top: 0,
-    bottom: 0,
-    width: MAX_ACTION_WIDTH,
-    justifyContent: "center",
-    alignItems: "flex-end",
-  },
-  button: {
-    width: BUTTON_WIDTH,
-    height: "100%",
-    justifyContent: "center",
-    alignItems: "center",
-  },
-  animatedContent: {
-    backgroundColor: "transparent",
-  },
-});
+const createStyles = (colors: any) =>
+  StyleSheet.create({
+    wrapper: {
+      width: "100%",
+      position: "relative",
+      overflow: "hidden",
+    },
+    actionButtonsContainer: {
+      position: "absolute",
+      right: 0,
+      top: 0,
+      bottom: 0,
+      width: MAX_ACTION_WIDTH,
+      justifyContent: "center",
+      alignItems: "flex-end",
+    },
+    button: {
+      width: BUTTON_WIDTH,
+      height: "100%",
+      justifyContent: "center",
+      alignItems: "center",
+    },
+    animatedContent: {
+      backgroundColor: colors.background,
+    },
+  });
 
 export default SwipeableHistoryRow;
