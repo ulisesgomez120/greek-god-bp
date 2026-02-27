@@ -231,7 +231,7 @@ export class DatabaseService {
   async updateUserProfile(
     userId: string,
     updates: Partial<UserProfile>,
-    options: QueryOptions = {}
+    options: QueryOptions = {},
   ): Promise<UserProfile> {
     try {
       // Transform application updates to database format
@@ -274,7 +274,7 @@ export class DatabaseService {
     userId: string,
     limit: number = 50,
     offset: number = 0,
-    options: QueryOptions = {}
+    options: QueryOptions = {},
   ): Promise<WorkoutSession[]> {
     const cacheKey = this.getCacheKey("workout_sessions", { userId, limit, offset });
 
@@ -291,7 +291,7 @@ export class DatabaseService {
           `
           *,
           exercise_sets (*)
-        `
+        `,
         )
         .eq("user_id", userId)
         .order("started_at", { ascending: false })
@@ -303,7 +303,7 @@ export class DatabaseService {
 
       // Transform database results to application types
       const transformedData = data.map((session: any) =>
-        transformWorkoutSessionWithSets(session as DbWorkoutSession & { exercise_sets?: DbExerciseSet[] })
+        transformWorkoutSessionWithSets(session as DbWorkoutSession & { exercise_sets?: DbExerciseSet[] }),
       );
 
       // Cache the transformed result
@@ -330,7 +330,7 @@ export class DatabaseService {
 
   async insertWorkoutSession(
     session: Omit<WorkoutSession, "id" | "createdAt" | "updatedAt">,
-    options: QueryOptions = {}
+    options: QueryOptions = {},
   ): Promise<WorkoutSession> {
     try {
       // Transform application data to database format
@@ -378,7 +378,7 @@ export class DatabaseService {
   async updateWorkoutSession(
     sessionId: string,
     updates: Partial<WorkoutSession>,
-    options: QueryOptions = {}
+    options: QueryOptions = {},
   ): Promise<WorkoutSession> {
     try {
       // Transform application updates to database format
@@ -418,7 +418,7 @@ export class DatabaseService {
 
   async insertExerciseSets(
     sets: Omit<ExerciseSet, "id" | "createdAt">[],
-    options: QueryOptions = {}
+    options: QueryOptions = {},
   ): Promise<ExerciseSet[]> {
     try {
       // Transform application data to database format and ensure required fields
@@ -608,7 +608,7 @@ export class DatabaseService {
 
   async getTutorialsForExercises(
     exerciseIds: string[],
-    options: QueryOptions = {}
+    options: QueryOptions = {},
   ): Promise<Record<string, TutorialVideo[]>> {
     const cacheKey = this.getCacheKey("exercise_tutorial_videos", { exerciseIds });
 
@@ -674,7 +674,7 @@ export class DatabaseService {
               exercises (*)
             )
           )
-        `
+        `,
         )
         .eq("is_public", true);
 
@@ -693,8 +693,8 @@ export class DatabaseService {
         transformWorkoutPlanWithSessions(
           plan as DbWorkoutPlan & {
             workout_plan_sessions?: any[];
-          }
-        )
+          },
+        ),
       );
 
       // Cache for 30 minutes
@@ -723,7 +723,7 @@ export class DatabaseService {
   async getProgressMetrics(
     userId: string,
     exerciseId?: string,
-    options: QueryOptions = {}
+    options: QueryOptions = {},
   ): Promise<ProgressMetrics | null> {
     const cacheKey = this.getCacheKey("progress_metrics", { userId, exerciseId });
 
@@ -751,7 +751,7 @@ export class DatabaseService {
             rpe,
             is_warmup
           )
-        `
+        `,
         )
         .eq("user_id", userId);
       // .not("completed_at", "is", null);
@@ -829,7 +829,7 @@ export class DatabaseService {
       searchQuery?: string;
     } = {},
     page: number = 1,
-    limit: number = 20
+    limit: number = 20,
   ): Promise<{ workouts: WorkoutSession[]; totalCount: number; hasMore: boolean }> {
     try {
       let query = supabase
@@ -845,7 +845,7 @@ export class DatabaseService {
               muscle_groups
             )
           )
-        `
+        `,
         )
         .eq("user_id", userId)
         // .not("completed_at", "is", null)
@@ -954,7 +954,7 @@ export class DatabaseService {
     plannedExerciseId: string,
     sessionLimit: number = 6,
     setLimit: number = 60,
-    options: { useCache?: boolean; cacheTTL?: number } = {}
+    options: { useCache?: boolean; cacheTTL?: number } = {},
   ) {
     try {
       if (!plannedExerciseId || typeof plannedExerciseId !== "string") {
@@ -997,7 +997,6 @@ export class DatabaseService {
         if (!sessionMap.has(s.session_id)) sessionMap.set(s.session_id, []);
         sessionMap.get(s.session_id)!.push(s);
       }
-
       // Convert grouped sessions to an array, derive session date from the earliest set.created_at,
       // sort sets within a session by set_number ascending for display, then sort sessions by date desc.
       const sessions = Array.from(sessionMap.entries()).map(([sessionId, sessionSets]) => {
@@ -1009,7 +1008,6 @@ export class DatabaseService {
 
         // Sort sets by set_number ascending for display
         const setsByNumber = sessionSets.slice().sort((a: any, b: any) => (a.set_number || 0) - (b.set_number || 0));
-
         const mappedSets = setsByNumber.map((set: any) => ({
           setNumber: set.set_number,
           weight: set.weight_kg ?? 0,
@@ -1017,6 +1015,7 @@ export class DatabaseService {
           rpe: set.rpe ?? undefined,
           notes: set.notes ?? undefined,
           isWarmup: !!set.is_warmup,
+          id: set.id,
         }));
 
         return {
@@ -1039,6 +1038,7 @@ export class DatabaseService {
           rpe: st.rpe,
           isWarmup: st.isWarmup,
           notes: st.notes,
+          id: st.id,
         })),
       }));
     } catch (error) {
@@ -1054,7 +1054,7 @@ export class DatabaseService {
     userId: string,
     exerciseId: string,
     plannedExerciseId: string,
-    timeframe: "month" | "quarter" | "year" = "quarter"
+    timeframe: "month" | "quarter" | "year" = "quarter",
   ) {
     try {
       if (!plannedExerciseId || typeof plannedExerciseId !== "string") {
@@ -1077,7 +1077,7 @@ export class DatabaseService {
             started_at,
             completed_at
           )
-        `
+        `,
         )
         .eq("exercise_id", exerciseId)
         .eq("planned_exercise_id", plannedExerciseId)
@@ -1118,7 +1118,7 @@ export class DatabaseService {
     exerciseId?: string,
     plannedExerciseId?: string,
     timeframe: "month" | "quarter" | "year" = "quarter",
-    options: { useCache?: boolean; cacheTTL?: number } = {}
+    options: { useCache?: boolean; cacheTTL?: number } = {},
   ) {
     try {
       if (exerciseId && !plannedExerciseId) {
@@ -1147,7 +1147,7 @@ export class DatabaseService {
             exercise_id,
             planned_exercise_id
           )
-        `
+        `,
         )
         .eq("user_id", userId)
         // .not("completed_at", "is", null)
@@ -1165,12 +1165,12 @@ export class DatabaseService {
           if (exerciseId) {
             const exerciseSets = (session.exercise_sets || []).filter(
               (set: any) =>
-                set.exercise_id === exerciseId && set.planned_exercise_id === plannedExerciseId && !set.is_warmup
+                set.exercise_id === exerciseId && set.planned_exercise_id === plannedExerciseId && !set.is_warmup,
             );
 
             sessionVolume = exerciseSets.reduce(
               (sum: number, set: any) => sum + (set.weight_kg || 0) * (set.reps || 0),
-              0
+              0,
             );
             sessionSets = exerciseSets.length;
           } else {
@@ -1205,7 +1205,7 @@ export class DatabaseService {
     searchQuery: string | null,
     limit: number = 20,
     offset: number = 0,
-    options: QueryOptions = {}
+    options: QueryOptions = {},
   ) {
     try {
       if (!userId) throw new Error("queryPerformedPlannedExercises: userId is required");
@@ -1237,7 +1237,7 @@ export class DatabaseService {
                exercises ( id, name )
              ),
              workout_sessions ( id, started_at, user_id, completed_at )
-           `
+           `,
         )
         .eq("workout_sessions.user_id", userId)
         .not("workout_sessions.completed_at", "is", null)
@@ -1343,7 +1343,7 @@ export class DatabaseService {
             started_at,
             name
           )
-        `
+        `,
         )
         .eq("workout_sessions.user_id", userId)
         .eq("planned_exercise_id", plannedExerciseId)
@@ -1371,7 +1371,7 @@ export class DatabaseService {
         // 1) Max Weight (raw) - track the heaviest weight ever lifted (store reps for context)
         const currentMaxWeight = records.find((r) => r.type === "max_weight");
         const currentMaxWeightValue = currentMaxWeight
-          ? currentMaxWeight.metadata?.weight ?? currentMaxWeight.value
+          ? (currentMaxWeight.metadata?.weight ?? currentMaxWeight.value)
           : 0;
         if (!currentMaxWeight || weight > currentMaxWeightValue) {
           const index = records.findIndex((r) => r.type === "max_weight");
@@ -1460,7 +1460,7 @@ export class DatabaseService {
           endDate,
         },
         1,
-        1000
+        1000,
       );
 
       const exerciseIds = Array.from(new Set(workouts.flatMap((w) => (w.sets || []).map((s: any) => s.exerciseId))));

@@ -70,6 +70,7 @@ interface ExerciseHistorySession {
     rpe?: number;
     isWarmup: boolean;
     notes?: string;
+    id?: string;
   }[];
 }
 
@@ -145,7 +146,7 @@ export const ExerciseDetailScreen: React.FC<ExerciseDetailScreenProps> = ({ navi
         console.warn("Failed to load tutorial videos for exercise", exerciseId, tErr);
         tutorials = [];
       }
-
+      console.log("Loaded exercise history:", history);
       setState((prev) => ({
         ...prev,
         exerciseHistory: history,
@@ -271,7 +272,6 @@ export const ExerciseDetailScreen: React.FC<ExerciseDetailScreenProps> = ({ navi
         }));
 
         // Removed immediate background sync: persistence is attempted inline by the service.
-        console.log("Set logged successfully:", createdSet);
         return result;
       } catch (error) {
         console.error("Failed to log set:", error);

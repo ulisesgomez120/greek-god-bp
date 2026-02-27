@@ -101,7 +101,7 @@ export class WorkoutService {
   async startWorkout(
     name: string,
     exercises: string[],
-    options: CreateWorkoutOptions = {}
+    options: CreateWorkoutOptions = {},
   ): Promise<WorkoutServiceResult<WorkoutSession>> {
     try {
       const user = await authService.getCurrentUser();
@@ -199,7 +199,7 @@ export class WorkoutService {
               "Attempted to add set for missing exercise id; aborting to avoid FK violation",
               { exerciseId: setData.exerciseId },
               "workout",
-              user.id
+              user.id,
             );
 
             return {
@@ -312,7 +312,7 @@ export class WorkoutService {
           rpe: finalSet.rpe,
         },
         "workout",
-        user.id
+        user.id,
       );
 
       return {
@@ -356,7 +356,7 @@ export class WorkoutService {
         ...this.currentSession,
         completedAt: new Date().toISOString(),
         durationMinutes: Math.round(
-          (new Date().getTime() - new Date(this.currentSession.startedAt).getTime()) / (1000 * 60)
+          (new Date().getTime() - new Date(this.currentSession.startedAt).getTime()) / (1000 * 60),
         ),
         notes,
         totalVolumeKg: stats.totalVolume,
@@ -390,7 +390,7 @@ export class WorkoutService {
           averageRpe: completedWorkout.averageRpe,
         },
         "workout",
-        user.id
+        user.id,
       );
 
       return {
@@ -457,7 +457,7 @@ export class WorkoutService {
         const { data: sessions, error } = await this.supabase
           .from("workout_sessions")
           .select(
-            "id, started_at, updated_at, completed_at, name, (select count(*) from exercise_sets where session_id = workout_sessions.id) as set_count"
+            "id, started_at, updated_at, completed_at, name, (select count(*) from exercise_sets where session_id = workout_sessions.id) as set_count",
           )
           .eq("user_id", user.id)
           .is("completed_at", null)
@@ -592,7 +592,7 @@ export class WorkoutService {
   async getExerciseHistory(
     exerciseId: string,
     plannedExerciseId: string,
-    limit: number = 6
+    limit: number = 6,
   ): Promise<
     {
       date: string;
@@ -608,12 +608,11 @@ export class WorkoutService {
 
       // Delegate to DatabaseService which implements the plannedExerciseId-aware query.
       // databaseService.queryExerciseHistory returns summaries with session/date and sets.
-      console.log("getExerciseHistory called", exerciseId, plannedExerciseId);
       const summaries: any[] = await databaseService.queryExerciseHistory(
         user.id,
         exerciseId,
         plannedExerciseId,
-        limit
+        limit,
       );
 
       if (!summaries || summaries.length === 0) return [];
@@ -626,6 +625,7 @@ export class WorkoutService {
           rpe: st.rpe ?? undefined,
           isWarmup: !!st.isWarmup,
           notes: st.notes ?? undefined,
+          id: st.id,
         }));
         return {
           date: s.date,
