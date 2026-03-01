@@ -28,6 +28,8 @@ import { Button } from "../../components/ui/Button";
 import SetLogger from "../../components/workout/SetLogger";
 import CompactRestTimer from "../../components/workout/CompactRestTimer";
 import SwipeableHistoryRow from "../../components/workout/SwipeableHistoryRow";
+import EditExerciseSetModal from "../../components/workout/EditExerciseSetModal";
+import DeleteExerciseSetConfirmModal from "../../components/workout/DeleteExerciseSetConfirmModal";
 
 // Services
 import workoutService from "../../services/workout.service";
@@ -119,6 +121,22 @@ export const ExerciseDetailScreen: React.FC<ExerciseDetailScreenProps> = ({ navi
   const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
   const [showFormCuesExpanded, setShowFormCuesExpanded] = useState<boolean>(false);
 
+  // History edit/delete modal state
+  const [editTarget, setEditTarget] = useState<{
+    id: string;
+    weightKg?: number;
+    reps: number;
+    rpe?: number;
+    notes?: string;
+    isWarmup: boolean;
+    label?: string;
+  } | null>(null);
+  const [deleteTarget, setDeleteTarget] = useState<{
+    id: string;
+    title?: string;
+    message?: string;
+  } | null>(null);
+
   // ============================================================================
   // EFFECTS
   // ============================================================================
@@ -156,6 +174,16 @@ export const ExerciseDetailScreen: React.FC<ExerciseDetailScreenProps> = ({ navi
     } catch (error) {
       console.error("Failed to load exercise data:", error);
       setState((prev) => ({ ...prev, isLoading: false }));
+    }
+  }, [exerciseId, plannedExerciseId]);
+
+  // Lightweight history refresh (keeps UI responsive; cache is invalidated in DatabaseService)
+  const refreshExerciseHistory = useCallback(async () => {
+    try {
+      const history = await workoutService.getExerciseHistory(exerciseId, plannedExerciseId, 6);
+      setState((prev) => ({ ...prev, exerciseHistory: history }));
+    } catch (err) {
+      console.warn("Failed to refresh exercise history", err);
     }
   }, [exerciseId, plannedExerciseId]);
 
@@ -578,8 +606,34 @@ export const ExerciseDetailScreen: React.FC<ExerciseDetailScreenProps> = ({ navi
               {session.sets.map((set, setIndex) => (
                 <SwipeableHistoryRow
                   key={`${session.date}-${setIndex}`}
-                  onEdit={() => console.log("Edit set:", { sessionDate: session.date, setIndex })}
-                  onDelete={() => console.log("Delete set:", { sessionDate: session.date, setIndex })}>
+                  onEdit={() => {
+                    if (!set.id) {
+                      Alert.alert("Unable to edit", "This set is missing an id.");
+                      return;
+                    }
+                    setEditTarget({
+                      id: set.id,
+                      weightKg: set.weight,
+                      reps: set.reps,
+                      rpe: set.rpe,
+                      notes: set.notes,
+                      isWarmup: set.isWarmup,
+                      label: `Set ${setIndex + 1}`,
+                    });
+                  }}
+                  onDelete={() => {
+                    if (!set.id) {
+                      Alert.alert("Unable to delete", "This set is missing an id.");
+                      return;
+                    }
+                    const weightText = set.weight ? weightDisplay(set.weight) : "BW";
+                    const rpeText = set.rpe ? ` @ RPE ${set.rpe}` : "";
+                    setDeleteTarget({
+                      id: set.id,
+                      title: `Delete Set ${setIndex + 1}?`,
+                      message: `This cannot be undone.\n\n${weightText} × ${set.reps}${rpeText}${set.isWarmup ? " (Warmup)" : ""}`,
+                    });
+                  }}>
                   <View style={{ marginBottom: 10 }}>
                     <Text variant='body' color='primary' style={styles.historySetItem}>
                       • Set {setIndex + 1}: {set.weight ? `${weightDisplay(set.weight)}` : "BW"} × {set.reps}
@@ -680,6 +734,50 @@ export const ExerciseDetailScreen: React.FC<ExerciseDetailScreenProps> = ({ navi
       </ScrollView>
 
       {renderNavigationFooter()}
+
+      {/* History Edit Modal */}
+      <EditExerciseSetModal
+        visible={!!editTarget}
+        setLabel={editTarget?.label}
+        initialSet={
+          editTarget
+            ? {
+                id: editTarget.id,
+                weightKg: editTarget.weightKg,
+                reps: editTarget.reps,
+                rpe: editTarget.rpe,
+                notes: editTarget.notes,
+                isWarmup: editTarget.isWarmup,
+              }
+            : null
+        }
+        onClose={() => setEditTarget(null)}
+        onSave={async (setId, updates) => {
+          const res = await workoutService.updateExerciseSet(setId, updates);
+          if (res?.success) {
+            await refreshExerciseHistory();
+            return { success: true };
+          }
+          return { success: false, error: res?.error || "Failed to update set" };
+        }}
+      />
+
+      {/* History Delete Modal */}
+      <DeleteExerciseSetConfirmModal
+        visible={!!deleteTarget}
+        title={deleteTarget?.title}
+        message={deleteTarget?.message}
+        onClose={() => setDeleteTarget(null)}
+        onConfirmDelete={async () => {
+          if (!deleteTarget?.id) return { success: false, error: "Missing set id" };
+          const res = await workoutService.deleteExerciseSet(deleteTarget.id);
+          if (res?.success) {
+            await refreshExerciseHistory();
+            return { success: true };
+          }
+          return { success: false, error: res?.error || "Failed to delete set" };
+        }}
+      />
     </View>
   );
 };

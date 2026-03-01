@@ -501,6 +501,75 @@ export class DatabaseService {
     }
   }
 
+  /**
+   * Update an exercise set by id.
+   *
+   * Notes:
+   * - Uses the canonical transformExerciseSetToDb so callers can pass camelCase updates.
+   * - Clears relevant caches (exercise_sets and exercise_sets_history) so history refreshes correctly.
+   */
+  async updateExerciseSet(
+    setId: string,
+    updates: Partial<ExerciseSet>,
+    options: QueryOptions = {},
+  ): Promise<ExerciseSet> {
+    try {
+      if (!setId) throw new Error("updateExerciseSet: setId is required");
+
+      const dbUpdates = transformExerciseSetToDb(updates);
+
+      // Never update immutable columns from UI
+      delete (dbUpdates as any).id;
+      delete (dbUpdates as any).created_at;
+
+      const { data, error } = await supabase
+        .from("exercise_sets")
+        .update({
+          ...dbUpdates,
+        })
+        .eq("id", setId)
+        .select()
+        .single();
+
+      if (error) throw error;
+
+      // Clear related caches
+      this.clearCache("exercise_sets");
+      this.clearCache("exercise_sets_history");
+
+      return transformExerciseSet(data as DbExerciseSet);
+    } catch (error) {
+      const dbError = this.handleDatabaseError(error);
+      if (dbError.isNetworkError) {
+        console.warn("DatabaseService: offline queue persistence removed; update_exercise_set was not enqueued");
+      }
+      throw dbError;
+    }
+  }
+
+  /**
+   * Delete an exercise set by id.
+   * Clears relevant caches so history refreshes correctly.
+   */
+  async deleteExerciseSet(setId: string, options: QueryOptions = {}): Promise<void> {
+    try {
+      if (!setId) throw new Error("deleteExerciseSet: setId is required");
+
+      const { error } = await supabase.from("exercise_sets").delete().eq("id", setId);
+      if (error) throw error;
+
+      // Clear related caches
+      this.clearCache("exercise_sets");
+      this.clearCache("exercise_sets_history");
+    } catch (error) {
+      const dbError = this.handleDatabaseError(error);
+      if (dbError.isNetworkError) {
+        console.warn("DatabaseService: offline queue persistence removed; delete_exercise_set was not enqueued");
+      }
+      throw dbError;
+    }
+  }
+
   // ============================================================================
   // EXERCISE AND WORKOUT PLAN OPERATIONS
   // ============================================================================

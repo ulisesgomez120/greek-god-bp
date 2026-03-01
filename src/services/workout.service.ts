@@ -640,6 +640,85 @@ export class WorkoutService {
     }
   }
 
+  // ==========================================================================
+  // EDIT / DELETE SETS (History)
+  // ==========================================================================
+
+  /**
+   * Update an existing exercise set.
+   *
+   * Used by history edit flows.
+   */
+  async updateExerciseSet(setId: string, updates: Partial<ExerciseSet>): Promise<WorkoutServiceResult<ExerciseSet>> {
+    try {
+      const user = await authService.getCurrentUser();
+      if (!user) {
+        return { success: false, error: "User not authenticated" };
+      }
+
+      if (!setId) {
+        return { success: false, error: "Set id is required" };
+      }
+
+      // Persist via DatabaseService (handles transforms + cache invalidation)
+      const updated = await databaseService.updateExerciseSet(setId, updates);
+
+      // Best-effort: update in-memory currentSession if present
+      if (this.currentSession && Array.isArray(this.currentSession.sets)) {
+        const idx = this.currentSession.sets.findIndex((s) => s.id === setId);
+        if (idx >= 0) {
+          this.currentSession.sets[idx] = {
+            ...(this.currentSession.sets[idx] as ExerciseSet),
+            ...updated,
+          };
+          this.currentSession.updatedAt = new Date().toISOString();
+        }
+      }
+
+      return { success: true, data: updated };
+    } catch (error) {
+      logger.error("Failed to update exercise set", error, "workout");
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : "Failed to update exercise set",
+      };
+    }
+  }
+
+  /**
+   * Delete an existing exercise set.
+   *
+   * Used by history delete flows.
+   */
+  async deleteExerciseSet(setId: string): Promise<WorkoutServiceResult<void>> {
+    try {
+      const user = await authService.getCurrentUser();
+      if (!user) {
+        return { success: false, error: "User not authenticated" };
+      }
+
+      if (!setId) {
+        return { success: false, error: "Set id is required" };
+      }
+
+      await databaseService.deleteExerciseSet(setId);
+
+      // Best-effort: update in-memory currentSession if present
+      if (this.currentSession && Array.isArray(this.currentSession.sets)) {
+        this.currentSession.sets = this.currentSession.sets.filter((s) => s.id !== setId);
+        this.currentSession.updatedAt = new Date().toISOString();
+      }
+
+      return { success: true };
+    } catch (error) {
+      logger.error("Failed to delete exercise set", error, "workout");
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : "Failed to delete exercise set",
+      };
+    }
+  }
+
   // ============================================================================
   // GETTERS AND STATE
   // ============================================================================
