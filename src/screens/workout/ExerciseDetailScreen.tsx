@@ -737,6 +737,7 @@ export const ExerciseDetailScreen: React.FC<ExerciseDetailScreenProps> = ({ navi
 
       {/* History Edit Modal */}
       <EditExerciseSetModal
+        key={editTarget?.id ?? "edit-modal"}
         visible={!!editTarget}
         setLabel={editTarget?.label}
         initialSet={
@@ -764,6 +765,7 @@ export const ExerciseDetailScreen: React.FC<ExerciseDetailScreenProps> = ({ navi
 
       {/* History Delete Modal */}
       <DeleteExerciseSetConfirmModal
+        key={deleteTarget?.id ?? "delete-modal"}
         visible={!!deleteTarget}
         title={deleteTarget?.title}
         message={deleteTarget?.message}
