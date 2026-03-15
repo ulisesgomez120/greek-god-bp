@@ -24,7 +24,7 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
     bundleIdentifier: "com.greekgodbp.app",
     buildNumber: "1",
     infoPlist: {
-      LSApplicationQueriesSchemes: ["clock-timer", "clock"],
+      LSApplicationQueriesSchemes: ["clock-timer", "clock", "youtube", "vnd.youtube"],
     },
     // Removed unused iOS usage description keys and UIBackgroundModes to avoid unnecessary permission prompts.
     // Keep minimal config required for App Store submission.

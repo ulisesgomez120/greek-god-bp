@@ -2,7 +2,7 @@
 
 #personal
 # context/
-
+build-steps.txt
 # dependencies
 node_modules/
 
